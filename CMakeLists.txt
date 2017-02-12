@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.2.2)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 project(fancon)
 
@@ -30,3 +30,5 @@ set(LIBS ${LIBS} ${LM_SENSORS_LIBRARIES})
 
 ## Link libraries
 target_link_libraries(${PROJECT_NAME} ${LIBS})
+
+install(TARGETS ${PROJECT_NAME} DESTINATION bin)
