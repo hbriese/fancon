@@ -7,10 +7,25 @@ notifications: # set notification options
 on_success: change
 on_failure: always
 
+sudo: required
+
 install: 
   - sudo apt-get install cmake gcc clang libsensors4 libboost-filesystem-dev libboost-system-dev libpthread-stubs0-dev
+
+matrix:
+  include:
+    - env: CXX=g++ CC=gcc
+    - env: CXX=clang++ CC=clang
 
 language: cpp
 compiler:
   - gcc
   - clang
+
+before_script:
+  - mkdir build
+  - cd build
+  - cmake ..
+
+script:
+  - make
