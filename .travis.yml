@@ -2,6 +2,7 @@ sudo: required
 os:
   - linux
 dist: xenial
+language: c++
 
 addons:
   apt:
@@ -28,9 +29,7 @@ matrix:
   include:
     - env: CXX=g++ CC=gcc
     - env: CXX=clang++ CC=clang
-    - env: CXXFLAGS="--std=c++14"
 
-language: cpp
 compiler:
   - gcc
   - clang
