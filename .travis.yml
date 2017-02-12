@@ -1,13 +1,6 @@
-notifications: # set notification options
-  email:
-    recipients:
-      - haydenbriese@gmail.com
-
-# change is when the repo status goes from pass to fail or vice versa
-on_success: change
-on_failure: always
-
 sudo: required
+os:
+  - linux
 dist: xenial
 
 addons:
@@ -35,6 +28,7 @@ matrix:
   include:
     - env: CXX=g++ CC=gcc
     - env: CXX=clang++ CC=clang
+    - env: CXXFLAGS="--std=c++14"
 
 language: cpp
 compiler:
@@ -47,4 +41,13 @@ before_script:
   - cmake ..
 
 script:
-  - make -std=c++14
+  - make
+notifications: # set notification options
+  email:
+    - haydenbriese@gmail.com
+
+# change is when the repo status goes from pass to fail or vice versa
+on_success: change
+on_failure: always
+
+
