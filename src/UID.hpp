@@ -52,7 +52,7 @@ public:
   friend istream &operator>>(istream &is, UID &u) {
     string in;
     is >> skipws >> in;
-    std::remove_if(in.begin(), in.end(), [](auto c) { return isspace(c, std::cin.getloc()); });
+    std::remove_if(in.begin(), in.end(), [](auto &c) { return isspace(c); });
 
     auto cnBeginIt = in.begin();
     auto cnEndIt = find(cnBeginIt, in.end(), u.cn_end_sep);

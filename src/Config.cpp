@@ -61,7 +61,7 @@ ostream &fancon::operator<<(ostream &os, const Point &p) {
 istream &fancon::operator>>(istream &is, Point &p) {
   string in;
   is >> skipws >> in;
-  std::remove_if(in.begin(), in.end(), [](auto c) { return isspace(c, std::cin.getloc()); });
+  std::remove_if(in.begin(), in.end(), [](auto &c) { return isspace(c); });
 
   string::iterator rpmSepIt, pwmSepIt;
   bool rpmSepFound = (rpmSepIt = find(in.begin(), in.end(), p.rpmBegSep)) != in.end();
