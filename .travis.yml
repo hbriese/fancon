@@ -1,0 +1,16 @@
+notifications: # set notification options
+  email:
+    recipients:
+      - haydenbriese@gmail.com
+
+# change is when the repo status goes from pass to fail or vice versa
+on_success: change
+on_failure: always
+
+install: 
+  - sudo apt-get install cmake gcc clang libsensors4 libboost-filesystem-dev libboost-system-dev libpthread-stubs0-dev
+
+language: cpp
+compiler:
+  - gcc
+  - clang
