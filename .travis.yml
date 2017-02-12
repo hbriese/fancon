@@ -36,17 +36,15 @@ compiler:
   - clang
 
 before_script:
-  - mkdir build
-  - cd build
-  - cmake ..
+  - cmake .
 
 script:
   - make
-notifications: # set notification options
+
+notifications:
   email:
     - haydenbriese@gmail.com
 
-# change is when the repo status goes from pass to fail or vice versa
 on_success: change
 on_failure: always
 
