@@ -243,7 +243,7 @@ The code is formatted to the [LLVM style](http://clang.llvm.org/docs/ClangFormat
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright {yyyy} {name of copyright owner}
+   Copyright 2017 Hayden Briese
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
