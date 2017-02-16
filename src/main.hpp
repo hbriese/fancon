@@ -44,11 +44,11 @@ using fancon::Util::log;
 int main(int argc, char *argv[]);
 
 namespace fancon {
-static const string conf_path("/etc/fancon.conf");
+const string conf_path("/etc/fancon.conf");
 
-static const string pid_file = string(fancon::Util::fancon_dir) + "pid";
+const string pid_file = string(fancon::Util::fancon_dir) + "pid";
 
-static DaemonState daemon_state;
+DaemonState daemon_state;
 
 string help();
 
@@ -60,27 +60,16 @@ string listSensors(SensorController &sensorController);
 bool pidExists(pid_t pid);
 void writeLock();
 
-void test(SensorController &sensorController, const bool profileFans = false);
-void testUID(UID &uid, const bool profileFans = false);
+void test(SensorController &sensorController, const bool profileFans = false, int testRetries = 4);
+void testUID(UID &uid, const bool profileFans = false, int retries = 4);
 
 void handleSignal(int sig);
-void start(const bool debug = false, const bool fork);
+void start(const bool debug = false, const bool fork_ = false);
 void send(DaemonState state);
 
-struct Param {
-  Param(const string &name, bool called = false)
-      : name(name), called(called) {}
-
-  bool operator==(const string &other) { return other == name; }
-
-  const string name;
-  bool called;
-};
-
-class Arg {
-public:
-  Arg(string name, const bool shrtName = false, bool called = false)
-      : name(name), called(called) {
+struct Command {
+  Command(const string &name, bool shrtName = false)
+      : name(name), called(false) {
     if (shrtName) {
       shrt_name += name.front();
 
@@ -91,13 +80,20 @@ public:
     }
   }
 
-  bool operator==(const string &other) { return other == shrt_name || other == name; }
+  virtual bool operator==(const string &other) { return other == shrt_name || other == name; }
 
-  bool called;
-
-private:
   const string name;
   string shrt_name;
+  bool called;
+};
+
+struct Option : Command {
+public:
+  Option(const string &name, bool shrtName = false, bool hasValue = false)
+      : Command(name, shrtName), has_value(hasValue) {}
+
+  bool has_value;
+  int val;
 };
 }
 

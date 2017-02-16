@@ -23,7 +23,7 @@ fancon is distributed as a snap package to allow for easy cross-distribution dep
 ```sh
 $ sudo apt-get install snapd
 ```
-###### Install fan``con snap:
+###### Install fancon snap:
 ```sh
 $ sudo snap refresh && sudo snap install fancon
 ```

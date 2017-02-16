@@ -2,16 +2,24 @@
 
 string fancon::help() {
   stringstream ss;
-  ss << "fancon usage:" << endl
-     << "<Argument>     <Parameters>  <Details>" << endl
-     << "lf list-fans                 Lists the UIDs of all fans" << endl
-     << "ls list-sensors              List the UIDs of all temperature sensors" << endl
-     << "test           profile       Tests the fan characteristic of all fans, required for usage of RPM in "
+  ss << "Usage:" << endl
+     << "  fancon <command> [options]" << endl << endl
+     << "Available commands (and options=default):" << endl
+     << "lf list-fans         Lists the UIDs of all fans" << endl
+     << "ls list-sensors      List the UIDs of all temperature sensors" << endl
+     << "wc write-config      Writes missing fan UIDs to " << fancon::conf_path << endl
+     << "test                 Tests the fan characteristic of all fans, required for usage of RPM in "
      << fancon::conf_path << endl
-     << "wc write-conf                Writes missing fan UIDs to " << fancon::conf_path << endl
-     << "start                        Starts the fancon daemon" << endl
-     << "stop                         Stops the fancon daemon" << endl
-     << "reload                       Reloads the fancon daemon" << endl;
+     << "  -r retries=4       Number of retries a test does before failure, increase if you think a failing fan can pass!"
+     << endl
+     << "  -p profile         Writes a PWM to RPM profile for the fan, not recommended unless submitting a bug report"
+     << endl
+     << "start                Starts the fancon daemon" << endl
+     << "  -f fork            Forks off the parent process, not recommended for systemd usage" << endl
+     << "stop                 Stops the fancon daemon" << endl
+     << "reload               Reloads the fancon daemon" << endl
+     << endl << "Global options: " << endl
+     << "  -d debug            Writes debug level messages to syslog" << endl;
 
   return ss.str();
 }
@@ -103,7 +111,7 @@ void fancon::writeLock() {
     write<pid_t>(fancon::pid_file, getpid());
 }
 
-void fancon::test(SensorController &sc, const bool profileFans) {
+void fancon::test(SensorController &sc, const bool profileFans, int testRetries) {
   fancon::writeLock();
 
   auto f_uids = sc.getUIDs(fancon::Fan::path_pf);
@@ -116,7 +124,7 @@ void fancon::test(SensorController &sc, const bool profileFans) {
     if (it->hwmon_id != std::prev(it)->hwmon_id)
       bfs::create_directory(string(fancon::Util::fancon_path) + to_string(it->hwmon_id));
 
-    threads.push_back(thread(&fancon::testUID, std::ref(*it), profileFans));
+    threads.push_back(thread(&fancon::testUID, std::ref(*it), profileFans, testRetries));
   }
 
   // rejoin threads
@@ -131,9 +139,8 @@ void fancon::test(SensorController &sc, const bool profileFans) {
     }
   }
 }
-void fancon::testUID(UID &uid, const bool profileFans) {
+void fancon::testUID(UID &uid, const bool profileFans, int retries) {
   std::stringstream ss;
-  int retries = 4;
   for (; retries > 0; --retries) {
     auto res = Fan::test(uid, profileFans);
 
@@ -168,11 +175,11 @@ void fancon::handleSignal(int sig) {
   }
 }
 
-void fancon::start(const bool debug, const bool fork) {
+void fancon::start(const bool debug, const bool fork_) {
   fancon::writeLock();
   pid_t pid = getpid();
 
-  if (fork) {
+  if (fork_) {
     // Fork off the parent process
     pid = fork();
     if (pid > 0)
@@ -248,28 +255,28 @@ void fancon::send(DaemonState state) {
 }
 
 int main(int argc, char *argv[]) {
-  vector<string> strArgv;
+  vector<string> args;
   for (int i = 1; i < argc; ++i)
-    strArgv.push_back(string(argv[i]));
+    args.push_back(string(argv[i]));
 
   // for first time setup
   fancon::Util::writeSyslogConf();
 
-//    cout << "Hello, World!" << endl;
-//    fancon::FetchTemp();
-//    cout << endl;
-
-  fancon::Arg help("help"), start("start"), stop("stop"), reload("reload"),
+  fancon::Command help("help"), start("start"), stop("stop"), reload("reload"),
       list_fans("list-fans", true), list_sensors("list-sensors", true),
-      test("test"), write_config("write-config");
-  vector<reference_wrapper<fancon::Arg>> args
+      test("test"), write_config("write-config", true);
+  vector<reference_wrapper<fancon::Command>> commands
       {help, start, stop, reload, list_fans, list_sensors, test, write_config};
 
-  fancon::Param debug("debug"), profiler("profiler"), exclude_fans("exclude-fans");
-  vector<reference_wrapper<fancon::Param>> params
-      {debug, profiler, exclude_fans};
+  // TODO: add options: exclude-fans
+  fancon::Option debug("debug", true), fork("fork", true), profiler("profiler", true),
+      retries("retries", true, true);
+  vector<reference_wrapper<fancon::Option>> options
+      {debug, fork, profiler, retries};
 
-  for (auto &a : strArgv) {
+  for (auto it = args.begin(); it != args.end(); ++it) {
+//  for (auto &a : args) {
+    auto &a = *it;
     if (a.empty())
       continue;
 
@@ -281,24 +288,39 @@ int main(int argc, char *argv[]) {
     std::transform(a.begin(), a.end(), a.begin(), ::tolower);
 
     // set param or arg to called if equal
-    for (auto &p : params)
-      if (p.get() == a) {
-        p.get().called = true;
-        continue;
+    for (auto &c : commands)
+      if (c.get() == a) {
+        c.get().called = true;
+        break;
       }
 
-    for (auto &arg : args)
-      if (arg.get() == a)
-        arg.get().called = true;
+    for (auto &o : options)
+      if (o.get() == a) {
+        if (o.get().has_value) {
+          // if option has value, check valid and set
+          auto ni = next(it);
+          if (ni != args.end() && fancon::Util::isNum(*ni)) {
+            o.get().val = std::stoi(*ni);
+            o.get().called = true;
+
+          } else {
+            string valOut = (ni != args.end()) ? (string(" (") + *ni + ") ") : "";
+            cerr << "No valid value" << valOut << " given for option: " << o.get().name << endl;
+          }
+        } else
+          o.get().called = true;
+
+        break;
+      }
   }
 
   SensorController sc(debug.called);
 
-  // execute called args with called params
-  if (help.called || strArgv.empty()) // execute help() if no args are given
+  // execute called commands with called options
+  if (help.called || args.empty()) // execute help() if no commands are given
     coutThreadsafe(fancon::help());
   else if (start.called)
-    fancon::start(debug.called);
+    fancon::start(debug.called, fork.called);
   else if (stop.called)
     fancon::send(DaemonState::STOP);
   else if (reload.called)
@@ -307,22 +329,11 @@ int main(int argc, char *argv[]) {
     coutThreadsafe(fancon::listFans(sc));
   else if (list_sensors.called)
     coutThreadsafe(fancon::listSensors(sc));
-  else if (test.called)
-    fancon::test(sc, profiler.called);
-  else if (write_config.called)
+  else if (test.called) {
+    int nRetries = (retries.called && retries.val > 0) ? retries.val : 4;   // default 4 retries
+    fancon::test(sc, profiler.called, nRetries);
+  } else if (write_config.called)
     sc.writeConf(fancon::conf_path);
 
   return 0;
 }
-/*static string generate_fan_uid2 (string &hwmon_sensor_path, const uint fan_id) {
-    // get hwmon sensor id
-    ulong id_pos = hwmon_sensor_path.find_last_of("hwmon", 0) +6;   // 6 = hwmon +1
-    string hwmon_id = hwmon_sensor_path.substr(id_pos, hwmon_sensor_path.size());
-
-    // remove appending '/'s
-    while (*(hwmon_id.end()) == '/')
-        hwmon_id.pop_back();
-
-    // hwmon_id:fan_id
-    return hwmon_id.append(":").append(std::to_string(fan_id));
-} */
