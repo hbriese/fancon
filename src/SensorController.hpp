@@ -31,7 +31,7 @@ using fancon::Fan;
 using fancon::SensorControllerConfig;
 using fancon::Config;
 using fancon::TemperatureSensor;
-using fancon::Util::DaemonMessage;
+using fancon::Util::DaemonState;
 using fancon::Util::getLastNum;
 
 using SensorChip = shared_ptr<const sensors_chip_name *>;
@@ -49,7 +49,8 @@ public:
   void writeConf(const string &path);
   vector<fancon::TSParent> readConf(const string &path);
 
-  void run(vector<TSParent>::iterator first, vector<TSParent>::iterator last, DaemonMessage &message) const;
+  // TODO: make state& const?
+  void run(vector<TSParent>::iterator first, vector<TSParent>::iterator last, DaemonState &state) const;
 
 private:
   fancon::SensorControllerConfig conf;

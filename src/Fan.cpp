@@ -40,15 +40,22 @@ Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
           << " - min=" << to_string(min) << "(or 0), max=" << to_string(max);
       log(LOG_ERR, err.str());
       points.erase(it);
+      return true;
     }
+    return false;
   };
 
   // check if points are invalid: value larger than maximum, or small than min and non-zero
   for (auto it = points.begin(); it != points.end(); ++it) {
-    if (it->pwm != -1)  // use pwm
+    if (it->validPWM())  // use pwm
       checkError(it, it->pwm, pwm_min, pwm_max_absolute);
-    else                // use rpm
-      checkError(it, it->rpm, rpm_min, rpm_max);
+    else if (!checkError(it, it->rpm, rpm_min, rpm_max)) {            // use rpm
+      // calculate pwm and ensure calcPWM is valid
+      auto cpwm = calcPWM(it->rpm);
+      if (cpwm > 255) cpwm = 255;   // larger than max, set max
+      else if (cpwm < 0) cpwm = 0;  // smaller than min, set min
+      it->pwm = cpwm;
+    }
   }
 }
 
@@ -68,8 +75,7 @@ void Fan::update(int temp) {
   if (it == points.end())
     it = std::prev(points.end());
 
-  // use pwm if point provides it, else calculate the pwm based on the rpm & slope
-  int pwm = (it->validPWM()) ? it->pwm : calcPWM(it->rpm);
+  int pwm = it->pwm;
 
   if (read<int>(rpm_p) == 0)
     pwm = pwm_start;

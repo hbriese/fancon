@@ -170,8 +170,8 @@ vector<fancon::TSParent> fancon::SensorController::readConf(const string &path) 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 void fancon::SensorController::run(vector<TSParent>::iterator first, vector<TSParent>::iterator last,
-                                   DaemonMessage &m) const {
-  while (m == fancon::Util::DaemonMessage::RUN) {
+                                   DaemonState &state) const {
+  while (state == fancon::Util::DaemonState::RUN) {
     for (auto tsp_it = first; tsp_it != last; ++tsp_it) {
       // TODO: utilize step_ut & step_dt
 

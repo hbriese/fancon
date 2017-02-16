@@ -12,6 +12,7 @@
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <sys/syslog.h>
+#include <csignal>
 
 namespace bfs = boost::filesystem;
 
@@ -27,7 +28,7 @@ using boost::filesystem::path;
 
 namespace fancon {
 namespace Util {
-enum DaemonMessage { RUN, STOP, RELOAD };
+enum DaemonState { RUN, STOP = SIGINT, RELOAD = SIGHUP };
 
 constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
 

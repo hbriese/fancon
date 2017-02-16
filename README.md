@@ -2,16 +2,17 @@
 
 [![License](http://img.shields.io/badge/license-APACHE2-blue.svg)]()
 
-fancon is a C++ userspace fan control tool, allowing custom speed-temperature curve for each individual fan, controllable by either PWM or RPM.
+fancon is a C++ userspace fan control tool, supporting both Linux and Mac OS X, allowing custom speed-temperature curve for each individual fan, controllable by either PWM or RPM.
 
   - High performance
   - Low memory usage
+  - High test coverage
 
 Low overhead and easy configuration are the main goals of fancon, this is achieved by:
   - Use of C++, multi-threading, and optimized STL functions
-  - Fan characteristic testing - all fans are not equal, so testing enables RPM fan speed configuration, not just PWM control like similar tools
   - Text file configuration, great for headless machines - at /etc/fancon.conf
-  - Allows stopping fans (for example, if not under load), with support for ensuring they start properly
+  - Fan characteristic testing - all fans are not equal, so testing enables RPM fan speed configuration, not just PWM control like similar tools
+  - Support for stopping fans (for example, if not under load) and correct handling of required fan PWM for start
 
 
 ### Installation
@@ -28,10 +29,11 @@ $ sudo snap refresh && sudo snap install fancon
 ```
 
 ###### Build from source:
+gcc may be substituted for clang
 
 ```sh
 $ git clone https://github.com/HBriese/fancon.git fancon-src && cd fancon-src
-$ sudo apt-get install lm-sensors rsyslog build-essentials make cmake libsensors4-dev libboost-filesystem-dev libexplain-dev
+$ sudo apt-get install lm-sensors rsyslog clang make cmake libsensors4-dev libboost-filesystem-dev libexplain-dev
 $ cmake . && make && sudo make install
 ```
 

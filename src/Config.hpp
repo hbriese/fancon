@@ -62,6 +62,7 @@ public:
 
   Point &operator=(const Point &other);
 
+  // TODO: add Fahrenheit support
   int temp,
       rpm,
       pwm;

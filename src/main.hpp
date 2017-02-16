@@ -21,6 +21,7 @@
 
 namespace basio = boost::asio;
 
+using std::cerr;
 using std::cout;
 using std::endl;
 using std::string;
@@ -37,7 +38,7 @@ using std::reference_wrapper;
 using boost::asio::local::stream_protocol;
 using fancon::SensorController;
 using fancon::TemperatureSensor;
-using fancon::Util::DaemonMessage;
+using fancon::Util::DaemonState;
 using fancon::Util::log;
 
 int main(int argc, char *argv[]);
@@ -45,9 +46,9 @@ int main(int argc, char *argv[]);
 namespace fancon {
 static const string conf_path("/etc/fancon.conf");
 
-static const stream_protocol::endpoint endpoint(string(fancon::Util::fancon_dir) + "fancond.socket");
-
 static const string pid_file = string(fancon::Util::fancon_dir) + "pid";
+
+static DaemonState daemon_state;
 
 string help();
 
@@ -56,13 +57,15 @@ void FetchTemp();
 string listFans(SensorController &sensorController);
 string listSensors(SensorController &sensorController);
 
+bool pidExists(pid_t pid);
 void writeLock();
 
 void test(SensorController &sensorController, const bool profileFans = false);
 void testUID(UID &uid, const bool profileFans = false);
 
-void start(const bool debug = false);
-void send(DaemonMessage message);
+void handleSignal(int sig);
+void start(const bool debug = false, const bool fork);
+void send(DaemonState state);
 
 struct Param {
   Param(const string &name, bool called = false)

@@ -89,10 +89,14 @@ string fancon::listSensors(SensorController &sc) {
   return ss.str();
 }
 
+bool fancon::pidExists(pid_t pid)  {
+  string pid_path = string("/proc/") + to_string(pid);
+  return exists(pid_path);
+}
+
 void fancon::writeLock() {
   pid_t pid = fancon::Util::read<pid_t>(fancon::pid_file);
-  string pid_path = string("/proc/") + to_string(pid);
-  if (exists(pid_path)) {  // fancon process running
+  if (fancon::pidExists(pid)) {  // fancon process running
     std::cerr << "Error: a fancon process is already running, please close it to continue" << endl;
     exit(1);
   } else
@@ -153,23 +157,33 @@ void fancon::testUID(UID &uid, const bool profileFans) {
   ss.str("");
 }
 
-void fancon::start(const bool debug) {
-  fancon::writeLock();
+void fancon::handleSignal(int sig) {
+  switch (sig) {
+  case (int) DaemonState::RELOAD:
+  case (int) DaemonState::STOP:
+    daemon_state = (DaemonState) sig;
+    break;
+  default:
+    log(LOG_NOTICE, string("Unknown signal caught") + to_string(sig));
+  }
+}
 
-  // Fork off the parent process
-  pid_t pid = fork();
-  if (!debug) {
+void fancon::start(const bool debug, const bool fork) {
+  fancon::writeLock();
+  pid_t pid = getpid();
+
+  if (fork) {
+    // Fork off the parent process
+    pid = fork();
     if (pid > 0)
       exit(EXIT_SUCCESS);
     else if (pid < 0) {
       log(LOG_ERR, "Failed to fork off while starting fancond. An extra thread is running!");
       exit(EXIT_FAILURE);
     }
-  }
 
-  // Create a new session for the child
-  if ((pid = setsid()) < 0) {
-    if (!debug) {
+    // Create a new session for the child
+    if ((pid = setsid()) < 0) {
       log(LOG_ERR, "Failed to set session id for the forked fancond thread");
       exit(EXIT_FAILURE);
     }
@@ -177,9 +191,6 @@ void fancon::start(const bool debug) {
 
   // update pid file
   write<pid_t>(fancon::pid_file, pid);
-
-  // Ignore signal sent from child to parent process
-  signal(SIGCHLD, SIG_IGN);
 
   // Set file mode
   umask(0);
@@ -190,65 +201,30 @@ void fancon::start(const bool debug) {
     exit(EXIT_FAILURE);
   }
 
-  // close all file descriptors   // TODO: just close standard ones?
-//    for (int fd = sysconf(_SC_OPEN_MAX); fd > 0; fd--)
-//        close(fd);
+  // TODO: close all file descriptors?
+  // close standard file descriptors
   close(STDIN_FILENO);
   close(STDOUT_FILENO);
   close(STDERR_FILENO);
-
-  // TODO: re-open stdin, stdout & stderr?
 
   SensorController sc;
   auto ts_parents = sc.readConf(fancon::conf_path);
   log(LOG_NOTICE, "Fancond started");
 
   // TODO: multi threaded
-  /*
   vector<thread> threads;
-  auto nThreads = std::thread::hardware_concurrency();
-  auto nTSPs = std::distance(ts_parents.begin(), ts_parents.end());
-  auto remainingThreads = nTSPs % nThreads;
-  int tspsPerThread[nThreads] {(int) std::floor(nTSPs / nThreads)};
-
-//    for (unsigned int index0 = )
-
-  for (int i = 0; remainingThreads; ++i) {
-      if (i >= nThreads)
-          i = 0;
-      tspsPerThread[i] += 1;
-  }
-
-  const unsigned int nTasks = nTSPs / nThreads,
-      nTougherTaks = nTSPs % nThreads;
-  for( unsigned int index0 = (thid < numTougherThreads ? thid * (numTasks+1) : NUMELEM - (THREADCNT - thid) * numTasks),
-           index = index0; index < index0 + numTasks + (thid < numTougherThreads) ; ++index)
-           */
-
-  vector<thread> threads;
-  DaemonMessage message(DaemonMessage::RUN);
   if (!ts_parents.empty())
     threads.push_back(thread(
-        &SensorController::run, std::ref(sc), ts_parents.begin(), ts_parents.end(), std::ref(message)
+        &SensorController::run, ref(sc), ts_parents.begin(), ts_parents.end(), ref(daemon_state)
     ));
 
-  // remove endpoint if already present
-  unlink(fancon::endpoint.path().c_str());
-  basio::io_service ios;
-  stream_protocol::acceptor acceptor(ios, fancon::endpoint);
-  stream_protocol::socket socket(ios);
-  acceptor.accept(socket);
-
-  basio::streambuf sb;
-  boost::system::error_code ec;
-  while (basio::read(socket, sb, ec)) {// threads read reference to message and stop
-    string in(basio::buffers_begin(sb.data()), basio::buffers_end(sb.data()));
-    message = (DaemonMessage) stoi(in);
-
-    if (ec)
-      log(LOG_ERR, ec.message());
-  }
-  socket.close();
+  // handle SIGINT and SIGHUP signals
+  struct sigaction act;
+  act.sa_handler = fancon::handleSignal;
+  sigemptyset(&act.sa_mask);
+  act.sa_flags = 0;
+  sigaction(SIGINT, &act, NULL);
+  sigaction(SIGHUP, &act, NULL);
 
   // join threads
   for (auto &t: threads)
@@ -258,27 +234,17 @@ void fancon::start(const bool debug) {
       t.detach();
 
   // re-run this function if reload
-  if (message == DaemonMessage::RELOAD)
+  if (daemon_state == DaemonState::RELOAD)
     fancon::start(debug);
 }
 
-void fancon::send(DaemonMessage message) {
-  basio::io_service ios;
-  stream_protocol::socket socket(ios);
-  boost::system::error_code ec;
-  socket.connect(fancon::endpoint, ec);
-
-  if (ec) {   // socket connection error
-    std::cerr << "fancond is not running" << endl;
-    log(LOG_DEBUG, string("Socket connect error ") + to_string(ec.value()) + ": " + ec.message());
-    return;
-  }
-
-  string msg_str(to_string(message));
-  basio::streambuf buf;
-  ostream os(&buf);
-  os.write(msg_str.data(), msg_str.size());
-  socket.write_some(buf.data());
+void fancon::send(DaemonState state) {
+  // use kill() to send signals to the PID
+  pid_t pid = read<pid_t>(fancon::pid_file);
+  if (pidExists(pid))
+    kill(pid, (int) state);
+  else
+    cerr << "Error: fancond is not running" << endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -334,9 +300,9 @@ int main(int argc, char *argv[]) {
   else if (start.called)
     fancon::start(debug.called);
   else if (stop.called)
-    fancon::send(DaemonMessage::STOP);
+    fancon::send(DaemonState::STOP);
   else if (reload.called)
-    fancon::send(DaemonMessage::RELOAD);
+    fancon::send(DaemonState::RELOAD);
   else if (list_fans.called)
     coutThreadsafe(fancon::listFans(sc));
   else if (list_sensors.called)
