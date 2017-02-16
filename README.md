@@ -17,13 +17,10 @@ Low overhead and easy configuration are the main goals of fancon, this is achiev
 
 ### Installation
 
-fancon is distributed as a snap package to allow for easy cross-distribution deployment:
-
-###### Install snapd, for Debian/Ubuntu based distros:
-```sh
-$ sudo apt-get install snapd
-```
 ###### Install fancon snap:
+
+Snap [installation instructions](https://snapcraft.io/docs/core/install)
+
 ```sh
 $ sudo snap refresh && sudo snap install fancon
 ```
