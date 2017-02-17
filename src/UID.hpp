@@ -36,6 +36,16 @@ public:
    * it8620/1:fan2
    */
 
+  UID &operator=(const UID &other) {
+    if (this != &other) {
+      cn_label = other.cn_label;
+      hwmon_id = other.hwmon_id;
+      dev_name = other.dev_name;
+    }
+
+    return *this;
+  }
+
   const bool valid() const { return (!cn_label.empty()) && (hwmon_id != -1) && (!dev_name.empty()); }
 
   const string getBasePath() const {

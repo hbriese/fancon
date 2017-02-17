@@ -76,11 +76,11 @@ void Fan::update(int temp) {
     it = std::prev(points.end());
 
   int pwm = it->pwm;
+  auto nextIt = std::next(it);
 
   if (read<int>(rpm_p) == 0)
     pwm = pwm_start;
-  else if (dynamic && pwm != 0) {
-    auto nextIt = std::next(it);
+  else if (dynamic && nextIt != points.end() && pwm != 0) {   // static is used if pwm is last, or set to 0
     int nextPWM = (nextIt != points.end()) ? nextIt->pwm : calcPWM(nextIt->rpm);
     pwm = pwm + ((nextPWM - pwm) / (nextIt->temp - it->temp));
   }
