@@ -30,7 +30,7 @@ gcc may be substituted for clang
 
 ```sh
 $ git clone https://github.com/HBriese/fancon.git fancon-src && cd fancon-src
-$ sudo apt-get install lm-sensors rsyslog clang make cmake libsensors4-dev libboost-filesystem-dev libexplain-dev
+$ sudo apt-get install gcc make cmake libc++-dev lm-sensors rsyslog libsensors4-dev libboost-filesystem-dev libexplain-dev
 $ cmake . && make && sudo make install
 ```
 

@@ -77,7 +77,7 @@ void fancon::Util::closeSyslog() {
 void fancon::Util::log(int logSeverity, const string &message) {
   if (!fancon::Util::syslog_open)
     throw std::runtime_error("syslog not open");
-  syslog(logSeverity, message.c_str());
+  syslog(logSeverity, "%s", message.c_str());
 }
 
 string fancon::Util::getPath(const string &path_pf, const string &hwmon_id, const bool prev_failed) {

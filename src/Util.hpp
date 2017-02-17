@@ -94,7 +94,7 @@ void write(const string &path, T val) {
   ofs.close();
 
   if (ofs.fail())
-    fancon::Util::log(LOG_ERR, string("Failed to write to: ") + path);
+    fancon::Util::log(LOG_ERR, string("Failed to write '") + to_string(val) + "' to: " + path);
 }
 
 template<typename T>
