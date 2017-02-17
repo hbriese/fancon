@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 set (CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 project(fancon)
 
 # Enable testing in this project
