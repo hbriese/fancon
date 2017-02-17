@@ -3,7 +3,8 @@
 using namespace fancon;
 
 ostream &fancon::operator<<(ostream &os, const fancon::SensorControllerConfig &c) {
-  os << "update=" << to_string(c.update_time_s) << " dynamic=" << ((c.dynamic) ? "true" : "false");
+  os << c.updateBegSep << to_string(c.update_time_s) << " " << c.threadsBegSep << to_string(c.threads)
+     << " " << c.dynamicBegSep << ((c.dynamic) ? "true" : "false");
   return os;
 }
 
@@ -14,17 +15,28 @@ istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
 
 
   // order of variables does not matter
-  auto dynamicBegIt =
-      search(in.begin(), in.end(), c.dynamicBegSep.begin(), c.dynamicBegSep.end()) + c.dynamicBegSep.size();
+  auto dynamicBegIt = search(in.begin(), in.end(), c.dynamicBegSep.begin(), c.dynamicBegSep.end());
+  if (validIter(in.end(), {dynamicBegIt}))
+    dynamicBegIt += c.dynamicBegSep.size();
   auto dynamicEndIt = find_if(dynamicBegIt, in.end(), [](const char &ch) { return !std::isalpha(ch); });
-  auto updateBegIt = search(in.begin(), in.end(), c.updateBegSep.begin(), c.updateBegSep.end()) + c.updateBegSep.size();
+
+  auto updateBegIt = search(in.begin(), in.end(), c.updateBegSep.begin(), c.updateBegSep.end());
+  if (validIter(in.end(), {updateBegIt}))
+    updateBegIt += c.updateBegSep.size();
   auto updateEndIt = find_if(updateBegIt, in.end(), [](const char &ch) { return !std::isdigit(ch); });
 
-  bool dynamicFound = fancon::Util::validIter(in.end(), {dynamicBegIt});
-  bool updateFound = fancon::Util::validIter(in.end(), {updateBegIt});
+  auto threadsBegIt = search(in.begin(), in.end(), c.threadsBegSep.begin(), c.threadsBegSep.end());
+  if (validIter(in.end(), {threadsBegIt}))
+    threadsBegIt += c.threadsBegSep.size();
+  auto threadsEndIt = find_if(threadsBegIt, in.end(), [](const char &ch) { return !std::isdigit(ch); });
+
+  bool dynamicFound = validIter(in.end(), {dynamicBegIt});
+  bool updateFound = validIter(in.end(), {updateBegIt});
+  bool threadsFound = validIter(in.end(), {threadsBegIt});
 
   // fail if
-  if ((!dynamicFound & !updateFound) || (dynamicEndIt == in.end() & updateEndIt == in.end())) {
+  if ((!dynamicFound & !updateFound & !threadsFound) ||
+      (dynamicEndIt == in.end() & updateEndIt == in.end() & threadsEndIt == in.end())) {
     c.update_time_s = 0;
     log(LOG_DEBUG, string("Invalid entry: ") + in);
     return is;
@@ -37,7 +49,13 @@ istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
 
   if (updateFound) {
     string updateStr(updateBegIt, updateEndIt);
-    c.update_time_s = (isNum(updateStr)) ? (uint) std::stoul(updateStr) : 2;
+    c.update_time_s = (isNum(updateStr)) ? (uint) std::stoul(updateStr) : c.update_time_s;
+  }
+
+  if (threadsFound) {
+    string threadsStr(threadsBegIt, threadsEndIt);
+    uint res = (isNum(threadsStr)) ? (uint) std::stoul(threadsStr) : c.threads;
+    c.threads = (res <= std::thread::hardware_concurrency() && res > 0) ? res : c.threads;
   }
 
   return is;

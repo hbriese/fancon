@@ -7,6 +7,7 @@
 #include <iostream>     // skipws, cin
 #include <string>       // to_string, stoi, stod
 #include <sstream>      // ostream, istream
+#include <thread>
 #include <vector>
 #include "Util.hpp"
 
@@ -27,19 +28,20 @@ using fancon::Util::validIter;
 namespace fancon {
 class SensorControllerConfig {
 public:
-  SensorControllerConfig(bool dynamic = true, uint update_time_s = 2)
-      : dynamic(dynamic), update_time_s(update_time_s) {}
+  SensorControllerConfig() {}
 
   SensorControllerConfig(istream &is) { is >> *this; }
 
-  bool dynamic;
-  uint update_time_s;
+  bool dynamic = true;
+  uint update_time_s = 2;
+  uint threads = std::thread::hardware_concurrency();
 
   bool valid() { return update_time_s > 0; }
 
   SensorControllerConfig &operator=(const SensorControllerConfig &other) {  //= default;
     dynamic = other.dynamic;
     update_time_s = other.update_time_s;
+    threads = other.threads;
     return *this;
   }
 
@@ -49,6 +51,7 @@ public:
 private:
   const string dynamicBegSep = "dynamic=";
   const string updateBegSep = "update=";
+  const string threadsBegSep = "threads=";
 };
 
 ostream &operator<<(ostream &os, const fancon::SensorControllerConfig &c);

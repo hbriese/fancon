@@ -1,4 +1,5 @@
 #include "SensorController.hpp"
+#include "main.hpp"
 
 fancon::SensorController::SensorController(bool debug) {
   sensors_init(NULL);
@@ -52,6 +53,8 @@ void fancon::SensorController::writeConf(const string &path) {
 
   vector<vector<UID>::iterator> curUIDIts;
   if (pExists) { // read existing UIDs
+    log(LOG_NOTICE, "Config exists, adding absent fans");
+
     for (string line; std::getline(fs, line, '\n');) {
       if (line.empty())
         continue;
@@ -77,17 +80,20 @@ void fancon::SensorController::writeConf(const string &path) {
   fs.open(path, std::ios_base::app);  // out
 
   auto writeTop = [](std::fstream &fs) {
-    fs << "# update: time between rpm changes (in seconds); dynamic: interpolated rpm between two points "
-       << "(based on temperature), or static to the next highest point (false)" << endl
-       << SensorControllerConfig() << endl
-       << "# Example:      15°C stopped fan, 25°C 500 RPM ... 80°C full speed fan" << endl
-       << "# it8728/2:fan1 coretemp/0:temp2   [15;0] [25:500] [35:650] [55:1000] [65:1200] [80;255]" << endl
-       << "#" << endl
-       << "# <Fan UID>     <Temperature Sensor UID>    <[temperature (°C): speed (RPM); PWM (0-255)]>" << endl;
+    fs
+        << "# update: time between rpm changes (in seconds); threads: number of threads to run; dynamic: interpolated rpm between two points "
+        << "(based on temperature), or static to the next highest point (false)" << endl
+        << SensorControllerConfig() << endl
+        << "# Example:      15°C stopped fan, 25°C 500 RPM ... 80°C full speed fan" << endl
+        << "# it8728/2:fan1 coretemp/0:temp2   [15;0] [25:500] [35:650] [55:1000] [65:1200] [80;255]" << endl
+        << "#" << endl
+        << "# <Fan UID>     <Temperature Sensor UID>    <[temperature (°C): speed (RPM); PWM (0-255)]>" << endl;
   };
 
-  if (!pExists)
+  if (!pExists) {
+    log(LOG_NOTICE, "Writing new config: " + path);
     writeTop(fs);
+  }
 
   // TODO: write SCC to front of file
   /*if (!sccFound) {
@@ -148,20 +154,21 @@ vector<fancon::TSParent> fancon::SensorController::readConf(const string &path) 
     if (!fan_uid.valid() || !ts_uid.valid() || !fan_conf.valid())
       continue;
 
-    Fan f(fan_uid, fan_conf, conf.dynamic);
-
     // TODO: test fan and add PWM values where there are RPMs <<
 //        for (auto &p : fan_conf.points)
 //            if (!p.validPWM())
 //                p.pwm = f.testPWM(p.rpm);
 
-    auto tsp_it = find_if(ts_parents.begin(), ts_parents.end(),
-                          [&ts_uid](const fancon::TSParent &p) { return p.ts_uid == ts_uid; });
+    auto tspIt = find_if(ts_parents.begin(), ts_parents.end(),
+                         [&ts_uid](const TSParent &p) -> bool { return p.ts_uid == ts_uid; });
 
-    if (tsp_it != ts_parents.end())     // found, push fan onto stack
-      tsp_it->fans.push_back(f);
-    else // make new TSParent
-      ts_parents.push_back(TSParent(ts_uid, f));
+    Fan *fptr = new Fan(fan_uid, fan_conf, conf.dynamic);
+
+    // TODO: fix copied fan being passed
+    if (tspIt != ts_parents.end())       // found, push fan onto stack
+      tspIt->fans.push_back(fptr);
+    else                                // make new TSParent
+      ts_parents.push_back(TSParent(ts_uid, fptr));
   }
 
   return ts_parents;
@@ -172,13 +179,13 @@ vector<fancon::TSParent> fancon::SensorController::readConf(const string &path) 
 void fancon::SensorController::run(vector<TSParent>::iterator first, vector<TSParent>::iterator last,
                                    DaemonState &state) const {
   while (state == fancon::Util::DaemonState::RUN) {
-    for (auto tsp_it = first; tsp_it != last; ++tsp_it) {
+    for (auto tspIt = first; tspIt != last; ++tspIt) {
       // TODO: utilize step_ut & step_dt
 
       // update fans if temp changed
-      if (tsp_it->update())
-        for (auto &f : tsp_it->fans)
-          f.update(tsp_it->temp);
+      if (tspIt->update())
+        for (auto &fp : tspIt->fans)
+          fp->update(tspIt->temp);
     }
 
     sleep(conf.update_time_s);

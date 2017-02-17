@@ -3,7 +3,7 @@
 
 #include <algorithm>    // search, find_if
 #include <iostream>     // skipws, endl
-#include <utility>      // pair
+#include <utility>      // move, pair
 #include <memory>       // unique_ptr, shared_ptr, make_shared
 #include <sstream>      // stringstream, ostream
 #include <vector>
@@ -22,6 +22,8 @@ using std::find_if;
 using std::unique_ptr;
 using std::shared_ptr;
 using std::make_shared;
+using std::make_unique;
+using std::move;
 using std::istringstream;
 using std::ostringstream;
 using std::pair;
@@ -37,13 +39,15 @@ using fancon::Util::getLastNum;
 using SensorChip = shared_ptr<const sensors_chip_name *>;
 
 namespace fancon {
-struct TSParent;
+class TSParent;
 class SensorControllerConfig;
 
 class SensorController {
 public:
   SensorController(bool debug = false);
   ~SensorController();
+
+  fancon::SensorControllerConfig conf;
 
   vector<UID> getUIDs(const char *device_path_postfix);
   void writeConf(const string &path);
@@ -53,18 +57,19 @@ public:
   void run(vector<TSParent>::iterator first, vector<TSParent>::iterator last, DaemonState &state) const;
 
 private:
-  fancon::SensorControllerConfig conf;
   vector<SensorChip> sensor_chips;
 
   vector<SensorChip> getSensorChips();
 };
 
-struct TSParent {
-  TSParent(const UID ts_uid_, Fan &f, int temp = 0)
-      : ts_uid(ts_uid_), temp(temp) { fans.push_back(f); }
+class TSParent {
+public:
+  TSParent(UID tsUID, Fan *fp, int temp = 0)
+      : ts_uid(tsUID), temp(temp) { fans.push_back(fp); }
 
-  const UID ts_uid;
-  vector<Fan> fans;
+  UID ts_uid;
+  // TODO: replace replace raw * with unique_ptr
+  vector<Fan *> fans;
   int temp;
 
   bool update();
