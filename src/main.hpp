@@ -10,7 +10,6 @@
 #include <functional>   // ref, reference_wrapped
 #include <future>       // future, promise
 #include <thread>
-#include <boost/asio.hpp>
 #include <sensors/sensors.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -18,8 +17,6 @@
 #include <libexplain/setsid.h>
 #include "Util.hpp"
 #include "SensorController.hpp"
-
-namespace basio = boost::asio;
 
 using std::cerr;
 using std::cout;
@@ -29,13 +26,10 @@ using std::to_string;
 using std::stringstream;
 using std::next;
 using std::thread;
-using std::future;
-using std::promise;
 using std::make_pair;
 using std::move;
 using std::ref;
 using std::reference_wrapper;
-using boost::asio::local::stream_protocol;
 using fancon::SensorController;
 using fancon::TemperatureSensor;
 using fancon::Util::DaemonState;
@@ -52,19 +46,17 @@ DaemonState daemon_state;
 
 string help();
 
-void FetchTemp();
-
 string listFans(SensorController &sensorController);
 string listSensors(SensorController &sensorController);
 
 bool pidExists(pid_t pid);
 void writeLock();
 
-void test(SensorController &sensorController, const bool profileFans = false, int testRetries = 4);
+void test(SensorController &sensorController, const bool debug, const bool profileFans = false, int testRetries = 4);
 void testUID(UID &uid, const bool profileFans = false, int retries = 4);
 
 void handleSignal(int sig);
-void start(const bool debug = false, const bool fork_ = false);
+void start(SensorController &sc, const bool debug = false, const bool fork_ = false);
 void send(DaemonState state);
 
 struct Command {
