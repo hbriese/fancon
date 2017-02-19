@@ -1,5 +1,5 @@
-#ifndef FANCON_UTIL_HPP
-#define FANCON_UTIL_HPP
+#ifndef FANCTL_UTIL_HPP
+#define FANCTL_UTIL_HPP
 
 #include <iostream>     // endl
 #include <algorithm>    // all_of, reverse
@@ -26,15 +26,15 @@ using std::ifstream;
 using boost::filesystem::exists;
 using boost::filesystem::path;
 
-namespace fancon {
+namespace fanctl {
 namespace Util {
 enum DaemonState { RUN, STOP = SIGINT, RELOAD = SIGHUP };
 
 constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
 
-constexpr const char *fancon_dir = "/etc/fancon.d/";
+constexpr const char *fanctl_dir = "/etc/fanctl.d/";
 
-constexpr const char *fancon_path = "/etc/fancon.d/hwmon";
+constexpr const char *fanctl_path = "/etc/fanctl.d/hwmon";
 
 static std::mutex coutLock;
 
@@ -52,7 +52,7 @@ void openSyslog(bool debug = false);
 void closeSyslog();
 void log(int logSeverity, const string &message);
 
-/* getPath: returns the usual path (used by the driver) if it exists, else a /etc/fancon.d/ path */
+/* getPath: returns the usual path (used by the driver) if it exists, else a /etc/fanctl.d/ path */
 string getPath(const string &path_pf, const string &hwmon_id, const bool prev_failed = false);
 
 string readLine(string path);
@@ -65,23 +65,26 @@ T read(const string &path) {
   ifs.close();
 
   if (ifs.fail())
-    fancon::Util::log(LOG_ERR, string("Failed to read from: ") + path);
+    fanctl::Util::log(LOG_ERR, string("Failed to read from: ") + path);
 
   return ret;
 }
 
 template<typename T>
-T read(const string &path_pf, const string &hwmon_id, const bool prev_failed = false) {
+T read(const string &path_pf, const string &hwmon_id, int nFailed = 0) {
 //    return read<T>(getPath(path_pf, hwmon_id));
-  string path(getPath(path_pf, hwmon_id, prev_failed));
+  string path(getPath(path_pf, hwmon_id, (nFailed > 1)));   // try initial path 2 times
+  if (!exists(path))
+    log(LOG_DEBUG, string("Failed to read, file does not exist: ") + path);
+
   ifstream ifs(path);
   T ret;
   ifs >> ret;
   ifs.close();
 
-  if (ifs.fail()) {
-    fancon::Util::log(LOG_ERR, string("Failed to read from: ") + path);
-    return read<T>(path_pf, hwmon_id, true);
+  if (ifs.fail() && nFailed < 5) {    // try read 4 times
+    fanctl::Util::log(LOG_ERR, string("Failed to read from: ") + path);
+    return read<T>(path_pf, hwmon_id, ++nFailed);
   }
 
   return ret;
@@ -94,7 +97,7 @@ void write(const string &path, T val) {
   ofs.close();
 
   if (ofs.fail())
-    fancon::Util::log(LOG_ERR, string("Failed to write '") + to_string(val) + "' to: " + path);
+    fanctl::Util::log(LOG_ERR, string("Failed to write '") + to_string(val) + "' to: " + path);
 }
 
 template<typename T>
@@ -105,11 +108,11 @@ void write(const string &path_pf, const string &hwmon_id, T val, const bool prev
   ofs.close();
 
   if (ofs.fail()) {
-    fancon::Util::log(LOG_ERR, string("Failed to write to: ") + path);
+    fanctl::Util::log(LOG_ERR, string("Failed to write to: ") + path);
     return write<T>(path_pf, hwmon_id, val, true);
   }
 }
 }   // UTIL
-}   // FANCON
+}   // fanctl
 
-#endif //FANCON_UTIL_HPP
+#endif //FANCTL_UTIL_HPP

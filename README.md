@@ -1,48 +1,47 @@
-# fancon
+# fanctl
 
 [![License](http://img.shields.io/badge/license-APACHE2-blue.svg)]()
 
-fancon is a C++ userspace fan control tool, supporting both Linux and Mac OS X, allowing custom speed-temperature curve for each individual fan, controllable by either PWM or RPM.
+fanctl is a C++ userspace fan control tool, supporting both Linux and Mac OS X, allowing custom speed-temperature curve for each individual fan, controllable by either PWM or RPM.
 
   - High performance
   - Low memory usage
   - High test coverage
 
-Low overhead and easy configuration are the main goals of fancon, this is achieved by:
+Low overhead and easy configuration are the main goals of fanctl, this is achieved by:
   - Use of C++, multi-threading, and optimized STL functions
-  - Text file configuration, great for headless machines - at /etc/fancon.conf
+  - Text file configuration, great for headless machines - at /etc/fanctl.conf
   - Fan characteristic testing - all fans are not equal, so testing enables RPM fan speed configuration, not just PWM control like similar tools
   - Support for stopping fans (for example, if not under load) and correct handling of required fan PWM for start
 
 
 ### Installation
 
-###### Install fancon snap:
+###### Install fanctl snap:
 
 Snap [installation instructions](https://snapcraft.io/docs/core/install)
 
 ```sh
-$ sudo snap refresh && sudo snap install fancon
+$ sudo snap refresh && sudo snap install fanctl
 ```
 
 ###### Build from source:
 gcc may be substituted for clang
 
 ```sh
-$ git clone https://github.com/HBriese/fancon.git fancon-src && cd fancon-src
 $ sudo apt-get install gcc make cmake libc++-dev lm-sensors rsyslog libsensors4-dev libboost-filesystem-dev libexplain-dev
-$ cmake . && make && sudo make install
+$ git clone https://github.com/HBriese/fanctl.git && cd fanctl && cmake . && make && sudo make install
 ```
 
 
 ### Runtime Dependencies
 
-fancon aims to be widely deployable with minimum runtime dependencies:
+fanctl aims to be widely deployable with minimum runtime dependencies:
 
 | Name (package) | Usage |
 | -------------- | ----- |
 | [lm-sensors] | A sensor monitoring tool|
-| [syslog] <br> (rsyslog) | Log handling |
+| syslog supported logger <br> (tested with [rsyslog]) | Log handling |
 
 
 ### Development
@@ -69,26 +68,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 
-   [dill]: <https://github.com/joemccann/dillinger>
-   [git-repo-url]: <https://github.com/joemccann/dillinger.git>
-   [john gruber]: <http://daringfireball.net>
-   [df1]: <http://daringfireball.net/projects/markdown/>
-   [markdown-it]: <https://github.com/markdown-it/markdown-it>
-   [Ace Editor]: <http://ace.ajax.org>
-   
    [lm-sensors]: <https://wiki.archlinux.org/index.php/lm_sensors>
-   [syslog]: http://www.rsyslog.com/
+   [rsyslog]: http://www.rsyslog.com/
    [CMake]: https://cmake.org/
    [Boost-filesystem]: <http://www.boost.org/doc/libs/1_62_0/libs/filesystem/doc/index.htm>
    [pthread]: <https://www.gnu.org/software/hurd/libpthread.html>
    [libexplain]: <http://libexplain.sourceforge.net/>
-   [express]: <http://expressjs.com>
-   [AngularJS]: <http://angularjs.org>
-   [Gulp]: <http://gulpjs.com>
-
-   [PlDb]: <https://github.com/joemccann/dillinger/tree/master/plugins/dropbox/README.md>
-   [PlGh]: <https://github.com/joemccann/dillinger/tree/master/plugins/github/README.md>
-   [PlGd]: <https://github.com/joemccann/dillinger/tree/master/plugins/googledrive/README.md>
-   [PlOd]: <https://github.com/joemccann/dillinger/tree/master/plugins/onedrive/README.md>
-   [PlMe]: <https://github.com/joemccann/dillinger/tree/master/plugins/medium/README.md>
-   [PlGa]: <https://github.com/RahulHP/dillinger/blob/master/plugins/googleanalytics/README.md>

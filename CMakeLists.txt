@@ -1,16 +1,16 @@
 cmake_minimum_required(VERSION 3.1)
 set (CMAKE_CXX_STANDARD 14)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-project(fancon)
+project(fanctl)
 
 # Enable testing in this project
 #enable_testing()
 #add_subdirectory(tests)
-#add_test(test1 tests/fancond_tests)
+#add_test(fanctl_tests tests/fanctl_tests)
 
 include_directories(src)
 set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/UID.hpp src/SensorController.cpp src/SensorController.hpp
-        src/Config.cpp src/Config.hpp src/TemperatureSensor.cpp src/TemperatureSensor.hpp src/Fan.cpp src/Fan.hpp)
+        src/Config.cpp src/Config.hpp src/TemperatureSensor.hpp src/Fan.cpp src/Fan.hpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 ## Threads

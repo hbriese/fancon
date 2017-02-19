@@ -1,6 +1,6 @@
 #include "Fan.hpp"
 
-using namespace fancon;
+using namespace fanctl;
 
 Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
     : points(conf.points), hwID(to_string(fan_uid.hwmon_id)), dynamic(dynamic) {
@@ -8,8 +8,8 @@ Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
   FanPaths p(fan_uid);
 
   // keep paths (with changing values) for future rw
-  pwm_p = fancon::Util::getPath(p.pwm_pf, hwID);
-  rpm_p = fancon::Util::getPath(p.rpm_pf, hwID);
+  pwm_p = fanctl::Util::getPath(p.pwm_pf, hwID);
+  rpm_p = fanctl::Util::getPath(p.rpm_pf, hwID);
   enable_pf = p.enable_pf;
 
   // Read constant values from sysfs
@@ -33,7 +33,7 @@ Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
   stop_t = ((temp = read<long>(p.stop_t_pf, hwID)) > 0) ? temp : 3000;
 
   // check config is valid
-  auto checkError = [this, &fan_uid](vector<fancon::Point>::iterator &it, int val, int min, int max) {
+  auto checkError = [this, &fan_uid](vector<fanctl::Point>::iterator &it, int val, int min, int max) {
     if (val > max || ((val < min) & (val != 0))) {
       std::stringstream err;
       err << "Invalid config entry: " << fan_uid << " " << *it
@@ -52,8 +52,10 @@ Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
     else if (!checkError(it, it->rpm, rpm_min, rpm_max)) {            // use rpm
       // calculate pwm and ensure calcPWM is valid
       auto cpwm = calcPWM(it->rpm);
-      if (cpwm > 255) cpwm = 255;   // larger than max, set max
-      else if (cpwm < 0) cpwm = 0;  // smaller than min, set min
+      if (cpwm > 255)
+        cpwm = 255;   // larger than max, set max
+      else if (cpwm < 0)
+        cpwm = 0;  // smaller than min, set min
       it->pwm = cpwm;
     }
   }
@@ -67,10 +69,8 @@ Fan::~Fan() {
 void Fan::update(int temp) {
   // TODO: handle step_ut & step_dt
 
-  auto it = std::lower_bound(points.begin(),
-                             points.end(),
-                             temp,
-                             [](const fancon::Point &p1, const fancon::Point &p2) { return p1.temp < p2.temp; });
+  auto it = std::lower_bound(points.begin(), points.end(), temp,
+                             [](const fanctl::Point &p1, const fanctl::Point &p2) { return p1.temp < p2.temp; });
 
   if (it == points.end())
     it = std::prev(points.end());
@@ -183,7 +183,7 @@ TestResult Fan::test(const UID &fanUID, const bool profile) {
 
   auto profiler = [&fanUID, &p, &hwID]() {
     string profile_pf = p.pwm_pf + "_profile";
-    profile_pf = fancon::Util::getPath(profile_pf, hwID, 0);
+    profile_pf = fanctl::Util::getPath(profile_pf, hwID, 0);
     ofstream pofs(profile_pf);
     pofs << "PWM RPM" << endl;
     // record rpm from PWM 255 to 0
@@ -259,7 +259,7 @@ void Fan::writeTestResult(const UID &fanUID, const TestResult &r) {
 void Fan::sleep(int s) { std::this_thread::sleep_for(chrono::seconds(s)); }
 
 FanPaths::FanPaths(const UID &fanUID) {
-  const string devID = to_string(fancon::Util::getLastNum(fanUID.dev_name));
+  const string devID = to_string(fanctl::Util::getLastNum(fanUID.dev_name));
   const string hwmonID = to_string(fanUID.hwmon_id);
 
   pwm_pf = "pwm" + devID;

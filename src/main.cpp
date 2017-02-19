@@ -1,31 +1,31 @@
 #include "main.hpp"
 
-string fancon::help() {
+string fanctl::help() {
   stringstream ss;
   ss << "Usage:" << endl
-     << "  fancon <command> [options]" << endl << endl
+     << "  fanctl <command> [options]" << endl << endl
      << "Available commands (and options <default>):" << endl
      << "lf list-fans         Lists the UIDs of all fans" << endl
      << "ls list-sensors      List the UIDs of all temperature sensors" << endl
-     << "wc write-config      Writes missing fan UIDs to " << fancon::conf_path << endl
+     << "wc write-config      Writes missing fan UIDs to " << fanctl::conf_path << endl
      << "test                 Tests the fan characteristic of all fans, required for usage of RPM in "
-     << fancon::conf_path << endl
+     << fanctl::conf_path << endl
      << "  -r retries 4       Number of retries a test does before failure, increase if you think a failing fan can pass!"
      << endl
      << "  -p profile         Writes a PWM to RPM profile for the fan, not recommended unless submitting a bug report"
      << endl
-     << "start                Starts the fancon daemon" << endl
+     << "start                Starts the fanctl daemon" << endl
      << "  -f fork            Forks off the parent process, not recommended for systemd usage" << endl
-     << "stop                 Stops the fancon daemon" << endl
-     << "reload               Reloads the fancon daemon" << endl
+     << "stop                 Stops the fanctl daemon" << endl
+     << "reload               Reloads the fanctl daemon" << endl
      << endl << "Global options: " << endl
-     << "  -d debug            Writes debug level messages to syslog, and runs single single threaded (not recommended)"
+     << "  -d debug            Writes debug level messages to syslog, and disables all multi-threading (not recommended)"
      << endl;
 
   return ss.str();
 }
 
-string fancon::listFans(SensorController &sc) {
+string fanctl::listFans(SensorController &sc) {
   auto uids = sc.getUIDs(Fan::path_pf);
   stringstream ss;
 
@@ -35,7 +35,7 @@ string fancon::listFans(SensorController &sc) {
   return ss.str();
 }
 
-string fancon::listSensors(SensorController &sc) {
+string fanctl::listSensors(SensorController &sc) {
   auto uids = sc.getUIDs(TemperatureSensor::path_pf);
   stringstream ss;
 
@@ -44,7 +44,7 @@ string fancon::listSensors(SensorController &sc) {
 
     // add fan labels after UID
     string label_p(uid.getBasePath());
-    string label = fancon::Util::readLine(label_p.append("_label"));
+    string label = fanctl::Util::readLine(label_p.append("_label"));
     if (!label.empty())
       ss << " (" << label << ")";
 
@@ -54,34 +54,34 @@ string fancon::listSensors(SensorController &sc) {
   return ss.str();
 }
 
-bool fancon::pidExists(pid_t pid) {
+bool fanctl::pidExists(pid_t pid) {
   string pid_path = string("/proc/") + to_string(pid);
   return exists(pid_path);
 }
 
-void fancon::writeLock() {
-  pid_t pid = fancon::Util::read<pid_t>(fancon::pid_file);
-  if (fancon::pidExists(pid)) {  // fancon process running
-    std::cerr << "Error: a fancon process is already running, please close it to continue" << endl;
+void fanctl::writeLock() {
+  pid_t pid = fanctl::Util::read<pid_t>(fanctl::pid_file);
+  if (fanctl::pidExists(pid)) {  // fanctl process running
+    std::cerr << "Error: a fanctl process is already running, please close it to continue" << endl;
     exit(1);
   } else
-    write<pid_t>(fancon::pid_file, getpid());
+    write<pid_t>(fanctl::pid_file, getpid());
 }
 
-void fancon::test(SensorController &sc, const bool debug, const bool profileFans, int testRetries) {
-  fancon::writeLock();
+void fanctl::test(SensorController &sc, const bool debug, const bool profileFans, int testRetries) {
+  fanctl::writeLock();
 
-  auto fanUIDs = sc.getUIDs(fancon::Fan::path_pf);
-  if (!exists(Util::fancon_dir))
-    bfs::create_directory(Util::fancon_dir);
+  auto fanUIDs = sc.getUIDs(fanctl::Fan::path_pf);
+  if (!exists(Util::fanctl_dir))
+    bfs::create_directory(Util::fanctl_dir);
 
   vector<thread> threads;
   cout << "Starting tests, this may take some time" << endl;
   for (auto it = fanUIDs.begin(); it != fanUIDs.end(); ++it) {
     if (it->hwmon_id != std::prev(it)->hwmon_id)
-      bfs::create_directory(string(fancon::Util::fancon_path) + to_string(it->hwmon_id));
+      bfs::create_directory(string(fanctl::Util::fanctl_path) + to_string(it->hwmon_id));
 
-    threads.push_back(thread(&fancon::testUID, std::ref(*it), profileFans, testRetries));
+    threads.push_back(thread(&fanctl::testUID, std::ref(*it), profileFans, testRetries));
 
     // run single at a time if debug mode enabled
     if (debug) {
@@ -98,7 +98,7 @@ void fancon::test(SensorController &sc, const bool debug, const bool profileFans
       t.detach();
 }
 
-void fancon::testUID(UID &uid, const bool profileFans, int retries) {
+void fanctl::testUID(UID &uid, const bool profileFans, int retries) {
   std::stringstream ss;
   TestResult res;
   for (; retries > 0; --retries) {
@@ -106,31 +106,31 @@ void fancon::testUID(UID &uid, const bool profileFans, int retries) {
 
     if (res.valid()) {
       Fan::writeTestResult(uid, res);
-      ss << "Test passed: " << uid << endl;
+      ss << uid << " : test passed" << endl;
       break;
     }
   }
 
   if (retries <= 0 && res.testable())
-    ss << "Test results invalid, consider running with more retries (--retries): " << uid << endl;
+    ss << uid << " : test results invalid, consider running with more retries (--retries)" << endl;
   else if (retries <= 0 && !res.testable())
-    ss << "Fan cannot be tested, driver unresponsive: " << uid << endl;
+    ss << uid << " : fan cannot be tested, driver unresponsive: " << endl;
 
   coutThreadsafe(ss.str());
   log(LOG_DEBUG, ss.str());
 }
 
-void fancon::handleSignal(int sig) {
+void fanctl::handleSignal(int sig) {
   switch (sig) {
   case (int) DaemonState::RELOAD:
-  case (int) DaemonState::STOP:daemon_state = (DaemonState) sig;
+  case (int) DaemonState::STOP: daemon_state = (DaemonState) sig;
     break;
   default:log(LOG_NOTICE, string("Unknown signal caught") + to_string(sig));
   }
 }
 
-void fancon::start(SensorController &sc, const bool debug, const bool fork_) {
-  fancon::writeLock();
+void fanctl::start(SensorController &sc, const bool debug, const bool fork_) {
+  fanctl::writeLock();
 
   if (fork_) {
     // Fork off the parent process
@@ -145,9 +145,14 @@ void fancon::start(SensorController &sc, const bool debug, const bool fork_) {
     };
     exitParent(pid);
 
+    // redirect standard file descriptors to /dev/null
+    freopen("/dev/null", "r", stdin);
+    freopen("/dev/null", "w+", stdout);
+    freopen("/dev/null", "w+", stderr);
+
     // Create a new session for the child
     if ((pid = setsid()) < 0) {
-      log(LOG_ERR, "Failed to set session id for the forked fancond thread");
+      log(LOG_ERR, "Failed to set session id for the forked fanctld thread");
       exit(EXIT_FAILURE);
     }
 
@@ -156,7 +161,7 @@ void fancon::start(SensorController &sc, const bool debug, const bool fork_) {
     exitParent(pid);
 
     // update pid file to reflect forks
-    write<pid_t>(fancon::pid_file, getpid());
+    write<pid_t>(fanctl::pid_file, getpid());
   }
 
   // Set file mode
@@ -164,41 +169,34 @@ void fancon::start(SensorController &sc, const bool debug, const bool fork_) {
 
   // Change working directory
   if (chdir("/") < 0) {
-    // log failure
+    log(LOG_ERR, "Failed to set working directory");
     exit(EXIT_FAILURE);
   }
 
-  // TODO: close all file descriptors?
-  // close standard file descriptors
-  close(STDIN_FILENO);
-  close(STDOUT_FILENO);
-  close(STDERR_FILENO);
-
-  // re-open standard file descriptors
-  stdin = fopen("/dev/null", "r");
-  stdout = fopen("/dev/null", "w+");
-  stderr = fopen("/dev/null", "w+");
-
-  auto ts_parents = sc.readConf(fancon::conf_path);
-  if (ts_parents.empty())
+  auto tsParents = sc.readConf(fanctl::conf_path);
+  if (tsParents.empty())
     return;
-  log(LOG_NOTICE, "Fancond started");
+  log(LOG_DEBUG, "fanctld started");
 
-  auto nThreads = (!debug) ? sc.conf.threads : 1;   // use single thread if debug is enabled
-  auto nTasks = std::distance(ts_parents.begin(), ts_parents.end());
+  auto nThreads = (debug) ? 1 : sc.conf.threads;   // use single thread if debug is enabled
+  auto nTasks = std::distance(tsParents.begin(), tsParents.end());
   if (nTasks < nThreads)
     nThreads = (uint) nTasks;
 
-  // give tasks to threads
-  long tpt = nTasks / nThreads;
-  vector<long> threadTasks(nThreads, tpt);
-  auto rem = nTasks % nThreads;   // hand out remaining tasks to threads
-  for (int i = 0; rem > 0; --rem, ++threadTasks[i++])
-    if (i >= nThreads)
-      i = 0;
+  // allocate tasks to threads
+  long tpt = nTasks / nThreads;   // tasks per thread
+  auto tRem = static_cast<unsigned long>(nTasks % nThreads);
+  // allocate threads with regular amount of tasks
+  vector<long> threadTasks(nThreads - tRem, tpt);
+  if (tRem)   // insert threads that have extra tasks
+    threadTasks.insert(threadTasks.end(), tRem, tpt + 1);
 
+  // set daemon state
+  daemon_state = DaemonState::RUN;
+
+  // run threads with allocated tasks
   vector<thread> threads;
-  auto begIt = ts_parents.begin();
+  auto begIt = tsParents.begin();
   for (int i = 0; i < nThreads; ++i) {
     auto endIt = next(begIt, threadTasks[i]);
     threads.push_back(thread(
@@ -209,7 +207,7 @@ void fancon::start(SensorController &sc, const bool debug, const bool fork_) {
 
   // handle SIGINT and SIGHUP signals
   struct sigaction act;
-  act.sa_handler = fancon::handleSignal;
+  act.sa_handler = fanctl::handleSignal;
   sigemptyset(&act.sa_mask);
   act.sa_flags = 0;
   sigaction(SIGINT, &act, NULL);
@@ -224,16 +222,16 @@ void fancon::start(SensorController &sc, const bool debug, const bool fork_) {
 
   // re-run this function if reload
   if (daemon_state == DaemonState::RELOAD)
-    fancon::start(sc, debug, fork_);
+    fanctl::start(sc, debug, fork_);
 }
 
-void fancon::send(DaemonState state) {
+void fanctl::send(DaemonState state) {
   // use kill() to send signals to the PID
-  pid_t pid = read<pid_t>(fancon::pid_file);
+  pid_t pid = read<pid_t>(fanctl::pid_file);
   if (pidExists(pid))
     kill(pid, (int) state);
   else
-    cerr << "Error: fancond is not running" << endl;
+    cerr << "Error: fanctld is not running" << endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -242,18 +240,18 @@ int main(int argc, char *argv[]) {
     args.push_back(string(argv[i]));
 
   // for first time setup
-  fancon::Util::writeSyslogConf();
+  fanctl::Util::writeSyslogConf();
 
-  fancon::Command help("help"), start("start"), stop("stop"), reload("reload"),
+  fanctl::Command help("help"), start("start"), stop("stop"), reload("reload"),
       list_fans("list-fans", true), list_sensors("list-sensors", true),
       test("test"), write_config("write-config", true);
-  vector<reference_wrapper<fancon::Command>> commands
+  vector<reference_wrapper<fanctl::Command>> commands
       {help, start, stop, reload, list_fans, list_sensors, test, write_config};
 
   // TODO: add options: exclude-fans
-  fancon::Option debug("debug", true), fork("fork", true), profiler("profiler", true),
+  fanctl::Option debug("debug", true), fork("fork", true), profiler("profiler", true),
       retries("retries", true, true);
-  vector<reference_wrapper<fancon::Option>> options
+  vector<reference_wrapper<fanctl::Option>> options
       {debug, fork, profiler, retries};
 
   for (auto it = args.begin(); it != args.end(); ++it) {
@@ -283,7 +281,7 @@ int main(int argc, char *argv[]) {
           // if option has value, check valid and set
           if (o.get().has_value) {
             auto ni = next(it);
-            if (ni != args.end() && fancon::Util::isNum(*ni)) {
+            if (ni != args.end() && fanctl::Util::isNum(*ni)) {
               o.get().val = std::stoi(*ni);
               o.get().called = found = true;
               ++it;   // skip next arg
@@ -306,22 +304,22 @@ int main(int argc, char *argv[]) {
 
   // execute called commands with called options
   if (help.called || args.empty()) // execute help() if no commands are given
-    coutThreadsafe(fancon::help());
+    coutThreadsafe(fanctl::help());
   else if (start.called)
-    fancon::start(sc, debug.called, fork.called);
+    fanctl::start(sc, debug.called, fork.called);
   else if (stop.called)
-    fancon::send(DaemonState::STOP);
+    fanctl::send(DaemonState::STOP);
   else if (reload.called)
-    fancon::send(DaemonState::RELOAD);
+    fanctl::send(DaemonState::RELOAD);
   else if (list_fans.called)
-    coutThreadsafe(fancon::listFans(sc));
+    coutThreadsafe(fanctl::listFans(sc));
   else if (list_sensors.called)
-    coutThreadsafe(fancon::listSensors(sc));
+    coutThreadsafe(fanctl::listSensors(sc));
   else if (test.called) {
     int nRetries = (retries.called && retries.val > 0) ? retries.val : 4;   // default 4 retries
-    fancon::test(sc, debug.called, profiler.called, nRetries);
+    fanctl::test(sc, debug.called, profiler.called, nRetries);
   } else if (write_config.called)
-    sc.writeConf(fancon::conf_path);
+    sc.writeConf(fanctl::conf_path);
 
   return 0;
 }

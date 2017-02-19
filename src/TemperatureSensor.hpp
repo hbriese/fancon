@@ -1,23 +1,21 @@
-#ifndef FANCON_TEMPERATURESENSOR_HPP
-#define FANCON_TEMPERATURESENSOR_HPP
+#ifndef FANCTL_TEMPERATURESENSOR_HPP
+#define FANCTL_TEMPERATURESENSOR_HPP
 
 #include "Util.hpp"
 #include "UID.hpp"
 
 using std::to_string;
-//using fancon::Util::read;
+using fanctl::Util::read;
 
-namespace fancon {
+namespace fanctl {
 class TemperatureSensor {
 public:
   static int getTemp(const string &path) {
-    string inputP = path + "_input";
-    long temp = fancon::Util::read<long>(inputP);
-    return fancon::Util::read<int>(inputP) / 1000;  // 3 decimal places given by driver
+    return read<int>(path + "_input") / 1000;  // 3 decimal places given by sysfs
   }
 
   constexpr static const char *path_pf = "temp";
 };
 }
 
-#endif //FANCON_TEMPERATURESENSOR_HPP
+#endif //fanctl_TEMPERATURESENSOR_HPP

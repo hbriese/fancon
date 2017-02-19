@@ -1,5 +1,5 @@
-#ifndef FANCOND_FAN_HPP
-#define FANCOND_FAN_HPP
+#ifndef FANCTL_FAN_HPP
+#define FANCTL_FAN_HPP
 
 #include <algorithm>    // lower_bound
 #include <array>
@@ -19,14 +19,14 @@ namespace bfs = boost::filesystem;
 using std::move;
 using boost::filesystem::path;
 using boost::filesystem::exists;
-using fancon::Util::read;
-using fancon::Util::write;
-using fancon::Util::log;
-using fancon::Util::coutThreadsafe;
-using fancon::UID;
-using fancon::Config;
+using fanctl::Util::read;
+using fanctl::Util::write;
+using fanctl::Util::log;
+using fanctl::Util::coutThreadsafe;
+using fanctl::UID;
+using fanctl::Config;
 
-namespace fancon {
+namespace fanctl {
 struct TestResult {
   TestResult() { can_test = false; }
 
@@ -60,7 +60,6 @@ public:
   void update(int temp);
   int testPWM(int rpm);    // TODO: remove
 
-  // TODO: return test results struct, so averages can be taken
   static TestResult test(const UID &fanUID, const bool profile);
   static void writeTestResult(const UID &fanUID, const TestResult &result);
 
@@ -68,7 +67,7 @@ public:
 
 private:
   const string hwID;  // hwmon id
-  vector<fancon::Point> points;
+  vector<fanctl::Point> points;
 
   static const int manual_enable_mode = 1;
   int driver_enable_mode;
@@ -101,6 +100,6 @@ struct FanPaths {
       pwm_start_pf, slope_pf,
       step_ut_pf, step_dt_pf, stop_t_pf;
 };
-}   // fancon
+}   // fanctl
 
-#endif //FANCOND_FAN_HPP
+#endif //FANCTL_FAN_HPP

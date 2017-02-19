@@ -1,5 +1,5 @@
-#ifndef FANCON_SENSORCONTROLLER_HPP
-#define FANCON_SENSORCONTROLLER_HPP
+#ifndef FANCTL_SENSORCONTROLLER_HPP
+#define FANCTL_SENSORCONTROLLER_HPP
 
 #include <algorithm>    // search, find_if
 #include <iostream>     // skipws, endl
@@ -28,17 +28,17 @@ using std::istringstream;
 using std::ostringstream;
 using std::pair;
 using std::vector;
-using fancon::UID;
-using fancon::Fan;
-using fancon::SensorControllerConfig;
-using fancon::Config;
-using fancon::TemperatureSensor;
-using fancon::Util::DaemonState;
-using fancon::Util::getLastNum;
+using fanctl::UID;
+using fanctl::Fan;
+using fanctl::SensorControllerConfig;
+using fanctl::Config;
+using fanctl::TemperatureSensor;
+using fanctl::Util::DaemonState;
+using fanctl::Util::getLastNum;
 
 using SensorChip = shared_ptr<const sensors_chip_name *>;
 
-namespace fancon {
+namespace fanctl {
 class TSParent;
 class SensorControllerConfig;
 
@@ -47,14 +47,15 @@ public:
   SensorController(bool debug = false);
   ~SensorController();
 
-  fancon::SensorControllerConfig conf;
+  fanctl::SensorControllerConfig conf;
 
-  vector<UID> getUIDs(const char *device_path_postfix);
+  vector<UID> getUIDs(const char *devicePathPostfix);
+
   void writeConf(const string &path);
-  vector<fancon::TSParent> readConf(const string &path);
+  vector<unique_ptr<fanctl::TSParent>> readConf(const string &path);
 
-  // TODO: make state& const?
-  void run(vector<TSParent>::iterator first, vector<TSParent>::iterator last, DaemonState &state) const;
+  void run(vector<unique_ptr<TSParent>>::iterator first, vector<unique_ptr<TSParent>>::iterator last,
+           const DaemonState &state) const;
 
 private:
   vector<SensorChip> sensor_chips;
@@ -64,16 +65,15 @@ private:
 
 class TSParent {
 public:
-  TSParent(UID tsUID, Fan *fp, int temp = 0)
-      : ts_uid(tsUID), temp(temp) { fans.push_back(fp); }
+  TSParent(UID tsUID, unique_ptr<Fan> fp, int temp = 0);
+  TSParent(TSParent &&other);
 
   UID ts_uid;
-  // TODO: replace replace raw * with unique_ptr
-  vector<Fan *> fans;
+  vector<unique_ptr<Fan>> fans;
   int temp;
 
   bool update();
 };
 }
 
-#endif //FANCON_SENSORCONTROLLER_HPP
+#endif //FANCTL_SENSORCONTROLLER_HPP

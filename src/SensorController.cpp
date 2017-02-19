@@ -1,19 +1,18 @@
 #include "SensorController.hpp"
-#include "main.hpp"
 
-fancon::SensorController::SensorController(bool debug) {
+fanctl::SensorController::SensorController(bool debug) {
   sensors_init(NULL);
   sensor_chips = getSensorChips();
 
-  fancon::Util::openSyslog(debug);
+  fanctl::Util::openSyslog(debug);
 }
 
-fancon::SensorController::~SensorController() {
+fanctl::SensorController::~SensorController() {
   sensors_cleanup();
-  fancon::Util::closeSyslog();
+  fanctl::Util::closeSyslog();
 }
 
-vector<SensorChip> fancon::SensorController::getSensorChips() {
+vector<SensorChip> fanctl::SensorController::getSensorChips() {
   vector<SensorChip> sensor_chips;
   const sensors_chip_name *cn = nullptr;
   int ci = 0;
@@ -24,7 +23,7 @@ vector<SensorChip> fancon::SensorController::getSensorChips() {
   return sensor_chips;
 }
 
-vector<UID> fancon::SensorController::getUIDs(const char *dev_pf) {
+vector<UID> fanctl::SensorController::getUIDs(const char *devPf) {
   vector<UID> uids;
   const sensors_feature *sf;
 
@@ -36,16 +35,16 @@ vector<UID> fancon::SensorController::getUIDs(const char *dev_pf) {
     while ((sf = sensors_get_features(cn, &sfi)) != NULL) {
       // check for supported device postfix, e.g. fan or temp
       string name(sf->name);
-      if (name.find(dev_pf) != string::npos)
-        uids.push_back(fancon::UID(cn->prefix, hwmon_id, name));
+      if (name.find(devPf) != string::npos)
+        uids.push_back(fanctl::UID(cn->prefix, hwmon_id, name));
     }
   }
 
   return uids;
 }
 
-void fancon::SensorController::writeConf(const string &path) {
-  // TODO: set up fans as running - i.e. inc default temp_uid and set current temp & rpm for fanconfig
+void fanctl::SensorController::writeConf(const string &path) {
+  // TODO: set up fans as running - i.e. inc default temp_uid and set current temp & rpm for fanctlfig
   auto f_uids = getUIDs(Fan::path_pf);
   std::fstream fs(path, std::ios_base::in);   // read from the beginning of the file, append writes
   bool pExists = exists(path);
@@ -121,14 +120,21 @@ void fancon::SensorController::writeConf(const string &path) {
     log(LOG_ERR, "Failed to write config file: " + path);
 }
 
-vector<fancon::TSParent> fancon::SensorController::readConf(const string &path) {
+vector<unique_ptr<fanctl::TSParent>> fanctl::SensorController::readConf(const string &path) {
   ifstream ifs(path);
-  vector<fancon::TSParent> ts_parents;
+  vector<unique_ptr<fanctl::TSParent>> tsParents;
 
   bool sccFound = false;
 
-  // Fan_UID TS_UID FanConfig
-  for (string line; std::getline(ifs, line, '\n');) {
+  /* FORMAT:
+  * SensorControllerConfig
+  * Fan_UID TS_UID Config   */
+  for (string line; std::getline(ifs, line);) {
+    // remove prefacing ' ' or '/t's
+    bool stillSkip = true;
+    std::remove_if(line.begin(), line.end(),
+                   [&stillSkip](const char &c) { return stillSkip && (stillSkip = (std::isspace(c) | (c == '\t'))); });
+
     if (line.empty() || line.front() == '#')  // skip line if empty or prefaced with '#'
       continue;
 
@@ -136,7 +142,7 @@ vector<fancon::TSParent> fancon::SensorController::readConf(const string &path) 
 
     // read and set SensorControllerConfig (if valid)
     if (!sccFound) {
-      fancon::SensorControllerConfig fcc(liss);
+      fanctl::SensorControllerConfig fcc(liss);
 
       if (fcc.valid()) {
         conf = fcc;
@@ -159,33 +165,36 @@ vector<fancon::TSParent> fancon::SensorController::readConf(const string &path) 
 //            if (!p.validPWM())
 //                p.pwm = f.testPWM(p.rpm);
 
-    auto tspIt = find_if(ts_parents.begin(), ts_parents.end(),
-                         [&ts_uid](const TSParent &p) -> bool { return p.ts_uid == ts_uid; });
+    auto tspIt = find_if(tsParents.begin(), tsParents.end(),
+                         [&ts_uid](const unique_ptr<TSParent> &pp) -> bool { return pp->ts_uid == ts_uid; });
 
-    Fan *fptr = new Fan(fan_uid, fan_conf, conf.dynamic);
+    // TODO: replace raw * with unique_ptr
+//    Fan *fptr = new Fan(fan_uid, fan_conf, conf.dynamic);
+    auto f = make_unique<Fan>(fan_uid, fan_conf, conf.dynamic);
 
-    // TODO: fix copied fan being passed
-    if (tspIt != ts_parents.end())       // found, push fan onto stack
-      tspIt->fans.push_back(fptr);
+    if (tspIt != tsParents.end())       // found, push fan onto stack
+      (*tspIt)->fans.emplace_back(move(f));
     else                                // make new TSParent
-      ts_parents.push_back(TSParent(ts_uid, fptr));
+      tsParents.emplace_back(make_unique<TSParent>(ts_uid, move(f)));
   }
 
-  return ts_parents;
+//  return ts_parents;
+  return tsParents;
 }
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
-void fancon::SensorController::run(vector<TSParent>::iterator first, vector<TSParent>::iterator last,
-                                   DaemonState &state) const {
-  while (state == fancon::Util::DaemonState::RUN) {
+void fanctl::SensorController::run(vector<unique_ptr<TSParent>>::iterator first,
+                                   vector<unique_ptr<TSParent>>::iterator last,
+                                   const DaemonState &state) const {
+  while (state == fanctl::Util::DaemonState::RUN) {
     for (auto tspIt = first; tspIt != last; ++tspIt) {
       // TODO: utilize step_ut & step_dt
 
       // update fans if temp changed
-      if (tspIt->update())
-        for (auto &fp : tspIt->fans)
-          fp->update(tspIt->temp);
+      if ((*tspIt)->update())
+        for (auto &fp : (*tspIt)->fans)
+          fp->update((*tspIt)->temp);
     }
 
     sleep(conf.update_time_s);
@@ -193,12 +202,21 @@ void fancon::SensorController::run(vector<TSParent>::iterator first, vector<TSPa
 }
 #pragma clang diagnostic pop
 
-bool fancon::TSParent::update() {
-  int newTemp = fancon::TemperatureSensor::getTemp(ts_uid.getBasePath());
+fanctl::TSParent::TSParent(UID tsUID, unique_ptr<Fan> fp, int temp)
+    : ts_uid(tsUID), temp(temp) { fans.emplace_back(move(fp)); }
+
+fanctl::TSParent::TSParent(TSParent &&other) : ts_uid(other.ts_uid), temp(other.temp) {
+  for (auto &fp : fans)
+    fans.emplace_back(move(fp));
+  fans.clear();
+}
+
+bool fanctl::TSParent::update() {
+  int newTemp = fanctl::TemperatureSensor::getTemp(ts_uid.getBasePath());
 
   if (newTemp != temp) {
     temp = newTemp;
     return true;
-  } else
-    return false;
+  }
+  return false;
 }

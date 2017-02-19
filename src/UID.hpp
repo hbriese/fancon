@@ -1,5 +1,5 @@
-#ifndef FANCON_UID_HPP
-#define FANCON_UID_HPP
+#ifndef FANCTL_UID_HPP
+#define FANCTL_UID_HPP
 
 #include <algorithm>    // search, find, remove_if
 #include <cctype>       // isspace
@@ -16,9 +16,9 @@ using std::find;
 using std::ostream;
 using std::istream;
 using std::to_string;
-using fancon::Util::log;
+using fanctl::Util::log;
 
-namespace fancon {
+namespace fanctl {
 class UID {
 public:
   UID(istream &is) { is >> *this; }
@@ -39,7 +39,7 @@ public:
   const bool valid() const { return (!cn_label.empty()) && (hwmon_id != -1) && (!dev_name.empty()); }
 
   const string getBasePath() const {
-    string bpath(fancon::Util::hwmon_path);
+    string bpath(fanctl::Util::hwmon_path);
     bpath.append(to_string(hwmon_id)).append("/").append(dev_name);
     return bpath;
   }
@@ -92,4 +92,4 @@ private:
 };
 }
 
-#endif //FANCON_UID_HPP
+#endif //FANCTL_UID_HPP

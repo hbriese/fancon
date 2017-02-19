@@ -1,5 +1,5 @@
-#ifndef FANCON_CONFIG_HPP
-#define FANCON_CONFIG_HPP
+#ifndef FANCTL_CONFIG_HPP
+#define FANCTL_CONFIG_HPP
 
 #include <algorithm>    // find, search, remove_if
 #include <cctype>       // isspace, isdigit
@@ -20,12 +20,12 @@ using std::ostream;
 using std::istream;
 using std::to_string;
 using std::vector;
-using fancon::Util::coutThreadsafe;
-using fancon::Util::log;
-using fancon::Util::isNum;
-using fancon::Util::validIter;
+using fanctl::Util::coutThreadsafe;
+using fanctl::Util::log;
+using fanctl::Util::isNum;
+using fanctl::Util::validIter;
 
-namespace fancon {
+namespace fanctl {
 class SensorControllerConfig {
 public:
   SensorControllerConfig() {}
@@ -54,8 +54,8 @@ private:
   const string threadsBegSep = "threads=";
 };
 
-ostream &operator<<(ostream &os, const fancon::SensorControllerConfig &c);
-istream &operator>>(istream &is, fancon::SensorControllerConfig &c);
+ostream &operator<<(ostream &os, const fanctl::SensorControllerConfig &c);
+istream &operator>>(istream &is, fanctl::SensorControllerConfig &c);
 
 class Point {
 public:
@@ -90,8 +90,8 @@ private:
       endSep = ']';
 };
 
-ostream &operator<<(ostream &os, const fancon::Point &p);
-istream &operator>>(istream &is, fancon::Point &p);
+ostream &operator<<(ostream &os, const fanctl::Point &p);
+istream &operator>>(istream &is, fanctl::Point &p);
 
 class Config {
 public:
@@ -111,8 +111,8 @@ public:
   friend istream &operator>>(istream &is, Config &c);
 };
 
-ostream &operator<<(ostream &os, const fancon::Config &c);
-istream &operator>>(istream &is, fancon::Config &c);
+ostream &operator<<(ostream &os, const fanctl::Config &c);
+istream &operator>>(istream &is, fanctl::Config &c);
 }
 
-#endif //FANCON_CONFIG_HPP
+#endif //FANCTL_CONFIG_HPP

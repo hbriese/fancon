@@ -1,5 +1,5 @@
-#ifndef FANCON_MAIN_HPP
-#define FANCON_MAIN_HPP
+#ifndef FANCTL_MAIN_HPP
+#define FANCTL_MAIN_HPP
 
 #include <algorithm>    // transform, sort
 #include <csignal>
@@ -30,17 +30,17 @@ using std::make_pair;
 using std::move;
 using std::ref;
 using std::reference_wrapper;
-using fancon::SensorController;
-using fancon::TemperatureSensor;
-using fancon::Util::DaemonState;
-using fancon::Util::log;
+using fanctl::SensorController;
+using fanctl::TemperatureSensor;
+using fanctl::Util::DaemonState;
+using fanctl::Util::log;
 
 int main(int argc, char *argv[]);
 
-namespace fancon {
-const string conf_path("/etc/fancon.conf");
+namespace fanctl {
+const string conf_path("/etc/fanctl.conf");
 
-const string pid_file = string(fancon::Util::fancon_dir) + "pid";
+const string pid_file = string(fanctl::Util::fanctl_dir) + "pid";
 
 DaemonState daemon_state;
 
@@ -89,4 +89,4 @@ public:
 };
 }
 
-#endif //FANCON_MAIN_HPP
+#endif //FANCTL_MAIN_HPP
