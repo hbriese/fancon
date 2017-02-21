@@ -2,15 +2,14 @@
 
 [![License](http://img.shields.io/badge/license-APACHE2-blue.svg)]()
 
-fancon is a C++ userspace fan control tool, supporting both Linux and Mac OS X, allowing custom speed-temperature curve for each individual fan, controllable by either PWM or RPM.
-
+fancon is a GNU/Linux fan control daemon and fan testing tool, allowing custom speed-temperature curve for each individual fan, controllable by either PWM or RPM.
   - High performance
   - Low memory usage
   - High test coverage
 
 Low overhead and easy configuration are the main goals of fancon, this is achieved by:
   - Use of C++, multi-threading, and optimized STL functions
-  - Text file configuration, great for headless machines - at /etc/fancon.conf
+  - Standard text file configuration - at /etc/fancon.conf
   - Fan characteristic testing - all fans are not equal, so testing enables RPM fan speed configuration, not just PWM control like similar tools
   - Support for stopping fans (for example, if not under load) and correct handling of required fan PWM for start
 
@@ -48,6 +47,7 @@ fancon aims to be widely deployable with minimum runtime dependencies:
 ### Development
 
 Want to contribute? Pull requests, issues and feature requests are welcome.
+I can be emailed at haydenbriese@gmail.com
 
 The code is formatted to the [LLVM style](http://clang.llvm.org/docs/ClangFormatStyleOptions.html) style using clang-format
 
