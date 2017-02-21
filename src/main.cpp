@@ -229,6 +229,8 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
   // re-run this function if reload
   if (fancon::daemon_state == DaemonState::RELOAD)
     fancon::start(sc, fork_, nThreads, false);  // writeLock = false
+
+  return;
 }
 
 void fancon::send(DaemonState state) {

@@ -14,7 +14,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <libexplain/setsid.h>
 #include "Util.hpp"
 #include "SensorController.hpp"
 

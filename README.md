@@ -22,7 +22,7 @@ Low overhead and easy configuration are the main goals of fancon, this is achiev
 Snap [installation instructions](https://snapcraft.io/docs/core/install)
 
 ```sh
-$ sudo snap install --beta fancon
+$ sudo snap install --beta --classic fancon
 ```
 
 ###### Build from source:
@@ -30,7 +30,7 @@ gcc may be substituted for clang
 
 ```sh
 $ git clone https://github.com/HBriese/fancon.git
-$ sudo apt-get install gcc make cmake lm-sensors rsyslog libc++-dev libstdc++6 linux-libc-dev libsensors4-dev libboost-filesystem-dev libexplain-dev
+$ sudo apt-get install gcc make cmake lm-sensors rsyslog libc++-dev libstdc++6 linux-libc-dev libsensors4-dev libboost-filesystem-dev
 $ mkdir fancon/Release && cd fancon/Release && cmake -DCMAKE_BUILD_TYPE=Release .. && make && sudo make install
 ```
 
@@ -74,4 +74,3 @@ limitations under the License.
    [CMake]: https://cmake.org/
    [Boost-filesystem]: <http://www.boost.org/doc/libs/1_62_0/libs/filesystem/doc/index.htm>
    [pthread]: <https://www.gnu.org/software/hurd/libpthread.html>
-   [libexplain]: <http://libexplain.sourceforge.net/>
