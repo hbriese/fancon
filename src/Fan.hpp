@@ -1,5 +1,5 @@
-#ifndef FANCTL_FAN_HPP
-#define FANCTL_FAN_HPP
+#ifndef fancon_FAN_HPP
+#define fancon_FAN_HPP
 
 #include <algorithm>    // lower_bound
 #include <array>
@@ -16,17 +16,18 @@
 namespace chrono = std::chrono;
 namespace bfs = boost::filesystem;
 
+using std::prev;
 using std::move;
 using boost::filesystem::path;
 using boost::filesystem::exists;
-using fanctl::Util::read;
-using fanctl::Util::write;
-using fanctl::Util::log;
-using fanctl::Util::coutThreadsafe;
-using fanctl::UID;
-using fanctl::Config;
+using fancon::Util::read;
+using fancon::Util::write;
+using fancon::Util::log;
+using fancon::Util::coutThreadsafe;
+using fancon::UID;
+using fancon::Config;
 
-namespace fanctl {
+namespace fancon {
 struct TestResult {
   TestResult() { can_test = false; }
 
@@ -43,9 +44,9 @@ struct TestResult {
 
   bool can_test = false;
 
-  const bool testable() { return can_test; }
+  bool testable() { return can_test; }
 
-  const bool valid() {
+  bool valid() {
     return (rpm_min > 0) && (rpm_min < rpm_max) && (pwm_min > 0) &&
         (pwm_min < pwm_max) && (pwm_start > 0) && (slope > 0);
   }
@@ -56,7 +57,7 @@ public:
   Fan(const UID &fan_uid, const Config &conf, bool dynamic = true);
   ~Fan();
 
-  inline const int calcPWM(int rpm) { return (int) (((rpm - rpm_min) / slope) + pwm_min); }
+  inline int calcPWM(int rpm) { return (int) (((rpm - rpm_min) / slope) + pwm_min); }
   void update(int temp);
   int testPWM(int rpm);    // TODO: remove
 
@@ -67,7 +68,7 @@ public:
 
 private:
   const string hwID;  // hwmon id
-  vector<fanctl::Point> points;
+  vector<fancon::Point> points;
 
   static const int manual_enable_mode = 1;
   int driver_enable_mode;
@@ -82,8 +83,8 @@ private:
 
   // values in ms
   // TODO: handle step up time and step down time
-  long step_up_t, step_down_t,    // time taken before rpm is increased/decreased (set by user/driver)
-      stop_t;
+//  long step_up_t, step_down_t,    // time taken before rpm is increased/decreased (set by user/driver)
+  long stop_t;
   static const int speed_change_t = 3;    // seconds to allow for rpm changes when altering the pwm
   static const int pwm_max_absolute = 255;
 
@@ -93,13 +94,14 @@ private:
 struct FanPaths {
   FanPaths(const UID &fanUID);
 
-  string pwm_pf, rpm_pf,
-      enable_pf,
+  string pwm_p, rpm_p;
+  string enable_pf,
       pwm_min_pf, pwm_max_pf,
       rpm_min_pf, rpm_max_pf,
       pwm_start_pf, slope_pf,
-      step_ut_pf, step_dt_pf, stop_t_pf;
+      stop_t_pf;
+//      step_ut_pf, step_dt_pf,
 };
-}   // fanctl
+}   // fancon
 
-#endif //FANCTL_FAN_HPP
+#endif //fancon_FAN_HPP

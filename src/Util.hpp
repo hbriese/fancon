@@ -1,5 +1,5 @@
-#ifndef FANCTL_UTIL_HPP
-#define FANCTL_UTIL_HPP
+#ifndef fancon_UTIL_HPP
+#define fancon_UTIL_HPP
 
 #include <iostream>     // endl
 #include <algorithm>    // all_of, reverse
@@ -26,18 +26,19 @@ using std::ifstream;
 using boost::filesystem::exists;
 using boost::filesystem::path;
 
-namespace fanctl {
+namespace fancon {
 namespace Util {
 enum DaemonState { RUN, STOP = SIGINT, RELOAD = SIGHUP };
 
 constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
 
-constexpr const char *fanctl_dir = "/etc/fanctl.d/";
+constexpr const char *fancon_dir = "/etc/fancon.d/";
 
-constexpr const char *fanctl_path = "/etc/fanctl.d/hwmon";
+constexpr const char *fancon_path = "/etc/fancon.d/hwmon";
 
 static std::mutex coutLock;
 
+// TODO: remove syslog from SensorController and place in main
 static bool syslog_open = false;
 
 int getLastNum(string str);   // TODO: take as reference and do not reverse
@@ -45,74 +46,65 @@ bool isNum(const string &str);
 void coutThreadsafe(const string &out);
 
 /* found: returns false if any of the iterators are invalid */
-const bool validIter(const string::iterator &end, std::initializer_list<string::iterator> iterators);
+bool validIter(const string::iterator &end, std::initializer_list<string::iterator> iterators);
 
 void writeSyslogConf();
 void openSyslog(bool debug = false);
 void closeSyslog();
 void log(int logSeverity, const string &message);
 
-/* getPath: returns the usual path (used by the driver) if it exists, else a /etc/fanctl.d/ path */
-string getPath(const string &path_pf, const string &hwmon_id, const bool prev_failed = false);
+/* getPath: returns the usual path (used by the driver) if it exists, else a /etc/fancon.d/ path */
+inline string getPath(const string &path_pf, const string &hwmon_id, const bool useSysFS = false) {
+  return string(((useSysFS) ? hwmon_path + hwmon_id + '/' + path_pf
+                            : fancon_path + hwmon_id + '/' + path_pf));
+}
 
 string readLine(string path);
 
 template<typename T>
-T read(const string &path) {
+T read(const string &path, int nFailed = 0) {
   ifstream ifs(path);
   T ret;
   ifs >> ret;
   ifs.close();
 
-  if (ifs.fail())
-    fanctl::Util::log(LOG_ERR, string("Failed to read from: ") + path);
-
-  return ret;
-}
-
-template<typename T>
-T read(const string &path_pf, const string &hwmon_id, int nFailed = 0) {
-//    return read<T>(getPath(path_pf, hwmon_id));
-  string path(getPath(path_pf, hwmon_id, (nFailed > 1)));   // try initial path 2 times
-  if (!exists(path))
-    log(LOG_DEBUG, string("Failed to read, file does not exist: ") + path);
-
-  ifstream ifs(path);
-  T ret;
-  ifs >> ret;
-  ifs.close();
-
-  if (ifs.fail() && nFailed < 5) {    // try read 4 times
-    fanctl::Util::log(LOG_ERR, string("Failed to read from: ") + path);
-    return read<T>(path_pf, hwmon_id, ++nFailed);
+  if (ifs.fail()) {
+    if (nFailed > 4)
+      fancon::Util::log(LOG_ERR, string("Failed to read from: ") + path
+          + ((exists(path)) ? " - filesystem or permission error" : " - doesn't exist!"));
+    else
+      return read<T>(path, ++nFailed);
   }
 
   return ret;
 }
 
 template<typename T>
-void write(const string &path, T val) {
-  ofstream ofs(path);
-  ofs << val << endl;
-  ofs.close();
-
-  if (ofs.fail())
-    fanctl::Util::log(LOG_ERR, string("Failed to write '") + to_string(val) + "' to: " + path);
+inline T read(const string &path_pf, const string &hwmon_id, bool useSysFS = false) {
+  return read<T>(getPath(path_pf, hwmon_id, useSysFS));
 }
 
 template<typename T>
-void write(const string &path_pf, const string &hwmon_id, T val, const bool prev_failed = false) {
-  string path(getPath(path_pf, hwmon_id, prev_failed));
+void write(const string &path, T val, int nFailed = 0) {
   ofstream ofs(path);
   ofs << val << endl;
   ofs.close();
 
   if (ofs.fail()) {
-    fanctl::Util::log(LOG_ERR, string("Failed to write to: ") + path);
-    return write<T>(path_pf, hwmon_id, val, true);
+    if (nFailed > 4)
+      fancon::Util::log(LOG_ERR, string("Failed to write '") + to_string(val)
+          + "' to: " + path + " - filesystem or permission error");
+    else
+      return write<T>(path, std::move(val), ++nFailed);
   }
 }
-}   // UTIL
-}   // fanctl
 
-#endif //FANCTL_UTIL_HPP
+// TODO: write all to /etc/fancon.d/ instead
+template<typename T>
+inline void write(const string &path_pf, const string &hwmon_id, T val, bool useSysFS = false) {
+  return write<T>(getPath(path_pf, hwmon_id, useSysFS), val);
+}
+}   // UTIL
+}   // fancon
+
+#endif //fancon_UTIL_HPP

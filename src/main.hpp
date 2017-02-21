@@ -1,5 +1,5 @@
-#ifndef FANCTL_MAIN_HPP
-#define FANCTL_MAIN_HPP
+#ifndef fancon_MAIN_HPP
+#define fancon_MAIN_HPP
 
 #include <algorithm>    // transform, sort
 #include <csignal>
@@ -21,6 +21,7 @@
 using std::cerr;
 using std::cout;
 using std::endl;
+using std::future;
 using std::string;
 using std::to_string;
 using std::stringstream;
@@ -30,17 +31,18 @@ using std::make_pair;
 using std::move;
 using std::ref;
 using std::reference_wrapper;
-using fanctl::SensorController;
-using fanctl::TemperatureSensor;
-using fanctl::Util::DaemonState;
-using fanctl::Util::log;
+using fancon::SensorController;
+using fancon::TemperatureSensor;
+using fancon::TestResult;
+using fancon::Util::DaemonState;
+using fancon::Util::log;
 
 int main(int argc, char *argv[]);
 
-namespace fanctl {
-const string conf_path("/etc/fanctl.conf");
+namespace fancon {
+const string conf_path("/etc/fancon.conf");
 
-const string pid_file = string(fanctl::Util::fanctl_dir) + "pid";
+const string pid_file = string(fancon::Util::fancon_dir) + "pid";
 
 DaemonState daemon_state;
 
@@ -51,12 +53,13 @@ string listSensors(SensorController &sensorController);
 
 bool pidExists(pid_t pid);
 void writeLock();
+vector<ulong> getThreadTasks(uint nThreads, ulong nTasks);
 
-void test(SensorController &sensorController, const bool debug, const bool profileFans = false, int testRetries = 4);
-void testUID(UID &uid, const bool profileFans = false, int retries = 4);
+void test(SensorController &sensorController, const bool profileFans, uint testRetries, bool singleThread = 0);
+void testUID(UID &uid, const bool profileFans = false, uint retries = 4);
 
 void handleSignal(int sig);
-void start(SensorController &sc, const bool debug = false, const bool fork_ = false);
+void start(SensorController &sc, const bool fork_ = false, uint nThreads = 0, const bool writeLock = true);
 void send(DaemonState state);
 
 struct Command {
@@ -85,8 +88,8 @@ public:
       : Command(name, shrtName), has_value(hasValue) {}
 
   bool has_value;
-  int val;
+  uint val;
 };
 }
 
-#endif //FANCTL_MAIN_HPP
+#endif //fancon_MAIN_HPP

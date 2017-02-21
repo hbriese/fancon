@@ -1,5 +1,5 @@
-#ifndef FANCTL_SENSORCONTROLLER_HPP
-#define FANCTL_SENSORCONTROLLER_HPP
+#ifndef fancon_SENSORCONTROLLER_HPP
+#define fancon_SENSORCONTROLLER_HPP
 
 #include <algorithm>    // search, find_if
 #include <iostream>     // skipws, endl
@@ -28,17 +28,17 @@ using std::istringstream;
 using std::ostringstream;
 using std::pair;
 using std::vector;
-using fanctl::UID;
-using fanctl::Fan;
-using fanctl::SensorControllerConfig;
-using fanctl::Config;
-using fanctl::TemperatureSensor;
-using fanctl::Util::DaemonState;
-using fanctl::Util::getLastNum;
+using fancon::UID;
+using fancon::Fan;
+using fancon::SensorControllerConfig;
+using fancon::Config;
+using fancon::TemperatureSensor;
+using fancon::Util::DaemonState;
+using fancon::Util::getLastNum;
 
 using SensorChip = shared_ptr<const sensors_chip_name *>;
 
-namespace fanctl {
+namespace fancon {
 class TSParent;
 class SensorControllerConfig;
 
@@ -47,12 +47,12 @@ public:
   SensorController(bool debug = false);
   ~SensorController();
 
-  fanctl::SensorControllerConfig conf;
+  fancon::SensorControllerConfig conf;
 
   vector<UID> getUIDs(const char *devicePathPostfix);
 
   void writeConf(const string &path);
-  vector<unique_ptr<fanctl::TSParent>> readConf(const string &path);
+  vector<unique_ptr<fancon::TSParent>> readConf(const string &path);
 
   void run(vector<unique_ptr<TSParent>>::iterator first, vector<unique_ptr<TSParent>>::iterator last,
            const DaemonState &state) const;
@@ -76,4 +76,4 @@ public:
 };
 }
 
-#endif //FANCTL_SENSORCONTROLLER_HPP
+#endif //fancon_SENSORCONTROLLER_HPP

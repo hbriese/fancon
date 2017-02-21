@@ -1,14 +1,14 @@
 #include "Config.hpp"
 
-using namespace fanctl;
+using namespace fancon;
 
-ostream &fanctl::operator<<(ostream &os, const fanctl::SensorControllerConfig &c) {
+ostream &fancon::operator<<(ostream &os, const fancon::SensorControllerConfig &c) {
   os << c.updateBegSep << to_string(c.update_time_s) << " " << c.threadsBegSep << to_string(c.threads)
      << " " << c.dynamicBegSep << ((c.dynamic) ? "true" : "false");
   return os;
 }
 
-istream &fanctl::operator>>(istream &is, fanctl::SensorControllerConfig &c) {
+istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
   is >> skipws;
   std::istreambuf_iterator<char> eos;
   string in(std::istreambuf_iterator<char>(is), eos);
@@ -36,7 +36,7 @@ istream &fanctl::operator>>(istream &is, fanctl::SensorControllerConfig &c) {
 
   // fail if
   if ((!dynamicFound & !updateFound & !threadsFound) ||
-      (dynamicEndIt == in.end() & updateEndIt == in.end() & threadsEndIt == in.end())) {
+      ((dynamicEndIt == in.end()) & (updateEndIt == in.end()) & (threadsEndIt == in.end()))) {
     c.update_time_s = 0;
     log(LOG_DEBUG, string("Invalid entry: ") + in);
     return is;
@@ -61,7 +61,7 @@ istream &fanctl::operator>>(istream &is, fanctl::SensorControllerConfig &c) {
   return is;
 }
 
-Point &fanctl::Point::operator=(const Point &other) {
+Point &fancon::Point::operator=(const Point &other) {
   temp = other.temp;
   rpm = other.rpm;
   pwm = other.pwm;
@@ -69,14 +69,14 @@ Point &fanctl::Point::operator=(const Point &other) {
   return *this;
 }
 
-ostream &fanctl::operator<<(ostream &os, const Point &p) {
+ostream &fancon::operator<<(ostream &os, const Point &p) {
   string rpm_out = (p.rpm != -1) ? string() + p.rpmBegSep + to_string(p.rpm) : string();
   string pwm_out = (p.pwm != -1) ? string() + p.pwmBegSep + to_string(p.pwm) : string();
   os << p.tempBegSep << to_string(p.temp) << rpm_out << pwm_out << p.endSep;
   return os;
 }
 
-istream &fanctl::operator>>(istream &is, Point &p) {
+istream &fancon::operator>>(istream &is, Point &p) {
   string in;
   is >> skipws >> in;
   std::remove_if(in.begin(), in.end(), [](auto &c) { return isspace(c); });
@@ -110,14 +110,14 @@ istream &fanctl::operator>>(istream &is, Point &p) {
   return is;
 }
 
-ostream &fanctl::operator<<(ostream &os, const Config &c) {
+ostream &fancon::operator<<(ostream &os, const Config &c) {
   for (auto p : c.points)
     os << p;
 
   return os;
 }
 
-istream &fanctl::operator>>(istream &is, Config &c) {
+istream &fancon::operator>>(istream &is, Config &c) {
   while (!is.eof()) {
     Point p;
     is >> p;

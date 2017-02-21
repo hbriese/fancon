@@ -1,5 +1,5 @@
-#ifndef FANCTL_CONFIG_HPP
-#define FANCTL_CONFIG_HPP
+#ifndef fancon_CONFIG_HPP
+#define fancon_CONFIG_HPP
 
 #include <algorithm>    // find, search, remove_if
 #include <cctype>       // isspace, isdigit
@@ -20,17 +20,21 @@ using std::ostream;
 using std::istream;
 using std::to_string;
 using std::vector;
-using fanctl::Util::coutThreadsafe;
-using fanctl::Util::log;
-using fanctl::Util::isNum;
-using fanctl::Util::validIter;
+using fancon::Util::coutThreadsafe;
+using fancon::Util::log;
+using fancon::Util::isNum;
+using fancon::Util::validIter;
 
-namespace fanctl {
+namespace fancon {
 class SensorControllerConfig {
 public:
   SensorControllerConfig() {}
 
-  SensorControllerConfig(istream &is) { is >> *this; }
+  SensorControllerConfig(istream &is, uint nThreads = 0) {
+    is >> *this;
+    if (nThreads > 0)
+      threads = nThreads;
+  }
 
   bool dynamic = true;
   uint update_time_s = 2;
@@ -54,8 +58,8 @@ private:
   const string threadsBegSep = "threads=";
 };
 
-ostream &operator<<(ostream &os, const fanctl::SensorControllerConfig &c);
-istream &operator>>(istream &is, fanctl::SensorControllerConfig &c);
+ostream &operator<<(ostream &os, const fancon::SensorControllerConfig &c);
+istream &operator>>(istream &is, fancon::SensorControllerConfig &c);
 
 class Point {
 public:
@@ -76,9 +80,9 @@ public:
    * either ":RPM" or ";PWM" is required
    */
 
-  inline const bool validPWM() const { return pwm >= 0; };
-  inline const bool validRPM() const { return rpm >= 0; }
-  const bool valid() const { return validRPM() || validPWM(); }
+  inline bool validPWM() const { return pwm >= 0; };
+  inline bool validRPM() const { return rpm >= 0; }
+  bool valid() const { return validRPM() || validPWM(); }
 
   friend ostream &operator<<(ostream &os, const Point &p);
   friend istream &operator>>(istream &is, Point &p);
@@ -90,8 +94,8 @@ private:
       endSep = ']';
 };
 
-ostream &operator<<(ostream &os, const fanctl::Point &p);
-istream &operator>>(istream &is, fanctl::Point &p);
+ostream &operator<<(ostream &os, const fancon::Point &p);
+istream &operator>>(istream &is, fancon::Point &p);
 
 class Config {
 public:
@@ -105,14 +109,14 @@ public:
    * ${Point} ${Point}...
    */
 
-  const bool valid() const { return !points.empty(); }
+  bool valid() const { return !points.empty(); }
 
   friend ostream &operator<<(ostream &os, const Config &c);
   friend istream &operator>>(istream &is, Config &c);
 };
 
-ostream &operator<<(ostream &os, const fanctl::Config &c);
-istream &operator>>(istream &is, fanctl::Config &c);
+ostream &operator<<(ostream &os, const fancon::Config &c);
+istream &operator>>(istream &is, fancon::Config &c);
 }
 
-#endif //FANCTL_CONFIG_HPP
+#endif //fancon_CONFIG_HPP

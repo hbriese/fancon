@@ -1,42 +1,43 @@
-# fanctl
+# fancon
 
 [![License](http://img.shields.io/badge/license-APACHE2-blue.svg)]()
 
-fanctl is a C++ userspace fan control tool, supporting both Linux and Mac OS X, allowing custom speed-temperature curve for each individual fan, controllable by either PWM or RPM.
+fancon is a C++ userspace fan control tool, supporting both Linux and Mac OS X, allowing custom speed-temperature curve for each individual fan, controllable by either PWM or RPM.
 
   - High performance
   - Low memory usage
   - High test coverage
 
-Low overhead and easy configuration are the main goals of fanctl, this is achieved by:
+Low overhead and easy configuration are the main goals of fancon, this is achieved by:
   - Use of C++, multi-threading, and optimized STL functions
-  - Text file configuration, great for headless machines - at /etc/fanctl.conf
+  - Text file configuration, great for headless machines - at /etc/fancon.conf
   - Fan characteristic testing - all fans are not equal, so testing enables RPM fan speed configuration, not just PWM control like similar tools
   - Support for stopping fans (for example, if not under load) and correct handling of required fan PWM for start
 
 
 ### Installation
 
-###### Install fanctl snap:
+###### Install fancon snap:
 
 Snap [installation instructions](https://snapcraft.io/docs/core/install)
 
 ```sh
-$ sudo snap refresh && sudo snap install fanctl
+$ sudo snap refresh && sudo snap install fancon
 ```
 
 ###### Build from source:
 gcc may be substituted for clang
 
 ```sh
-$ sudo apt-get install gcc make cmake libc++-dev lm-sensors rsyslog libsensors4-dev libboost-filesystem-dev libexplain-dev
-$ git clone https://github.com/HBriese/fanctl.git && cd fanctl && cmake . && make && sudo make install
+$ git clone https://github.com/HBriese/fancon.git
+$ sudo apt-get install gcc make cmake lm-sensors rsyslog libc++-dev libstdc++6 linux-libc-dev libsensors4-dev libboost-filesystem-dev libexplain-dev
+$ mkdir fancon/Release && cd fancon/Release && cmake -DCMAKE_BUILD_TYPE=Release .. && make && sudo make install
 ```
 
 
 ### Runtime Dependencies
 
-fanctl aims to be widely deployable with minimum runtime dependencies:
+fancon aims to be widely deployable with minimum runtime dependencies:
 
 | Name (package) | Usage |
 | -------------- | ----- |
