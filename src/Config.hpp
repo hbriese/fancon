@@ -30,11 +30,7 @@ class SensorControllerConfig {
 public:
   SensorControllerConfig() {}
 
-  SensorControllerConfig(istream &is, uint nThreads = 0) {
-    is >> *this;
-    if (nThreads > 0)
-      threads = nThreads;
-  }
+  SensorControllerConfig(istream &is) { is >> *this; }
 
   bool dynamic = true;
   uint update_time_s = 2;
@@ -42,7 +38,7 @@ public:
 
   bool valid() { return update_time_s > 0; }
 
-  SensorControllerConfig &operator=(const SensorControllerConfig &other) {  //= default;
+  SensorControllerConfig &operator=(const SensorControllerConfig &other) {
     dynamic = other.dynamic;
     update_time_s = other.update_time_s;
     threads = other.threads;
@@ -69,11 +65,9 @@ public:
 
   Point &operator=(const Point &other);
 
-  // TODO: add Fahrenheit support
   int temp,
       rpm,
       pwm;
-  // TODO: use int val instead & a bool = true if pwm is found
 
   /* FORMAT:
    * [temp:RPM;PWM] [temp:RPM] [temp;PWM]
@@ -91,7 +85,8 @@ private:
   const char tempBegSep = '[',
       rpmBegSep = ':',
       pwmBegSep = ';',
-      endSep = ']';
+      endSep = ']',
+      fahrenheit = 'f';
 };
 
 ostream &operator<<(ostream &os, const fancon::Point &p);

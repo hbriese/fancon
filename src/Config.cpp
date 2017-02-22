@@ -86,13 +86,16 @@ istream &fancon::operator>>(istream &is, Point &p) {
   bool pwmSepFound = (pwmSepIt = find(in.begin(), in.end(), p.pwmBegSep)) != in.end();
 
   auto tempBegIt = find(in.begin(), in.end(), p.tempBegSep) + 1;
-  auto tempEndIt = (rpmSepFound) ? rpmSepIt : pwmSepIt;
+  auto tempAbsEndIt = (rpmSepFound) ? rpmSepIt : pwmSepIt;
+  string::iterator tempEndIt = find_if(tempBegIt, tempAbsEndIt, [](const char &c) { return !isdigit(c); });
+
   auto rpmBegIt = rpmSepIt + 1;
   auto rpmEndIt = find(rpmBegIt, in.end(), (pwmSepFound) ? p.pwmBegSep : p.endSep);
+
   auto pwmBegIt = pwmSepIt + 1;
   auto pwmEndIt = find(pwmBegIt, in.end(), p.endSep);
 
-  auto tempFound = validIter(in.end(), {tempBegIt, tempEndIt});
+  auto tempFound = validIter(in.end(), {tempBegIt, tempEndIt, tempAbsEndIt});
   bool rpmFound = validIter(in.end(), {rpmBegIt, rpmEndIt});
   bool pwmFound = validIter(in.end(), {pwmBegIt, pwmEndIt});
 
@@ -102,8 +105,13 @@ istream &fancon::operator>>(istream &is, Point &p) {
 
   string tempStr = (tempFound) ? string(tempBegIt, tempEndIt) : string();
   p.temp = (isNum(tempStr)) ? stoi(tempStr) : 0;
+  // check for fahrenheit, convert to celsius if found
+  if (std::tolower(*tempEndIt) == p.fahrenheit)
+    p.temp = static_cast<int>((p.temp - 32) / 1.8);
+
   string rpmStr = (rpmFound) ? string(rpmBegIt, rpmEndIt) : string();
   p.rpm = (isNum(rpmStr)) ? stoi(rpmStr) : -1;
+
   string pwmStr = (pwmFound) ? string(pwmBegIt, pwmEndIt) : string();
   p.pwm = (isNum(pwmStr)) ? stoi(pwmStr) : -1;
 
