@@ -12,7 +12,7 @@ Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
   rpm_p = p.rpm_p;
   enable_pf = p.enable_pf;
 
-  // Read constant values from sysfs
+  // Read values from fancon dir
   rpm_min = read<int>(p.rpm_min_pf, hwID);
   rpm_max = read<int>(p.rpm_max_pf, hwID);
   pwm_min = read<int>(p.pwm_min_pf, hwID);
@@ -22,14 +22,12 @@ Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
   // read pwm enable mode set from the driver, to restore in fan deconstructor
   driver_enable_mode = read<int>(p.enable_pf, hwID);
 
-  // set pwmX_enable to manual mode ('1') & start fan
-  write<int>(p.enable_pf, hwID, manual_enable_mode);
-  write<int>(p.pwm_p, pwm_start);
+  // set manual mode
+  writeEnable(manual_enable_mode);
+  if (readRPM() <= 0)  // start fan if stopped
+    writePWM(pwm_start);
 
   // Set values to a sane default if they are not set; in ms
-  // TODO: implement step_ut & step_dt usage
-//    step_up_t = ((temp = read<long>(p.step_ut_pf, hwID)) > 0) ? temp : 2000;
-//    step_down_t = ((temp = read<long>(p.step_dt_pf, hwID)) > 0) ? temp : 1000;
   long temp = 0;
   stop_t = ((temp = read<long>(p.stop_t_pf, hwID)) > 0) ? temp : 3000;
 
@@ -64,12 +62,10 @@ Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
 
 Fan::~Fan() {
   // restore driver enable mode so it takes over fan control
-  write<int>(enable_pf, hwID, driver_enable_mode);
+  writeEnable(driver_enable_mode);
 }
 
 void Fan::update(int temp) {
-  // TODO: handle step_ut & step_dt
-
   auto it = std::lower_bound(points.begin(), points.end(), temp,
                              [](const fancon::Point &p1, const fancon::Point &p2) { return p1.temp < p2.temp; });
 
@@ -87,23 +83,23 @@ void Fan::update(int temp) {
     if (dynamic && nextIt != points.end()) {
       int nextPWM = (nextIt != points.end()) ? nextIt->pwm : calcPWM(nextIt->rpm);
       pwm = pwm + ((nextPWM - pwm) / (nextIt->temp - it->temp));
-    } else if (read<int>(rpm_p, 0) == 0)
+    } else if (readRPM() == 0)
       pwm = pwm_start;
   }
 
-  write<int>(pwm_p, pwm);
+  writePWM(pwm);
 }
 
 int Fan::testPWM(int rpm) {
   // assume the calculation is the real pwm for a starting point
-  int nextPWM(calcPWM(rpm));
+  auto nextPWM(calcPWM(rpm));
 
-  write(pwm_p, nextPWM);
+  writePWM(nextPWM);
   sleep(speed_change_t * 3);
 
   int curPWM = 0, lastPWM = -1, curRPM;
   // break when RPM found when matching, or if between the 5 PWM margin
-  while ((curRPM = read<int>(rpm_p, 0)) != rpm && nextPWM != lastPWM) {
+  while ((curRPM = readRPM()) != rpm && nextPWM != lastPWM) {
     lastPWM = curPWM;
     curPWM = nextPWM;
     nextPWM = (curRPM < rpm) ? nextPWM + 2 : nextPWM - 2;
@@ -112,7 +108,7 @@ int Fan::testPWM(int rpm) {
     if (curRPM <= 0)
       nextPWM = pwm_start;
 
-    write(pwm_p, nextPWM);
+    writePWM(nextPWM);
     sleep(speed_change_t);
   }
 
@@ -126,85 +122,85 @@ TestResult Fan::test(const UID &fanUID, const bool profile) {
   std::ifstream ifs;
   std::ofstream ofs;
 
-  auto readPWM = [&p]() { return read<int>(p.pwm_p); };
-  auto writePWM = [&p](int pwm) { return write<int>(p.pwm_p, pwm); };
-  auto readRPM = [&p]() { return read<int>(p.rpm_p); };
-  auto writeEnable = [&p, &hwID](int mode) { return write<int>(p.enable_pf, hwID, mode, true); };
-  auto readEnable = [&p, &hwID]() { return read<int>(p.enable_pf, hwID, true); };
+  auto rPWM = [&p]() { return read<int>(p.pwm_p); };
+  auto wPWM = [&p](int pwm) { return write<int>(p.pwm_p, pwm); };
+  auto rRPM = [&p]() { return read<int>(p.rpm_p); };
+  auto wEnableMode = [&p, &hwID](int mode) { return write<int>(p.enable_pf, hwID, mode, true); };
+  auto rEnableMode = [&p, &hwID]() { return read<int>(p.enable_pf, hwID, true); };
 
-  auto getMaxRPM = [&fanUID, &writePWM, &readRPM]() {
-    writePWM(pwm_max_absolute); // set fan to full sleed
+  auto getMaxRPM = [&fanUID, &wPWM, &rRPM]() {
+    wPWM(pwm_max_absolute); // set fan to full sleed
     sleep(speed_change_t * 2);
     int rpm_max = 0;
     for (int prevRPMMax = -1; rpm_max > prevRPMMax; sleep(speed_change_t * 2)) {
       prevRPMMax = rpm_max;
-      rpm_max = readRPM();
+      rpm_max = rRPM();
     }
     return rpm_max;
   };
 
-  auto getMaxPWM = [&fanUID, &writePWM, &readRPM](const int rpm_max) {
+  auto getMaxPWM = [&fanUID, &wPWM, &rRPM](const int rpm_max) {
     int pwm_max = pwm_max_absolute;
-    while ((rpm_max - 5) <= readRPM()) {
+    while ((rpm_max - 5) <= rRPM()) {
       pwm_max -= 5;
-      writePWM(pwm_max - 5);
+      wPWM(pwm_max - 5);
       sleep(speed_change_t * 2);
     }
 
     return pwm_max;
   };
 
-  auto getStopTime = [&writePWM, &readRPM]() {
-    writePWM(0);  // set PWM to 0
+  auto getStopTime = [&wPWM, &rRPM]() {
+    wPWM(0);  // set PWM to 0
     auto now = chrono::high_resolution_clock::now();
-    while (readRPM() > 0);
+    while (rRPM() > 0);
     auto after = chrono::high_resolution_clock::now();
     long stop_t_ms = chrono::duration_cast<chrono::milliseconds>(after - now).count();
 
     return stop_t_ms;
   };
 
-  auto getPWMStart = [&fanUID, &writePWM, &readRPM]() {
+  auto getPWMStart = [&fanUID, &wPWM, &rRPM]() {
     int pwm_start = 0;
-    while (readRPM() <= 0) {
+    while (rRPM() <= 0) {
       pwm_start += 5;
-      writePWM(pwm_start);
+      wPWM(pwm_start);
       sleep(speed_change_t);
     }
 
     return pwm_start;
   };
 
-  auto getPWMRPMMin = [&fanUID, &readPWM, &writePWM, &readRPM]() {
+  auto getPWMRPMMin = [&fanUID, &rPWM, &wPWM, &rRPM]() {
     // increase pwm
-    int pwm_min = readPWM();
+    int pwm_min = rPWM();
     if ((pwm_min + 20) < pwm_max_absolute)
       pwm_min += 20;
-    writePWM(pwm_min);
+    wPWM(pwm_min);
 
     int rpm_min = 0, rmt;
-    while ((rmt = readRPM()) > 0) {
+    while ((rmt = rRPM()) > 0) {
       rpm_min = rmt;
       pwm_min -= 5;
-      writePWM(pwm_min - 5);
+      wPWM(pwm_min - 5);
       sleep(speed_change_t * 2);
     }
 
     return std::make_pair(pwm_min, rpm_min);
   };
 
-  auto profiler = [&fanUID, &hwID, &writePWM, &readRPM]() {
+  auto profiler = [&fanUID, &hwID, &wPWM, &rRPM]() {
     string profile_pf = fanUID.dev_name + "_profile";
     profile_pf = fancon::Util::getPath(profile_pf, hwID);
     ofstream pofs(profile_pf);
     pofs << "PWM RPM" << endl;
     // record rpm from PWM 255 to 0
-    writePWM(255);
+    wPWM(255);
     sleep(speed_change_t * 3);
     for (int rpm, pwm = 255; pwm > 0; pwm -= 5) {
-      writePWM(pwm);
+      wPWM(pwm);
       sleep(speed_change_t);
-      rpm = readRPM();
+      rpm = rRPM();
       pofs << pwm << " " << rpm << endl;
     }
     if (pofs.fail()) {
@@ -214,17 +210,17 @@ TestResult Fan::test(const UID &fanUID, const bool profile) {
   };
 
   // store pre-test (likely driver controlled) fan mode, and set to manual
-  int prev_mode = readEnable();
-  int prev_pwm = readPWM();
-  writeEnable(manual_enable_mode);
+  int prev_mode = rEnableMode();
+  int prev_pwm = rPWM();
+  wEnableMode(manual_enable_mode);
 
   // set full speed, and read rpm
   int rpm_max = getMaxRPM();
 
-  // fail if rpm isn't recorded by the driver
+  // fail if rpm isn't recorded by the driver, or unable to write PWM
   if (rpm_max <= 0) {  // fail
-    writePWM(prev_pwm);
-    writeEnable(prev_mode); // restore driver control
+    wPWM(prev_pwm);
+    wEnableMode(prev_mode); // restore driver control
     return TestResult();
   }
 
@@ -246,11 +242,11 @@ TestResult Fan::test(const UID &fanUID, const bool profile) {
     profiler();
 
   // slope is the gradient between the minimum and (real) max rpm/pwm
-  double slope = (double) (rpm_max - rpm_min) / (pwm_max - pwm_min);
+  double slope = static_cast<double>((rpm_max - rpm_min)) / (pwm_max - pwm_min);
 
   // restore driver control
-  writePWM(prev_pwm);
-  writeEnable(prev_mode);
+  wPWM(prev_pwm);
+  wEnableMode(prev_mode);
 
   return TestResult(rpm_min, rpm_max, pwm_min, pwm_max, pwm_start, stop_time, slope);
 }

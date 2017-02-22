@@ -57,7 +57,12 @@ public:
   Fan(const UID &fan_uid, const Config &conf, bool dynamic = true);
   ~Fan();
 
+  inline void writePWM(int pwm) { write<int>(pwm_p, pwm); }
+  inline int readRPM() { return read<int>(rpm_p); }
+  inline void writeEnable(int mode) { write<int>(enable_pf, hwID, mode, true); }
+
   inline int calcPWM(int rpm) { return (int) (((rpm - rpm_min) / slope) + pwm_min); }
+
   void update(int temp);
   int testPWM(int rpm);    // TODO: remove
 
@@ -82,7 +87,6 @@ private:
   double slope;       // i.e. rpm-per-pwm     // TODO: replace with polynomial
 
   // values in ms
-  // TODO: handle step up time and step down time
 //  long step_up_t, step_down_t,    // time taken before rpm is increased/decreased (set by user/driver)
   long stop_t;
   static const int speed_change_t = 3;    // seconds to allow for rpm changes when altering the pwm
