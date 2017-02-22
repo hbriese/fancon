@@ -29,12 +29,17 @@ string fancon::help() {
 void fancon::firstTimeSetup() {
   string p("/etc/rsyslog.d/30-fancon.conf");
   if (!exists(p)) {
+    string logP("/var/log/fancon.log");
     ofstream ofs(p);
-    ofs << ":programname, isequal, \"fancon\" /var/log/fancon.log" << endl
+    ofs << ":programname, isequal, \"fancon\" " << logP << endl
         << "stop" << endl;
     if (ofs.fail())
-      cerr << "Failed to write a fancon syslog config, logs will be written directly to /var/log/syslog,"
-           << " please make a github issue: " << p << endl;
+      cerr << "Failed to write a fancon syslog config, logs will be written directly to " << logP
+           << ", please make a github issue: " << p << endl;
+
+    // restart service
+    if (system("/etc/init.d/rsyslog restart"))
+      cerr << "Failed to restart rsyslog, /var/log/syslog will be used until reboot, or rsyslog restarted" << endl;
   }
 
   p = "/etc/pm/sleep.d/fancon";
@@ -61,9 +66,6 @@ void fancon::firstTimeSetup() {
         << "esac" << endl;
     if (ofs.fail())
       cerr << "Failed to write pm script, fancon may not work on wakeup, please make a github issue: " << p << endl;
-
-    // restart service
-    system("/etc/init.d/rsyslog restart");
   }
 }
 
@@ -203,9 +205,9 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
     exitParent(pid);
 
     // redirect standard file descriptors to /dev/null
-    freopen("/dev/null", "r", stdin);
-    freopen("/dev/null", "w+", stdout);
-    freopen("/dev/null", "w+", stderr);
+    stdin = freopen("/dev/null", "r", stdin);
+    stdout = freopen("/dev/null", "w+", stdout);
+    stderr = freopen("/dev/null", "w+", stderr);
 
     // Create a new session for the child
     if ((pid = setsid()) < 0) {

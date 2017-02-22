@@ -44,18 +44,10 @@ void fancon::Util::openSyslog(bool debug) {
   setlogmask(LOG_UPTO(logLevel));
   openlog("fancon", LOG_PID, LOG_LOCAL1);
   // LOG_NDELAY open before first log
-  fancon::Util::syslog_open = true;
 }
 
 void fancon::Util::closeSyslog() {
-  syslog_open = false;
   closelog();
-}
-
-void fancon::Util::log(int logSeverity, const string &message) {
-  if (!fancon::Util::syslog_open)
-    throw std::runtime_error("syslog not open");
-  syslog(logSeverity, "%s", message.c_str());
 }
 
 string fancon::Util::readLine(string path) {

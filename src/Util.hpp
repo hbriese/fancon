@@ -38,8 +38,6 @@ constexpr const char *fancon_path = "/etc/fancon.d/hwmon";
 
 static std::mutex coutLock;
 
-static bool syslog_open = false;
-
 int getLastNum(string str);   // TODO: take as reference and do not reverse
 bool isNum(const string &str);
 void coutThreadsafe(const string &out);
@@ -49,7 +47,9 @@ bool validIter(const string::iterator &end, std::initializer_list<string::iterat
 
 void openSyslog(bool debug = false);
 void closeSyslog();
-void log(int logSeverity, const string &message);
+inline void log(int logSeverity, const string &message) {
+  syslog(logSeverity, "%s", message.c_str());
+}
 
 /* getPath: returns the usual path (used by the driver) if it exists, else a /etc/fancon.d/ path */
 inline string getPath(const string &path_pf, const string &hwmon_id, const bool useSysFS = false) {
