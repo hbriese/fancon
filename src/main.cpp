@@ -104,7 +104,7 @@ bool fancon::pidExists(pid_t pid) {
 void fancon::writeLock() {
   pid_t pid = fancon::Util::read<pid_t>(fancon::pid_file, 0);
   if (fancon::pidExists(pid)) {  // fancon process running
-    std::cerr << "Error: a fancon process is already running, please close it to continue" << endl;
+    cout << "Error: a fancon process is already running, please close it to continue" << endl;
     exit(1);
   } else
     write<pid_t>(fancon::pid_file, getpid());
@@ -290,6 +290,11 @@ void fancon::send(DaemonState state) {
 }
 
 int main(int argc, char *argv[]) {
+  if (getuid() != 0) {
+    cerr << "Please run fancon as root" << endl;
+    exit(1);
+  }
+
   if (!exists(fancon::Util::fancon_dir))
     fancon::firstTimeSetup();
 
@@ -309,7 +314,6 @@ int main(int argc, char *argv[]) {
       {debug, threads, fork, profiler, retries};
 
   for (auto it = args.begin(); it != args.end(); ++it) {
-//  for (auto &a : args) {
     auto &a = *it;
     if (a.empty())
       continue;

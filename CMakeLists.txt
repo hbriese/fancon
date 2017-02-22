@@ -35,4 +35,5 @@ set(LIBS ${LIBS} ${LM_SENSORS_LIBRARIES})
 ## Link libraries
 target_link_libraries(${PROJECT_NAME} ${LIBS})
 
+# Install
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
