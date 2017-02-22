@@ -1,8 +1,11 @@
 #include "SensorController.hpp"
 
-fancon::SensorController::SensorController(bool debug) {
+fancon::SensorController::SensorController(bool debug, uint nThreads) {
   sensors_init(NULL);
   sensor_chips = getSensorChips();
+
+  if (nThreads)
+    conf.threads = nThreads;
 
   fancon::Util::openSyslog(debug);
 }
@@ -80,10 +83,11 @@ void fancon::SensorController::writeConf(const string &path) {
 
   auto writeTop = [](std::fstream &fs) {
     fs << "# update: time between rpm changes (in seconds); threads: max number of threads to run fancond" << endl
-       << "# dynamic: interpolated rpm between two points (based on temperature) rather than next point"
-       << SensorControllerConfig() << endl
-       << "# Example:      15°C stopped fan, 25°C 500 RPM ... 80°C full speed fan" << endl
-       << "# it8728/2:fan1 coretemp/0:temp2   [15;0] [25:500] [35:650] [55:1000] [65:1200] [80;255]" << endl
+       << "# dynamic: interpolated rpm between two points (based on temperature) rather than next point" << endl
+       << SensorControllerConfig() << endl << endl
+       << "# Append 'f' to the temperature for fahrenheit" << endl
+       << "# Example:      15°C stopped fan, 77°F (22°C) 500 RPM ... 80°C full speed fan" << endl
+       << "# it8728/2:fan1 coretemp/0:temp2   [15;0] [77f:500] [35:650] [55:1000] [65:1200] [80;255]" << endl
        << "#" << endl
        << "# <Fan UID>     <Temperature Sensor UID>    <[temperature (°C): speed (RPM); PWM (0-255)]>" << endl;
   };
@@ -93,7 +97,6 @@ void fancon::SensorController::writeConf(const string &path) {
     writeTop(fs);
   }
 
-  // TODO: write SCC to front of file
   /*if (!sccFound) {
     // copy file contents to memory
     fs.open(path, std::ios::in | std::ios::ate);
@@ -167,8 +170,6 @@ vector<unique_ptr<fancon::TSParent>> fancon::SensorController::readConf(const st
     auto tspIt = find_if(tsParents.begin(), tsParents.end(),
                          [&ts_uid](const unique_ptr<TSParent> &pp) -> bool { return pp->ts_uid == ts_uid; });
 
-    // TODO: replace raw * with unique_ptr
-//    Fan *fptr = new Fan(fan_uid, fan_conf, conf.dynamic);
     auto f = make_unique<Fan>(fan_uid, fan_conf, conf.dynamic);
 
     if (tspIt != tsParents.end())       // found, push fan onto stack
@@ -186,8 +187,6 @@ void fancon::SensorController::run(vector<unique_ptr<TSParent>>::iterator first,
                                    const DaemonState &state) const {
   while (state == fancon::Util::DaemonState::RUN) {
     for (auto tspIt = first; tspIt != last; ++tspIt) {
-      // TODO: utilize step_ut & step_dt
-
       // update fans if temp changed
       if ((*tspIt)->update())
         for (auto &fp : (*tspIt)->fans)

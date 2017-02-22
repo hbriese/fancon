@@ -44,7 +44,7 @@ class SensorControllerConfig;
 
 class SensorController {
 public:
-  SensorController(bool debug = false);
+  SensorController(bool debug, uint nThreads = 0);
   ~SensorController();
 
   fancon::SensorControllerConfig conf;
