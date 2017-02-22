@@ -4,7 +4,7 @@ int fancon::Util::getLastNum(string str) {
   std::reverse(str.begin(), str.end());
   std::stringstream ss(str);
 
-  int num;
+  int num = -1;
   char dc;
 
   while (ss >> num || !ss.eof()) {
@@ -15,8 +15,9 @@ int fancon::Util::getLastNum(string str) {
       break;
   }
 
+  if (num < 0)
+    log(LOG_ERR, string("Failed to get hwmon ID from '") + str + "', please submit a github issue.");
 
-  // TODO: error check num is set
   return num;
 }
 
@@ -36,29 +37,6 @@ bool fancon::Util::validIter(const string::iterator &end, std::initializer_list<
       return false;
 
   return true;
-}
-
-void fancon::Util::writeSyslogConf() {
-  // TODO: run during install instead
-  const string syslogConfDir = "/etc/rsyslog.d/";
-  const string syslogConf = syslogConfDir + "30-fancon.conf";
-
-  if (exists(syslogConf))
-    return;
-
-  if (!exists(syslogConfDir))
-    bfs::create_directory(syslogConfDir);
-
-  ofstream ofs(syslogConf);
-  ofs << ":programname, isequal, \"fancon\" /var/log/fancon.log" << endl
-      << "stop" << endl;
-  ofs.close();
-
-  // restart service
-  system("/etc/init.d/rsyslog restart");
-
-  if (ofs.fail())
-    fancon::Util::log(LOG_ERR, string("Failed syslog config file: ") + syslogConf);
 }
 
 void fancon::Util::openSyslog(bool debug) {
@@ -90,11 +68,10 @@ string fancon::Util::readLine(string path) {
 
   std::ifstream ifs(path);
   string line;
-  std::getline(ifs, line, '\n');
+  std::getline(ifs, line);
 
-  if (ifs.fail()) {
-    // TODO: log, and handle
-  }
+  if (ifs.fail())
+    log(LOG_ERR, string("Failed to read from: ") + path);
 
   return line;
 }

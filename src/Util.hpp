@@ -38,7 +38,6 @@ constexpr const char *fancon_path = "/etc/fancon.d/hwmon";
 
 static std::mutex coutLock;
 
-// TODO: remove syslog from SensorController and place in main
 static bool syslog_open = false;
 
 int getLastNum(string str);   // TODO: take as reference and do not reverse
@@ -48,7 +47,6 @@ void coutThreadsafe(const string &out);
 /* found: returns false if any of the iterators are invalid */
 bool validIter(const string::iterator &end, std::initializer_list<string::iterator> iterators);
 
-void writeSyslogConf();
 void openSyslog(bool debug = false);
 void closeSyslog();
 void log(int logSeverity, const string &message);
@@ -99,7 +97,6 @@ void write(const string &path, T val, int nFailed = 0) {
   }
 }
 
-// TODO: write all to /etc/fancon.d/ instead
 template<typename T>
 inline void write(const string &path_pf, const string &hwmon_id, T val, bool useSysFS = false) {
   return write<T>(getPath(path_pf, hwmon_id, useSysFS), val);

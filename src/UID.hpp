@@ -26,7 +26,6 @@ public:
   UID(const string &cn_prefix, int hwmon_id, const string feat_name)
       : cn_label(cn_prefix), hwmon_id(hwmon_id), dev_name(feat_name) {}
 
-  // TODO: add support for GPUs
   string cn_label;
   int hwmon_id;
   string dev_name;
