@@ -39,13 +39,14 @@ using fancon::Util::log;
 int main(int argc, char *argv[]);
 
 namespace fancon {
-const string conf_path("/etc/fancon.conf");
+const char *conf_path = "/etc/fancon.conf";
 
 const string pid_file = string(fancon::Util::fancon_dir) + "pid";
 
 DaemonState daemon_state;
 
 string help();
+void firstTimeSetup();
 
 string listFans(SensorController &sensorController);
 string listSensors(SensorController &sensorController);
@@ -74,7 +75,7 @@ struct Command {
     }
   }
 
-  virtual bool operator==(const string &other) { return other == shrt_name || other == name; }
+  bool operator==(const string &other) { return other == shrt_name || other == name; }
 
   const string name;
   string shrt_name;
@@ -87,7 +88,7 @@ public:
       : Command(name, shrtName), has_value(hasValue) {}
 
   bool has_value;
-  uint val;
+  uint val = 0;
 };
 }
 

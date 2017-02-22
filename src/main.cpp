@@ -15,7 +15,7 @@ string fancon::help() {
      << "  -p profile         Writes a PWM to RPM profile for the fan, not recommended unless submitting a bug report"
      << endl
      << "start                Starts the fancon daemon" << endl
-     << "  -f fork            Forks off the parent process, not recommended for systemd usage" << endl
+     << "  -f fork            Forks off the parent process" << endl
      << "  -t threads         Ignores 'threads=' in /etc/fancon.conf and sets maximum number of threads to run" << endl
      << "stop                 Stops the fancon daemon" << endl
      << "reload               Reloads the fancon daemon" << endl
@@ -24,6 +24,47 @@ string fancon::help() {
      << endl;
 
   return ss.str();
+}
+
+void fancon::firstTimeSetup() {
+  string p("/etc/rsyslog.d/30-fancon.conf");
+  if (!exists(p)) {
+    ofstream ofs(p);
+    ofs << ":programname, isequal, \"fancon\" /var/log/fancon.log" << endl
+        << "stop" << endl;
+    if (ofs.fail())
+      cerr << "Failed to write a fancon syslog config, logs will be written directly to /var/log/syslog,"
+           << " please make a github issue: " << p << endl;
+  }
+
+  p = "/etc/pm/sleep.d/fancon";
+  if (!exists(p)) {
+    // get executable path
+    string exeP;
+    char buff[PATH_MAX];
+    ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
+    if (len != -1) {
+      buff[len] = '\0';
+      exeP = string(buff);
+    } else {
+      cerr << "Invalid fancon path length, please make a github issue" << endl;
+      exit(1);
+    }
+
+    ofstream ofs(p);
+    ofs << "#!/bin/bash" << endl
+        << "case $1 in" << endl
+        << "resume)" << endl
+        << "    sleep 3" << endl
+        << "    " << exeP.c_str() << " reload" << endl
+        << "    ;;" << endl
+        << "esac" << endl;
+    if (ofs.fail())
+      cerr << "Failed to write pm script, fancon may not work on wakeup, please make a github issue: " << p << endl;
+
+    // restart service
+    system("/etc/init.d/rsyslog restart");
+  }
 }
 
 string fancon::listFans(SensorController &sc) {
@@ -225,10 +266,16 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
   log(LOG_DEBUG, "fancond started");
   while (fancon::daemon_state == DaemonState::RUN)
     sleep(1);
+  sleep(sc.conf.update_time_s); // wait for threads to close
+
+  // threads should be done now
+  for (auto &tf : threadFutures)
+    if (tf.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
+      log(LOG_ERR, "Thread not responding!");
 
   // re-run this function if reload
   if (fancon::daemon_state == DaemonState::RELOAD)
-    fancon::start(sc, fork_, nThreads, false);  // writeLock = false
+    return fancon::start(sc, fork_, nThreads, false);  // writeLock = false
 
   return;
 }
@@ -243,12 +290,12 @@ void fancon::send(DaemonState state) {
 }
 
 int main(int argc, char *argv[]) {
+  if (!exists(fancon::Util::fancon_dir))
+    fancon::firstTimeSetup();
+
   vector<string> args;
   for (int i = 1; i < argc; ++i)
     args.push_back(string(argv[i]));
-
-  // for first time setup
-  fancon::Util::writeSyslogConf();
 
   fancon::Command help("help"), start("start"), stop("stop"), reload("reload"),
       list_fans("list-fans", true), list_sensors("list-sensors", true),
@@ -256,7 +303,6 @@ int main(int argc, char *argv[]) {
   vector<reference_wrapper<fancon::Command>> commands
       {help, start, stop, reload, list_fans, list_sensors, test, write_config};
 
-  // TODO: add options: new/exclude fan testing regular expression option
   fancon::Option debug("debug", true), threads("threads", true), fork("fork", true),
       profiler("profiler", true), retries("retries", true, true);
   vector<reference_wrapper<fancon::Option>> options
@@ -309,10 +355,7 @@ int main(int argc, char *argv[]) {
       cerr << "Unknown argument: " << a << endl;
   }
 
-  SensorController sc(debug.called);
-
-  if (threads.called)
-    sc.conf.threads = static_cast<uint>(threads.val);
+  SensorController sc(debug.called, threads.val);
 
   // execute called commands with called options
   if (help.called || args.empty()) // execute help() if no commands are given
