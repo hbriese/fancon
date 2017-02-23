@@ -10,7 +10,7 @@
 #include <boost/filesystem.hpp>
 #include "Util.hpp"
 #include "UID.hpp"
-#include "Config.hpp"
+#include "FanConfig.hpp"
 #include "TemperatureSensor.hpp"
 
 namespace chrono = std::chrono;
@@ -18,14 +18,16 @@ namespace bfs = boost::filesystem;
 
 using std::prev;
 using std::move;
+using std::stringstream;
 using boost::filesystem::path;
 using boost::filesystem::exists;
 using fancon::Util::read;
 using fancon::Util::write;
 using fancon::Util::log;
 using fancon::Util::coutThreadsafe;
+using fancon::Util::getPath;
 using fancon::UID;
-using fancon::Config;
+using fancon::FanConfig;
 
 namespace fancon {
 struct TestResult {
@@ -54,7 +56,7 @@ struct TestResult {
 
 class Fan {
 public:
-  Fan(const UID &fan_uid, const Config &conf, bool dynamic = true);
+  Fan(const UID &fanUID, const FanConfig &conf = FanConfig(), bool dynamic = true);
   ~Fan();
 
   inline void writePWM(int pwm) { write<int>(pwm_p, pwm); }
@@ -105,6 +107,9 @@ struct FanPaths {
       pwm_start_pf, slope_pf,
       stop_t_pf;
 //      step_ut_pf, step_dt_pf,
+  string hwmonID;
+
+  bool exist();
 };
 }   // fancon
 

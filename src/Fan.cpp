@@ -2,22 +2,25 @@
 
 using namespace fancon;
 
-Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
-    : hwID(to_string(fan_uid.hwmon_id)), points(conf.points), dynamic(dynamic) {
+Fan::Fan(const UID &fanUID, const FanConfig &conf, bool dynamic)
+    : hwID(to_string(fanUID.hwmon_id)), points(conf.points), dynamic(dynamic) {
   // makes all related fan paths, deleted after constructor
-  FanPaths p(fan_uid);
+  FanPaths p(fanUID);
+  bool canCalcRPM = p.exist();
 
   // keep paths (with changing values) for future rw
   pwm_p = p.pwm_p;
   rpm_p = p.rpm_p;
   enable_pf = p.enable_pf;
 
-  // Read values from fancon dir
-  rpm_min = read<int>(p.rpm_min_pf, hwID);
-  rpm_max = read<int>(p.rpm_max_pf, hwID);
-  pwm_min = read<int>(p.pwm_min_pf, hwID);
-  pwm_start = read<int>(p.pwm_start_pf, hwID);
-  slope = read<double>(p.slope_pf, hwID);
+  if (canCalcRPM) {
+    // Read values from fancon dir
+    rpm_min = read<int>(p.rpm_min_pf, hwID);
+    rpm_max = read<int>(p.rpm_max_pf, hwID);
+    pwm_min = read<int>(p.pwm_min_pf, hwID);
+    pwm_start = read<int>(p.pwm_start_pf, hwID);
+    slope = read<double>(p.slope_pf, hwID);
+  }
 
   // read pwm enable mode set from the driver, to restore in fan deconstructor
   driver_enable_mode = read<int>(p.enable_pf, hwID);
@@ -32,10 +35,10 @@ Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
   stop_t = ((temp = read<long>(p.stop_t_pf, hwID)) > 0) ? temp : 3000;
 
   // check config is valid
-  auto checkError = [this, &fan_uid](vector<fancon::Point>::iterator &it, int val, int min, int max) {
+  auto checkError = [this, &fanUID](vector<fancon::Point>::iterator &it, int val, int min, int max) {
     if (val > max || ((val < min) & (val != 0))) {
-      std::stringstream err;
-      err << "Invalid config entry: " << fan_uid << " " << *it
+      stringstream err;
+      err << "Invalid config entry: " << fanUID << " " << *it
           << " - min=" << to_string(min) << "(or 0), max=" << to_string(max);
       log(LOG_ERR, err.str());
       points.erase(it);
@@ -46,9 +49,14 @@ Fan::Fan(const UID &fan_uid, const Config &conf, bool dynamic)
 
   // check if points are invalid: value larger than maximum, or small than min and non-zero
   for (auto it = points.begin(); it != points.end(); ++it) {
-    if (it->validPWM())  // use pwm
+    if (it->validPWM())   // use pwm
       checkError(it, it->pwm, pwm_min, pwm_max_absolute);
-    else if (!checkError(it, it->rpm, rpm_min, rpm_max)) {            // use rpm
+    else if (!canCalcRPM) { // check if RPM can be used, else log and remove
+      std::stringstream err;
+      err << fanUID << " : has not been tested, so RPM speed cannot be used - " << *it << endl;
+      log(LOG_NOTICE, err.str());
+      points.erase(it);
+    } else if (!checkError(it, it->rpm, rpm_min, rpm_max)) {   // use rpm
       // calculate pwm and ensure calcPWM is valid
       auto cpwm = calcPWM(it->rpm);
       if (cpwm > 255)
@@ -268,7 +276,7 @@ void Fan::sleep(int s) { std::this_thread::sleep_for(chrono::seconds(s)); }
 
 FanPaths::FanPaths(const UID &fanUID) {
   const string devID = to_string(fancon::Util::getLastNum(fanUID.dev_name));
-  const string hwmonID = to_string(fanUID.hwmon_id);
+  hwmonID = to_string(fanUID.hwmon_id);
 
   string pwm_pf = "pwm" + devID;
   string rpm_pf = "fan" + devID;
@@ -289,4 +297,18 @@ FanPaths::FanPaths(const UID &fanUID) {
   // use '_start' by default, '_auto_start' if it exists
 //    pwm_start_pf = (exists(Util::getPath(psPfs[1], hwmonID, 0))) ? psPfs[1] : psPfs[0];
   pwm_start_pf = pwm_pf + "_start";
+}
+
+bool FanPaths::exist() {
+  auto gp = [this](const string &pathPF) { return getPath(pathPF, hwmonID); };
+  string paths[] = {rpm_p, pwm_p, getPath(enable_pf, hwmonID, true),
+                    gp(pwm_min_pf), gp(pwm_max_pf), gp(rpm_min_pf), gp(rpm_max_pf),
+                    gp(slope_pf), gp(stop_t_pf)};
+
+  // fail if any path doesn't exist
+  for (auto &p : paths)
+    if (!exists(p))
+      return false;
+
+  return true;
 }
