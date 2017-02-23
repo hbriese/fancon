@@ -54,9 +54,6 @@ public:
   void writeConf(const string &path);
   vector<unique_ptr<fancon::TSParent>> readConf(const string &path);
 
-  void run(vector<unique_ptr<TSParent>>::iterator first, vector<unique_ptr<TSParent>>::iterator last,
-           const DaemonState &state) const;
-
 private:
   vector<SensorChip> sensor_chips;
 

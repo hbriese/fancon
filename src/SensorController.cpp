@@ -183,23 +183,6 @@ vector<unique_ptr<fancon::TSParent>> fancon::SensorController::readConf(const st
   return tsParents;
 }
 
-void fancon::SensorController::run(vector<unique_ptr<TSParent>>::iterator first,
-                                   vector<unique_ptr<TSParent>>::iterator last,
-                                   const DaemonState &state) const {
-  while (state == fancon::Util::DaemonState::RUN) {
-    for (auto tspIt = first; tspIt != last; ++tspIt) {
-      // update fans if temp changed
-      if ((*tspIt)->update())
-        for (auto &fp : (*tspIt)->fans)
-          fp->update((*tspIt)->temp);
-    }
-
-    sleep(conf.update_time_s);
-  }
-
-  return;
-}
-
 fancon::TSParent::TSParent(UID tsUID, unique_ptr<Fan> fp, int temp)
     : ts_uid(tsUID), temp(temp) { fans.emplace_back(move(fp)); }
 

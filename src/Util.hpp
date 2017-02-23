@@ -89,10 +89,11 @@ void write(const string &path, T val, int nFailed = 0) {
   ofs.close();
 
   if (ofs.fail()) {
-    if (nFailed > 4)
-      fancon::Util::log(LOG_ERR, string("Failed to write '") + to_string(val)
-          + "' to: " + path + " - filesystem or permission error");
-    else
+    if (nFailed > 4) {
+      std::stringstream err;
+      err << "Failed to write '" << val << "' to: " << path << " - filesystem of permission error";
+      fancon::Util::log(LOG_ERR, err.str());
+    } else
       return write<T>(path, std::move(val), ++nFailed);
   }
 }

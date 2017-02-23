@@ -49,7 +49,7 @@ fancon aims to be widely deployable with minimum runtime dependencies:
 Want to contribute?
 Pull requests, issues and feature requests are welcome.
 
-Contributing developers please see TODO.md, or [email me](mailto:haydenbriese@gmail.com). 
+Contributing developers please see TODO.md, or [email me](mailto:haydenbriese@gmail.com?subject=fancon). 
 
 The code is formatted to the [LLVM style](http://clang.llvm.org/docs/ClangFormatStyleOptions.html) style using clang-format
 

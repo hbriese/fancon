@@ -264,13 +264,26 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
   auto threadTasks = fancon::getThreadTasks(nThreads, nTasks);
   nThreads = static_cast<uint>(threadTasks.size());
 
-  vector<future<void>> threadFutures;
+  vector<thread> threads;
   auto begIt = tsParents.begin();
   for (uint i = 0; i < nThreads; ++i) {
     auto endIt = next(begIt, threadTasks[i]);
-    threadFutures.emplace_back(std::async(std::launch::async,
-                                          &SensorController::run, ref(sc), begIt, endIt, ref(fancon::daemon_state)
-    ));
+
+    // main loop, stopped when signal is sent to signal handler
+    threads.emplace_back([](vector<unique_ptr<TSParent>>::iterator first,
+                            vector<unique_ptr<TSParent>>::iterator last, DaemonState &state, uint &updateTime) {
+      while (state == fancon::Util::DaemonState::RUN) {
+        for (auto tspIt = first; tspIt != last; ++tspIt) {
+          // update fans if temp changed
+          if ((*tspIt)->update())
+            for (auto &fp : (*tspIt)->fans)
+              fp->update((*tspIt)->temp);
+        }
+
+        sleep(updateTime);
+      }
+    }, begIt, endIt, ref(fancon::daemon_state), ref(sc.conf.update_time_s));
+
     begIt = endIt;
   }
 
@@ -282,15 +295,12 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
   sigaction(SIGINT, &act, NULL);
   sigaction(SIGHUP, &act, NULL);
 
-  log(LOG_DEBUG, "fancond started");
-  while (fancon::daemon_state == DaemonState::RUN)
-    sleep(1);
-  sleep(sc.conf.update_time_s); // wait for threads to close
-
-  // threads should be done now
-  for (auto &tf : threadFutures)
-    if (tf.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
-      log(LOG_ERR, "Thread not responding!");
+  log(LOG_NOTICE, "fancond started");
+  for (auto &t : threads)
+    if (t.joinable())
+      t.join();
+    else
+      log(LOG_DEBUG, "Unable to join thread");
 
   // re-run this function if reload
   if (fancon::daemon_state == DaemonState::RELOAD)
@@ -360,7 +370,7 @@ int main(int argc, char *argv[]) {
             auto ni = next(it);
             if (ni != args.end() && fancon::Util::isNum(*ni)) {
 
-              o.get().val = (uint) std::stoul(*ni);
+              o.get().val = static_cast<uint>(std::stoul(*ni));
               o.get().called = found = true;
               ++it;   // skip next arg
 
