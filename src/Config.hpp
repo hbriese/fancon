@@ -29,7 +29,6 @@ namespace fancon {
 class SensorControllerConfig {
 public:
   SensorControllerConfig() {}
-
   SensorControllerConfig(istream &is) { is >> *this; }
 
   bool dynamic = true;
@@ -61,7 +60,6 @@ class Point {
 public:
   Point(int temp = 0, int rpm = -1, int pwm = -1)
       : temp(temp), rpm(rpm), pwm(pwm) {}
-  ~Point() {}
 
   Point &operator=(const Point &other);
 
@@ -92,11 +90,10 @@ private:
 ostream &operator<<(ostream &os, const fancon::Point &p);
 istream &operator>>(istream &is, fancon::Point &p);
 
-class Config {
+class FanConfig {
 public:
-  Config(istream &is) { is >> *this; }
-
-  ~Config() { points.clear(); }
+  FanConfig() {}
+  FanConfig(istream &is) { is >> *this; }
 
   vector<Point> points;
 
@@ -106,12 +103,12 @@ public:
 
   bool valid() const { return !points.empty(); }
 
-  friend ostream &operator<<(ostream &os, const Config &c);
-  friend istream &operator>>(istream &is, Config &c);
+  friend ostream &operator<<(ostream &os, const FanConfig &c);
+  friend istream &operator>>(istream &is, FanConfig &c);
 };
 
-ostream &operator<<(ostream &os, const fancon::Config &c);
-istream &operator>>(istream &is, fancon::Config &c);
+ostream &operator<<(ostream &os, const fancon::FanConfig &c);
+istream &operator>>(istream &is, fancon::FanConfig &c);
 }
 
 #endif //fancon_CONFIG_HPP

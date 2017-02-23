@@ -134,8 +134,9 @@ vector<unique_ptr<fancon::TSParent>> fancon::SensorController::readConf(const st
   for (string line; std::getline(ifs, line);) {
     // remove prefacing ' ' or '/t's
     bool stillSkip = true;
-    std::remove_if(line.begin(), line.end(),
-                   [&stillSkip](const char &c) { return stillSkip && (stillSkip = (std::isspace(c) | (c == '\t'))); });
+    std::remove_if(line.begin(), line.end(), [&stillSkip](const char &c) -> bool {
+      return stillSkip && (stillSkip = (std::isspace(c) | (c == '\t')));
+    });
 
     if (line.empty() || line.front() == '#')  // skip line if empty or prefaced with '#'
       continue;
@@ -156,7 +157,7 @@ vector<unique_ptr<fancon::TSParent>> fancon::SensorController::readConf(const st
 
     UID fan_uid(liss);
     UID ts_uid(liss);
-    Config fan_conf(liss);
+    FanConfig fan_conf(liss);
 
     // check conf line is valid
     if (!fan_uid.valid() || !ts_uid.valid() || !fan_conf.valid())

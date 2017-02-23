@@ -9,7 +9,6 @@ ostream &fancon::operator<<(ostream &os, const fancon::SensorControllerConfig &c
 }
 
 istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
-  is >> skipws;
   std::istreambuf_iterator<char> eos;
   string in(std::istreambuf_iterator<char>(is), eos);
 
@@ -78,7 +77,7 @@ ostream &fancon::operator<<(ostream &os, const Point &p) {
 
 istream &fancon::operator>>(istream &is, Point &p) {
   string in;
-  is >> skipws >> in;
+  is >> in;
   std::remove_if(in.begin(), in.end(), [](auto &c) { return isspace(c); });
 
   string::iterator rpmSepIt, pwmSepIt;
@@ -118,14 +117,14 @@ istream &fancon::operator>>(istream &is, Point &p) {
   return is;
 }
 
-ostream &fancon::operator<<(ostream &os, const Config &c) {
+ostream &fancon::operator<<(ostream &os, const FanConfig &c) {
   for (auto p : c.points)
     os << p;
 
   return os;
 }
 
-istream &fancon::operator>>(istream &is, Config &c) {
+istream &fancon::operator>>(istream &is, FanConfig &c) {
   while (!is.eof()) {
     Point p;
     is >> p;

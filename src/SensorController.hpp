@@ -31,7 +31,7 @@ using std::vector;
 using fancon::UID;
 using fancon::Fan;
 using fancon::SensorControllerConfig;
-using fancon::Config;
+using fancon::FanConfig;
 using fancon::TemperatureSensor;
 using fancon::Util::DaemonState;
 using fancon::Util::getLastNum;

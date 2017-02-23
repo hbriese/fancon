@@ -10,7 +10,7 @@
 #include <boost/filesystem.hpp>
 #include "Util.hpp"
 #include "UID.hpp"
-#include "FanConfig.hpp"
+#include "Config.hpp"
 #include "TemperatureSensor.hpp"
 
 namespace chrono = std::chrono;
@@ -49,8 +49,8 @@ struct TestResult {
   bool testable() { return can_test; }
 
   bool valid() {
-    return (rpm_min > 0) && (rpm_min < rpm_max) && (pwm_min > 0) &&
-        (pwm_min < pwm_max) && (pwm_start > 0) && (slope > 0);
+    return (rpm_min > 0) && (rpm_min < rpm_max) && (rpm_max <= 255) && (pwm_min > 0)
+        && (pwm_min < pwm_max) && (pwm_start > 0) && (slope > 0);
   }
 };
 
@@ -73,6 +73,10 @@ public:
 
   constexpr static const char *path_pf = "fan";
 
+  int rpm_min, rpm_max;
+  int pwm_min, pwm_start;
+  bool tested = false;   // characteristic variables written
+
 private:
   const string hwID;  // hwmon id
   vector<fancon::Point> points;
@@ -84,8 +88,6 @@ private:
   string pwm_p, rpm_p;
   string enable_pf;
 
-  int rpm_min, rpm_max;
-  int pwm_min, pwm_start;
   double slope;       // i.e. rpm-per-pwm     // TODO: replace with polynomial
 
   // values in ms

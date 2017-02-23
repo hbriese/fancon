@@ -6,14 +6,14 @@ Fan::Fan(const UID &fanUID, const FanConfig &conf, bool dynamic)
     : hwID(to_string(fanUID.hwmon_id)), points(conf.points), dynamic(dynamic) {
   // makes all related fan paths, deleted after constructor
   FanPaths p(fanUID);
-  bool canCalcRPM = p.exist();
+  tested = p.exist();
 
   // keep paths (with changing values) for future rw
   pwm_p = p.pwm_p;
   rpm_p = p.rpm_p;
   enable_pf = p.enable_pf;
 
-  if (canCalcRPM) {
+  if (tested) {
     // Read values from fancon dir
     rpm_min = read<int>(p.rpm_min_pf, hwID);
     rpm_max = read<int>(p.rpm_max_pf, hwID);
@@ -51,7 +51,7 @@ Fan::Fan(const UID &fanUID, const FanConfig &conf, bool dynamic)
   for (auto it = points.begin(); it != points.end(); ++it) {
     if (it->validPWM())   // use pwm
       checkError(it, it->pwm, pwm_min, pwm_max_absolute);
-    else if (!canCalcRPM) { // check if RPM can be used, else log and remove
+    else if (!tested) { // check if RPM can be used, else log and remove
       std::stringstream err;
       err << fanUID << " : has not been tested, so RPM speed cannot be used - " << *it << endl;
       log(LOG_NOTICE, err.str());
@@ -120,7 +120,7 @@ int Fan::testPWM(int rpm) {
     sleep(speed_change_t);
   }
 
-  return nextPWM;  // TODO: or next/last PWM??
+  return nextPWM;
 }
 
 TestResult Fan::test(const UID &fanUID, const bool profile) {
