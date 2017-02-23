@@ -5,6 +5,7 @@
 #include <csignal>
 #include <cmath>        // floor
 #include <iostream>
+#include <iomanip>      // setw, left
 #include <string>
 #include <sstream>
 #include <functional>   // ref, reference_wrapped
@@ -24,6 +25,8 @@ using std::future;
 using std::string;
 using std::to_string;
 using std::stringstream;
+using std::setw;
+using std::left;
 using std::next;
 using std::thread;
 using std::make_pair;

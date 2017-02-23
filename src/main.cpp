@@ -5,9 +5,9 @@ string fancon::help() {
   ss << "Usage:" << endl
      << "  fancon <command> [options]" << endl << endl
      << "Available commands (and options <default>):" << endl
-     << "-lf list-fans         Lists the UIDs of all fans" << endl
-     << "-ls list-sensors      List the UIDs of all temperature sensors" << endl
-     << "-wc write-config      Writes missing fan UIDs to " << fancon::conf_path << endl
+     << "-lf list-fans        Lists the UIDs of all fans" << endl
+     << "-ls list-sensors     List the UIDs of all temperature sensors" << endl
+     << "-wc write-config     Writes missing fan UIDs to " << fancon::conf_path << endl
      << "test                 Tests the fan characteristic of all fans, required for usage of RPM in "
      << fancon::conf_path << endl
      << "  -r retries 4       Number of retries a test does before failure, increase if you think a failing fan can pass!"
@@ -20,7 +20,7 @@ string fancon::help() {
      << "stop                 Stops the fancon daemon" << endl
      << "reload               Reloads the fancon daemon" << endl
      << endl << "Global options: " << endl
-     << "  -d debug            Writes debug level messages to syslog" << endl
+     << "  -d debug           Writes debug level messages to syslog" << endl
      << endl;
 
   return ss.str();
@@ -73,8 +73,25 @@ string fancon::listFans(SensorController &sc) {
   auto uids = sc.getUIDs(Fan::path_pf);
   stringstream ss;
 
-  for (auto &uid : uids)
-    ss << uid << endl;
+  int fcw = 20, scw = 15;
+  if (uids.empty())
+    ss << "No fans were detected, try running 'sudo sensors-detect' first";
+  else
+    ss << setw(fcw) << left << "<Fan UID>" << setw(scw) << left << "<min-max RPM>" << "<min PWM>" << endl;
+
+  for (auto &uid : uids) {
+    Fan f(uid);
+    stringstream sst;
+    sst << uid;
+    ss << setw(20) << left << sst.str();
+
+    if (f.tested) {
+      sst.str("");
+      sst << f.rpm_min << " - " << f.rpm_max;
+      ss << setw(scw) << left << sst.str() << f.pwm_min << " (or 0)";
+    }
+    ss << endl;
+  }
 
   return ss.str();
 }
