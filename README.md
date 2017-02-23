@@ -21,7 +21,7 @@ Low overhead and easy configuration are the main goals of fancon, this is achiev
 Snap [installation instructions](https://snapcraft.io/docs/core/install)
 
 ```sh
-$ sudo snap install --beta --classic fancon
+$ sudo snap install fancon
 ```
 
 ###### Build from source:

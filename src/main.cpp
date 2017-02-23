@@ -303,8 +303,10 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
       log(LOG_DEBUG, "Unable to join thread");
 
   // re-run this function if reload
-  if (fancon::daemon_state == DaemonState::RELOAD)
+  if (fancon::daemon_state == DaemonState::RELOAD) {
+    log(LOG_NOTICE, "Reloading fancond");
     return fancon::start(sc, fork_, nThreads, false);  // writeLock = false
+  }
 
   return;
 }
@@ -320,7 +322,7 @@ void fancon::send(DaemonState state) {
 
 int main(int argc, char *argv[]) {
   if (getuid() != 0) {
-    cerr << "Please run fancon as root" << endl;
+    cerr << "Please run with sudo, or as root" << endl;
     exit(1);
   }
 
