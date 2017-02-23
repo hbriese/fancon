@@ -85,8 +85,10 @@ void fancon::SensorController::writeConf(const string &path) {
     fs << "# update: time between rpm changes (in seconds); threads: max number of threads to run fancond" << endl
        << "# dynamic: interpolated rpm between two points (based on temperature) rather than next point" << endl
        << SensorControllerConfig() << endl << endl
-       << "# Append 'f' to the temperature for fahrenheit" << endl
-       << "# Example:      15°C stopped fan, 77°F (22°C) 500 RPM ... 80°C full speed fan" << endl
+       << "# Note:" << endl
+       << "# fancon test MUST be run (on the fan) before use of RPM for speed control" << endl
+       << "# Append 'f' to the temperature for fahrenheit" << endl << endl
+       << "# Example:      Below 22°C fan stopped, 77°F (22°C) 500 RPM ... 80°C full speed fan" << endl
        << "# it8728/2:fan1 coretemp/0:temp2   [15;0] [77f:500] [35:650] [55:1000] [65:1200] [80;255]" << endl
        << "#" << endl
        << "# <Fan UID>     <Temperature Sensor UID>    <[temperature (°C): speed (RPM); PWM (0-255)]>" << endl;

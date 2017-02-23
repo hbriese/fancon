@@ -9,7 +9,6 @@
 #include <string>
 #include <sstream>
 #include <functional>   // ref, reference_wrapped
-#include <future>       // future, promise
 #include <thread>
 #include <sensors/sensors.h>
 #include <sys/types.h>
@@ -21,7 +20,6 @@
 using std::cerr;
 using std::cout;
 using std::endl;
-using std::future;
 using std::string;
 using std::to_string;
 using std::stringstream;
