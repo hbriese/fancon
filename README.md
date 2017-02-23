@@ -15,16 +15,21 @@ Low overhead and easy configuration are the main goals of fancon, this is achiev
 
 
 ### Installation
-
-###### Install fancon snap:
+##### Install fancon snap:
 
 Snap [installation instructions](https://snapcraft.io/docs/core/install)
 
-```sh
+###### stable
+```bash
 $ sudo snap install fancon
 ```
 
-###### Build from source:
+###### git master
+```bash
+$ sudo snap install fancon --candidate
+```
+
+##### Build from source:
 gcc may be substituted for clang
 
 ```sh
