@@ -21,9 +21,20 @@ vector<SensorChip> fancon::SensorController::getSensorChips() {
   int ci = 0;
 
   while ((cn = sensors_get_detected_chips(NULL, &ci)) != NULL)
-    sensor_chips.push_back(std::make_shared<const sensors_chip_name *>(cn));
+    sensor_chips.push_back(make_unique<const sensors_chip_name *>(cn));
 
   return sensor_chips;
+}
+
+bool fancon::SensorController::skipLine(const string &line) {
+  // break when valid char found
+  auto it = line.begin();
+  for (; it != line.end(); ++it)
+    if (!std::isspace(*it) || *it != '\t')
+      break;
+
+  // true if line starts with '#', or all space/tabs
+  return line.front() == '#' || it == line.end();
 }
 
 vector<UID> fancon::SensorController::getUIDs(const char *devPf) {
@@ -51,24 +62,24 @@ void fancon::SensorController::writeConf(const string &path) {
   auto f_uids = getUIDs(Fan::path_pf);
   std::fstream fs(path, std::ios_base::in);   // read from the beginning of the file, append writes
   bool pExists = exists(path);
-//  bool sccFound = false;
+  bool sccFound = false;
 
   vector<vector<UID>::iterator> curUIDIts;
   if (pExists) { // read existing UIDs
     log(LOG_NOTICE, "Config exists, adding absent fans");
 
     for (string line; std::getline(fs, line, '\n');) {
-      if (line.empty())
+      if (skipLine(line))
         continue;
 
       istringstream liss(line);
-      /*if (!sccFound) {
+      if (!sccFound) {
         if (SensorControllerConfig(liss).valid()) {
           sccFound = true;
           continue;
         } else
           liss.seekg(0, std::ios::beg);
-      }*/
+      }
 
       UID fanUID(liss);
 
@@ -101,19 +112,23 @@ void fancon::SensorController::writeConf(const string &path) {
 
   /*if (!sccFound) {
     // copy file contents to memory
-    fs.open(path, std::ios::in | std::ios::ate);
-    fs.seekg(0, std::ios::beg);
-    std::stringstream ss;
-    ss << fs.rdbuf();
-//    vector<char> buf(size);
-//    fs.read(buf.data(), size);
-    fs.close();
+    ifstream ifs(path);
+    std::string contents;
+
+    ifs.seekg(0, std::ios::end);
+    auto s = ifs.tellg();
+    if (s > 0)
+      contents.reserve(s);
+    ifs.seekg(0, std::ios::beg);
+
+    contents.assign((std::istreambuf_iterator<char>(ifs)),
+                    std::istreambuf_iterator<char>());
 
     // write file with scc included
     fs.open(path, std::ios::out);
     writeTop(fs);
-//    fs << ss.rdbuf();
-  } */
+    fs << contents;
+  }*/
 
   // write UIDs (not already in file)
   for (auto it = f_uids.begin(); it != f_uids.end(); ++it)
@@ -134,13 +149,7 @@ vector<unique_ptr<fancon::TSParent>> fancon::SensorController::readConf(const st
   * SensorControllerConfig
   * Fan_UID TS_UID Config   */
   for (string line; std::getline(ifs, line);) {
-    // remove prefacing ' ' or '/t's
-    bool stillSkip = true;
-    std::remove_if(line.begin(), line.end(), [&stillSkip](const char &c) -> bool {
-      return stillSkip && (stillSkip = (std::isspace(c) | (c == '\t')));
-    });
-
-    if (line.empty() || line.front() == '#')  // skip line if empty or prefaced with '#'
+    if (skipLine(line))
       continue;
 
     istringstream liss(line);

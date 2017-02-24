@@ -250,8 +250,10 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
   }
 
   auto tsParents = sc.readConf(fancon::conf_path);
-  if (tsParents.empty())
+  if (tsParents.empty()) {
+    log(LOG_NOTICE, "No fan configurations found, exiting fancond. See 'fancon help'");
     return;
+  }
 
   // set daemon state
   fancon::daemon_state = DaemonState::RUN;
