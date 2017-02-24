@@ -34,19 +34,9 @@ gcc may be substituted for clang
 
 ```sh
 $ git clone https://github.com/HBriese/fancon.git
-$ sudo apt-get install gcc make cmake lm-sensors rsyslog libc++-dev libstdc++6 linux-libc-dev libsensors4-dev libboost-filesystem-dev
+$ sudo apt-get install gcc make cmake lm-sensors rsyslog libgcc-6-dev libc6 libc++-helpers lm-sensors libsensors4-dev libboost-filesystem-dev linux-libc-dev libpthread-stubs0-dev
 $ mkdir fancon/Release && cd fancon/Release && cmake -DCMAKE_BUILD_TYPE=Release .. && make && sudo make install
 ```
-
-
-### Runtime Dependencies
-
-fancon aims to be widely deployable with minimum runtime dependencies:
-
-| Name (package) | Usage |
-| -------------- | ----- |
-| [lm-sensors] | A sensor monitoring tool|
-| syslog supported logger <br> (tested with [rsyslog]) | Log handling |
 
 
 ### Development
