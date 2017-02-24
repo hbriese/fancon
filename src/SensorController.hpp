@@ -20,8 +20,6 @@ using std::string;
 using std::skipws;
 using std::find_if;
 using std::unique_ptr;
-using std::shared_ptr;
-using std::make_shared;
 using std::make_unique;
 using std::move;
 using std::istringstream;
@@ -36,7 +34,7 @@ using fancon::TemperatureSensor;
 using fancon::Util::DaemonState;
 using fancon::Util::getLastNum;
 
-using SensorChip = shared_ptr<const sensors_chip_name *>;
+using SensorChip = unique_ptr<const sensors_chip_name *>;
 
 namespace fancon {
 class TSParent;
@@ -49,6 +47,7 @@ public:
 
   fancon::SensorControllerConfig conf;
 
+  bool skipLine(const string &line);
   vector<UID> getUIDs(const char *devicePathPostfix);
 
   void writeConf(const string &path);

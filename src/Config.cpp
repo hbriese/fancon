@@ -3,7 +3,7 @@
 using namespace fancon;
 
 ostream &fancon::operator<<(ostream &os, const fancon::SensorControllerConfig &c) {
-  os << c.updateBegSep << to_string(c.update_time_s) << " " << c.threadsBegSep << to_string(c.threads)
+  os << c.updateBegSep << c.update_time_s << " " << c.threadsBegSep << c.threads
      << " " << c.dynamicBegSep << ((c.dynamic) ? "true" : "false");
   return os;
 }
@@ -71,7 +71,7 @@ Point &fancon::Point::operator=(const Point &other) {
 ostream &fancon::operator<<(ostream &os, const Point &p) {
   string rpm_out = (p.rpm != -1) ? string() + p.rpmBegSep + to_string(p.rpm) : string();
   string pwm_out = (p.pwm != -1) ? string() + p.pwmBegSep + to_string(p.pwm) : string();
-  os << p.tempBegSep << to_string(p.temp) << rpm_out << pwm_out << p.endSep;
+  os << p.tempBegSep << p.temp << rpm_out << pwm_out << p.endSep;
   return os;
 }
 

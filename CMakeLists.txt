@@ -12,7 +12,7 @@ endif ()
 #add_test(fancon_tests tests/fancon_tests)
 
 include_directories(src)
-set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/UID.hpp src/SensorController.cpp src/SensorController.hpp
+set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/UID.cpp src/UID.hpp src/SensorController.cpp src/SensorController.hpp
         src/Config.cpp src/Config.hpp src/TemperatureSensor.hpp src/Fan.cpp src/Fan.hpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
@@ -35,5 +35,5 @@ set(LIBS ${LIBS} ${LM_SENSORS_LIBRARIES})
 ## Link libraries
 target_link_libraries(${PROJECT_NAME} ${LIBS})
 
-# Install
+## Install
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)

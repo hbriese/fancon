@@ -36,6 +36,7 @@ struct TestResult {
   TestResult(int rpm_min, int rpm_max, int pwm_min, int pwm_max, int pwm_start, long stop_time, double slope)
       : rpm_min(rpm_min), rpm_max(rpm_max), pwm_min(pwm_min), pwm_max(pwm_max), pwm_start(pwm_start),
         stop_time(stop_time), slope(slope) {}
+
   int rpm_min,
       rpm_max,
       pwm_min,
