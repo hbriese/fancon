@@ -100,7 +100,7 @@ void fancon::SensorController::writeConf(const string &path) {
        << "# fancon test MUST be run (on the fan) before use of RPM for speed control" << endl
        << "# Append 'f' to the temperature for fahrenheit" << endl << endl
        << "# Example:      Below 22°C fan stopped, 77°F (22°C) 500 RPM ... 80°C full speed fan" << endl
-       << "# it8728/2:fan1 coretemp/0:temp2   [15;0] [77f:500] [35:650] [55:1000] [65:1200] [80;255]" << endl
+       << "# it8728/2:fan1 coretemp/0:temp2   [0;0] [77f:500] [35:650] [55:1000] [65:1200] [80;255]" << endl
        << "#" << endl
        << "# <Fan UID>     <Temperature Sensor UID>    <[temperature (°C): speed (RPM); PWM (0-255)]>" << endl;
   };
@@ -109,26 +109,6 @@ void fancon::SensorController::writeConf(const string &path) {
     log(LOG_NOTICE, "Writing new config: " + path);
     writeTop(fs);
   }
-
-  /*if (!sccFound) {
-    // copy file contents to memory
-    ifstream ifs(path);
-    std::string contents;
-
-    ifs.seekg(0, std::ios::end);
-    auto s = ifs.tellg();
-    if (s > 0)
-      contents.reserve(s);
-    ifs.seekg(0, std::ios::beg);
-
-    contents.assign((std::istreambuf_iterator<char>(ifs)),
-                    std::istreambuf_iterator<char>());
-
-    // write file with scc included
-    fs.open(path, std::ios::out);
-    writeTop(fs);
-    fs << contents;
-  }*/
 
   // write UIDs (not already in file)
   for (auto it = f_uids.begin(); it != f_uids.end(); ++it)
