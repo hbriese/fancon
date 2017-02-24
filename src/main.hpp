@@ -64,8 +64,8 @@ void start(SensorController &sc, const bool fork_ = false, uint nThreads = 0, co
 void send(DaemonState state);
 
 struct Command {
-  Command(const string &name, bool shrtName = false)
-      : name(name), called(false) {
+  Command(const string &name, bool requireRoot = false, bool shrtName = false)
+      : name(name), called(false), require_root(requireRoot) {
     if (shrtName) {
       shrt_name += name.front();
 
@@ -81,11 +81,12 @@ struct Command {
   const string name;
   string shrt_name;
   bool called;
+  const bool require_root;
 };
 
 struct Option : Command {
 public:
-  Option(const string &name, bool shrtName = false, bool hasValue = false)
+  Option(const string &name, bool shrtName = true, bool hasValue = false)
       : Command(name, shrtName), has_value(hasValue) {}
 
   bool has_value;

@@ -323,11 +323,6 @@ void fancon::send(DaemonState state) {
 }
 
 int main(int argc, char *argv[]) {
-  if (getuid() != 0) {
-    cerr << "Please run with sudo, or as root" << endl;
-    exit(1);
-  }
-
   if (!exists(fancon::Util::fancon_dir)) {
     const char *bold = "\033[1m", *red = "\033[31m", *reset = "\033[0m";
     string m("First use: please run 'fancon test', then configure fan profiles in /etc/fancon.conf");
@@ -341,17 +336,18 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; ++i)
     args.push_back(string(argv[i]));
 
-  fancon::Command help("help"), start("start"), stop("stop"), reload("reload"),
-      list_fans("list-fans", true), list_sensors("list-sensors", true),
-      test("test"), write_config("write-config", true);
+  fancon::Command help("help"), start("start", true), stop("stop", true), reload("reload", true),
+      list_fans("list-fans", false, true), list_sensors("list-sensors", false, true),
+      test("test", true), write_config("write-config", true, true);
   vector<reference_wrapper<fancon::Command>> commands
       {help, start, stop, reload, list_fans, list_sensors, test, write_config};
 
-  fancon::Option debug("debug", true), threads("threads", true), fork("fork", true),
-      profiler("profiler", true), retries("retries", true, true);
+  fancon::Option debug("debug"), threads("threads"), fork("fork"),
+      profiler("profiler"), retries("retries", true, true);
   vector<reference_wrapper<fancon::Option>> options
       {debug, threads, fork, profiler, retries};
 
+  bool root = getuid() == 0;
   for (auto it = args.begin(); it != args.end(); ++it) {
     auto &a = *it;
     if (a.empty())
@@ -373,8 +369,14 @@ int main(int argc, char *argv[]) {
       }
 
     if (!found) {
-      for (auto &o : options)
+      for (auto &o : options) {
         if (o.get() == a) {
+          // check for root
+          if (o.get().require_root && !root) {
+            cerr << "Please run with sudo, or as root for command: " << o.get().name << endl;
+            continue;
+          }
+
           // if option has value, check valid and set
           if (o.get().has_value) {
             auto ni = next(it);
@@ -385,14 +387,15 @@ int main(int argc, char *argv[]) {
               ++it;   // skip next arg
 
             } else {
-              string valOut = (ni != args.end()) ? (string(" (") + *ni + ") ") : "";
-              cerr << "No valid value" << valOut << " given for option: " << o.get().name << endl;
+              string valOut = (ni != args.end()) ? (string(" (") + *ni + ") ") : " ";
+              cerr << "No valid value" << valOut << "given for option: " << o.get().name << endl;
             }
           } else
             o.get().called = found = true;
 
           break;
         }
+      }
     }
     if (!found)
       cerr << "Unknown argument: " << a << endl;
@@ -403,20 +406,22 @@ int main(int argc, char *argv[]) {
   // execute called commands with called options
   if (help.called || args.empty()) // execute help() if no commands are given
     coutThreadsafe(fancon::help());
-  else if (start.called)
+
+  if (start.called)
     fancon::start(sc, fork.called);
   else if (stop.called)
     fancon::send(DaemonState::STOP);
   else if (reload.called)
     fancon::send(DaemonState::RELOAD);
-  else if (list_fans.called)
-    coutThreadsafe(fancon::listFans(sc));
-  else if (list_sensors.called)
-    coutThreadsafe(fancon::listSensors(sc));
   else if (test.called) {
     uint nRetries = (retries.called && retries.val > 0) ? retries.val : 4;   // default 4 retries
     fancon::test(sc, profiler.called, nRetries);
   }
+
+  if (list_fans.called)
+    coutThreadsafe(fancon::listFans(sc));
+  if (list_sensors.called)
+    coutThreadsafe(fancon::listSensors(sc));
   if (write_config.called || !exists(fancon::conf_path))
     sc.writeConf(fancon::conf_path);
 
