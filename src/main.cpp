@@ -323,13 +323,16 @@ void fancon::send(DaemonState state) {
 }
 
 int main(int argc, char *argv[]) {
+  bool root = getuid() == 0;
+
   if (!exists(fancon::Util::fancon_dir)) {
     const char *bold = "\033[1m", *red = "\033[31m", *reset = "\033[0m";
     string m("First use: please run 'fancon test', then configure fan profiles in /etc/fancon.conf");
     cout << bold << setw(m.size()) << std::setfill('-') << left << '-' << endl;
     cout << red << m << reset << endl;
     cout << bold << setw(m.size()) << left << '-' << reset << endl;
-    fancon::firstTimeSetup();
+    if (root)
+      fancon::firstTimeSetup();
   }
 
   vector<string> args;
@@ -347,7 +350,6 @@ int main(int argc, char *argv[]) {
   vector<reference_wrapper<fancon::Option>> options
       {debug, threads, fork, profiler, retries};
 
-  bool root = getuid() == 0;
   for (auto it = args.begin(); it != args.end(); ++it) {
     auto &a = *it;
     if (a.empty())
