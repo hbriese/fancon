@@ -3,7 +3,6 @@
 
 #include <iostream>     // endl
 #include <algorithm>    // all_of
-#include <chrono>
 #include <mutex>
 #include <thread>
 #include <string>
@@ -11,13 +10,14 @@
 #include <fstream>      // ifstream, ofstream
 #include <vector>
 #include <boost/filesystem.hpp>
-#include <iostream>
-#include <sys/syslog.h>
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
 #include <csignal>
 
-namespace chrono = std::chrono;
-namespace bfs = boost::filesystem;
+#define LOG(lvl)  BOOST_LOG_TRIVIAL(lvl)
 
+using std::clog;
 using std::string;
 using std::to_string;
 using std::cout;
@@ -25,8 +25,10 @@ using std::endl;
 using std::ofstream;
 using std::ifstream;
 using std::vector;
+using boost::filesystem::create_directory;
 using boost::filesystem::exists;
 using boost::filesystem::path;
+using boost::log::trivial::severity_level;
 
 namespace fancon {
 enum DaemonState { RUN, STOP = SIGINT, RELOAD = SIGHUP };
@@ -50,10 +52,6 @@ void coutThreadsafe(const string &out);
 /* found: returns false if any of the iterators are invalid */
 bool validIter(const string::iterator &end, std::initializer_list<string::iterator> iterators);
 
-void openSyslog(bool debug = false);
-void closeSyslog();
-void log(int logSeverity, const string &message);
-
 string getDir(const string &hwID, DeviceType devType, const bool useSysFS = false);
 string getPath(const string &path_pf, const string &hwID, DeviceType devType = FAN, const bool useSysFS = false);
 
@@ -68,8 +66,8 @@ T read(const string &path, int nFailed = 0) {
 
   if (ifs.fail()) {
     if (nFailed > 4)
-      log(LOG_DEBUG, string("Failed to read from: ") + path
-          + ((exists(path)) ? " - filesystem or permission error" : " - doesn't tested!"));
+      LOG(severity_level::debug) << "Failed to read from: " << path
+                                 << ((exists(path)) ? " - filesystem or permission error" : " - doesn't tested!");
     else
       return read<T>(path, ++nFailed);
   }
@@ -90,11 +88,10 @@ void write(const string &path, T val, int nFailed = 0) {
   ofs.close();
 
   if (ofs.fail()) {
-    if (nFailed > 4) {
-      std::stringstream err;
-      err << "Failed to write '" << val << "' to: " << path << " - filesystem of permission error";
-      fancon::Util::log(LOG_DEBUG, err.str());
-    } else
+    if (nFailed > 4)
+      LOG(severity_level::debug) << "Failed to write '" << val << "' to: " << path
+                                 << " - filesystem of permission error";
+    else
       return write<T>(path, std::move(val), ++nFailed);
   }
 }

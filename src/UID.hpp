@@ -15,7 +15,6 @@ using std::find;
 using std::ostream;
 using std::istream;
 using std::to_string;
-using fancon::Util::log;
 
 namespace fancon {
 class UID {

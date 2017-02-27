@@ -46,7 +46,7 @@ istream &fancon::operator>>(istream &is, UID &u) {
 
   if (cnEndIt == in.end() || hwIdEndIt == in.end() || devnBegIt == in.end()) {
     if (!in.empty())
-      log(LOG_ERR, string("Invalid UID: ") + in);
+      LOG(severity_level::error) << "Invalid UID: " << in;
 
     // set invalid values
     u.chipname = string();

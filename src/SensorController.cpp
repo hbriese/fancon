@@ -2,7 +2,7 @@
 
 using namespace fancon;
 
-SensorController::SensorController(bool debug, uint nThreads) {
+SensorController::SensorController(uint nThreads) {
   sensors_init(NULL);
   sensor_chips = getSensorChips();
 
@@ -11,14 +11,9 @@ SensorController::SensorController(bool debug, uint nThreads) {
 
   if (nThreads)
     conf.threads = nThreads;
-
-  fancon::Util::openSyslog(debug);
 }
 
-SensorController::~SensorController() {
-  sensors_cleanup();
-  fancon::Util::closeSyslog();
-}
+SensorController::~SensorController() { sensors_cleanup(); }
 
 vector<SensorChip> SensorController::getSensorChips() {
   vector<SensorChip> sensor_chips;
@@ -68,7 +63,7 @@ vector<UID> SensorController::getNvidiaFans() {
       std::replace(name.begin(), name.end(), ' ', '_');   // replace spaces in name with underscores
       uids.emplace_back(fancon::UID(string(fancon::Util::nvidia_label), std::stoi(idStr), name));
     } else
-      log(LOG_DEBUG, string("Invalid nvidia grep line: ") + line);
+      LOG(severity_level::debug) << "Invalid nvidia grep line: " << line;
   }
 
   // enable NVIDIA fan control coolbits bit if required
@@ -94,7 +89,7 @@ void SensorController::writeConf(const string &path) {
 
   vector<vector<UID>::iterator> curUIDIts;
   if (pExists) { // read existing UIDs
-    log(LOG_NOTICE, "Config exists, adding absent fans");
+    LOG(severity_level::info) << "Config exists, adding absent fans";
 
     for (string line; std::getline(fs, line);) {
       if (skipLine(line))
@@ -134,7 +129,7 @@ void SensorController::writeConf(const string &path) {
   };
 
   if (!pExists) {
-    log(LOG_NOTICE, "Writing new config: " + path);
+    LOG(severity_level::info) << "Writing new config: " << path;
     writeTop(fs);
   }
 
@@ -144,7 +139,7 @@ void SensorController::writeConf(const string &path) {
       fs << *it << endl;
 
   if (fs.fail())
-    log(LOG_ERR, "Failed to write config file: " + path);
+    LOG(severity_level::error) << "Failed to write config file: " << path;
 }
 
 vector<unique_ptr<TSParent>> SensorController::readConf(const string &path) {
@@ -260,7 +255,7 @@ void SensorController::enableNvidiaFanControlCoolbit() {
 
   int nv = iv;
   if (cv > 0) {
-    log(LOG_ERR, "Invalid coolbits value, fixing with fan control bit set");
+    LOG(severity_level::error) << "Invalid coolbits value, fixing with fan control bit set";
     nv -= cv;
   }
 
@@ -270,7 +265,7 @@ void SensorController::enableNvidiaFanControlCoolbit() {
   if (nv != iv) {
     command = string("sudo nvidia-xconfig --cool-bits=") + to_string(nv) + " > /dev/null";
     system(command.c_str());
-    log(LOG_NOTICE, "Reboot, or restart your display server to enable NVIDIA fan control");
+    LOG(severity_level::info) << "Reboot, or restart your display server to enable NVIDIA fan control";
   }
 }
 

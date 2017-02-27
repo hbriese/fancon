@@ -2,9 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 set (CMAKE_CXX_STANDARD 14)
 project(fancon)
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror")
-endif ()
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wpedantic -Werror")
 
 # Enable testing in this project
 #enable_testing()
@@ -21,8 +19,9 @@ find_package(Threads REQUIRED)
 set(LIBS ${LIBS} ${CMAKE_THREAD_LIBS_INIT})
 
 ## Boost
+set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)
-find_package(Boost REQUIRED COMPONENTS filesystem system)   #thread
+find_package(Boost REQUIRED COMPONENTS filesystem system log log_setup)
 include_directories(${Boost_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${Boost_LIBRARIES})
 

@@ -26,7 +26,6 @@ using boost::filesystem::exists;
 using fancon::FanInterface;
 using fancon::Util::read;
 using fancon::Util::write;
-using fancon::Util::log;
 using fancon::UID;
 using fancon::FanConfig;
 

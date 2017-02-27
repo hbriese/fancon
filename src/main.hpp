@@ -35,7 +35,6 @@ using fancon::SensorController;
 using fancon::TemperatureSensor;
 using fancon::FanTestResult;
 using fancon::DaemonState;
-using fancon::Util::log;
 
 int main(int argc, char *argv[]);
 

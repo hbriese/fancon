@@ -7,49 +7,35 @@ string fancon::help() {
      << "Available commands (and options <default>):" << endl
      << "-lf list-fans        Lists the UIDs of all fans" << endl
      << "-ls list-sensors     List the UIDs of all temperature sensors" << endl
-     << "-wc write-config     Writes missing fan UIDs to " << fancon::conf_path << endl
-     << "test                 Tests the fan characteristic of all fans, required for usage of RPM in "
-     << fancon::conf_path << endl
-     << "  -r retries 4       Number of retries a test does before failure, increase if you think a failing fan can pass!"
-     << endl
-     << "start                Starts the fancon daemon" << endl
-     << "  -f fork            Forks off the parent process" << endl
-     << "  -t threads         Ignores 'threads=' in /etc/fancon.conf and sets maximum number of threads to run" << endl
-     << "stop                 Stops the fancon daemon" << endl
-     << "reload               Reloads the fancon daemon" << endl
-     << endl << "Global options: " << endl
-     << "  -d debug           Writes debug level messages to syslog" << endl
-     << endl;
+                                                                        << "-wc write-config     Writes missing fan UIDs to " << fancon::conf_path << endl
+                                                                        << "test                 Tests the fan characteristic of all fans, required for usage of RPM in "
+                                                                        << fancon::conf_path << endl
+                                                                        << "  -r retries 4       Number of retries a test does before failure, increase if you think a failing fan can pass!"
+                                                                        << endl
+                                                                        << "start                Starts the fancon daemon" << endl
+                                                                        << "  -f fork            Forks off the parent process" << endl
+                                                                        << "  -t threads         Ignores \"threads=\" in /etc/fancon.conf and sets maximum number of threads to run"
+                                                                        << endl
+                                                                        << "stop                 Stops the fancon daemon" << endl
+                                                                        << "reload               Reloads the fancon daemon" << endl
+                                                                        << endl << "Global options: " << endl
+                                                                        << "  -d debug           Write debug level messages to log"
+                                                                        << endl
+                                                                        << "  -q quiet           Only write error level messages to log"
+                                                                        << endl << endl;
 
   return ss.str();
 }
 
 void fancon::firstTimeSetup() {
-  bfs::create_directory(fancon::Util::fancon_dir);
-
-  string rsyslogDir("/etc/rsyslog.d/");
-  string p = rsyslogDir + "30-fancon.conf";
-
-  if (exists(rsyslogDir) && !exists(p)) {
-    string logP("/var/log/fancon.log");
-    ofstream ofs(p);
-    ofs << ":programname, isequal, \"fancon\" " << logP << endl
-        << "stop" << endl;
-    if (ofs.fail())
-      cerr << "Failed to write a fancon syslog config, logs will be written directly to " << logP
-           << ", please make a github issue: " << p << endl;
-
-    // restart service
-    if (system("/etc/init.d/rsyslog restart"))
-      cerr << "Failed to restart rsyslog, /var/log/syslog will be used until reboot, or rsyslog restarted" << endl;
-  }
+  create_directory(fancon::Util::fancon_dir);
 
   string pmSleepDir("/etc/pm/sleep.d/");
   const char *pmScriptErr = "Failed to write pm script, fancon may not work on wakeup, please make a github issue";
   if (!exists(pmSleepDir))
     cerr << pmScriptErr << endl;
 
-  p = pmSleepDir + "fancon";
+  string p = pmSleepDir + "fancon";
   if (exists(pmSleepDir) && !exists(p)) {   // TODO: remove exists(pmSleepDir) double check
     // get executable path
     string exeP;
@@ -169,14 +155,14 @@ void fancon::test(SensorController &sc, uint testRetries, bool singleThread) {
     cerr << "No fans were detected, try running 'sudo sensors-detect' first" << endl;
 
   if (!exists(Util::fancon_dir))
-    bfs::create_directory(Util::fancon_dir);
+    create_directory(Util::fancon_dir);
 
   cout << "Starting tests. This may take some time (to ensure accurate results)" << endl;
   vector<thread> threads;
   for (auto it = fanUIDs.begin(); it != fanUIDs.end(); ++it) {
     auto dir = Util::getDir(to_string(it->hwID), it->type);
     if (!exists(dir))
-      bfs::create_directory(dir);
+      create_directory(dir);
 
     threads.push_back(thread(&fancon::testUID, std::ref(*it), testRetries));
 
@@ -223,7 +209,7 @@ void fancon::handleSignal(int sig) {
   case (int) DaemonState::RELOAD:
   case (int) DaemonState::STOP: fancon::daemon_state = (DaemonState) sig;
     break;
-  default:log(LOG_NOTICE, string("Unknown signal caught") + to_string(sig));
+  default: LOG(severity_level::debug) << "Unknown signal caught: " << sig;
   }
 }
 
@@ -238,7 +224,7 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
       if (p > 0)
         exit(EXIT_SUCCESS);
       else if (p < 0) {
-        log(LOG_ERR, "Failed to fork off parent");
+        LOG(severity_level::fatal) << "Failed to fork off parent";
         exit(EXIT_FAILURE);
       }
     };
@@ -251,7 +237,7 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
 
     // Create a new session for the child
     if ((pid = setsid()) < 0) {
-      log(LOG_ERR, "Failed to set session id for the forked fancond thread");
+      LOG(severity_level::fatal) << "Failed to fork off parent";
       exit(EXIT_FAILURE);
     }
 
@@ -267,14 +253,12 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
   umask(0);
 
   // Change working directory
-  if (chdir("/") < 0) {
-    log(LOG_ERR, "Failed to set working directory");
-    exit(EXIT_FAILURE);
-  }
+  if (chdir("/") < 0)
+    LOG(severity_level::warning) << "Failed to set working directory";
 
   auto tsParents = sc.readConf(fancon::conf_path);
   if (tsParents.empty()) {
-    log(LOG_NOTICE, "No fan configurations found, exiting fancond. See 'fancon help'");
+    LOG(severity_level::info) << "No fan configurations found, exiting fancond. See 'fancon help'";
     return;
   }
 
@@ -324,16 +308,16 @@ void fancon::start(SensorController &sc, const bool fork_, uint nThreads, const 
   sigaction(SIGINT, &act, NULL);
   sigaction(SIGHUP, &act, NULL);
 
-  log(LOG_DEBUG, "fancond started");
+  LOG(severity_level::debug) << "fancond started";
   for (auto &t : threads)
     if (t.joinable())
       t.join();
     else
-      log(LOG_DEBUG, "Unable to join thread");
+      LOG(severity_level::debug) << "Unable to join thread ID: " << t.get_id();
 
   // re-run this function if reload
   if (fancon::daemon_state == DaemonState::RELOAD) {
-    log(LOG_NOTICE, "Reloading fancond");
+    LOG(severity_level::info) << "Reloading fancond";
     return fancon::start(sc, fork_, nThreads, false);  // writeLock = false
   }
 
@@ -372,9 +356,9 @@ int main(int argc, char *argv[]) {
   vector<reference_wrapper<fancon::Command>> commands
       {help, start, stop, reload, list_fans, list_sensors, test, write_config};
 
-  fancon::Option debug("debug"), threads("threads", true), fork("fork"), retries("retries", true);
+  fancon::Option debug("debug"), quiet("quiet"), threads("threads", true), fork("fork"), retries("retries", true);
   vector<reference_wrapper<fancon::Option>> options
-      {debug, threads, fork, retries};
+      {debug, quiet, threads, fork, retries};
 
   for (auto it = args.begin(); it != args.end(); ++it) {
     auto &a = *it;
@@ -430,7 +414,15 @@ int main(int argc, char *argv[]) {
       cerr << "Unknown argument: " << a << endl;
   }
 
-  SensorController sc(debug.called, threads.val);
+  SensorController sc(threads.val);
+
+  // set log severity level
+  boost::log::trivial::severity_level logLevel = severity_level::info;;
+  if (debug.called)
+    logLevel = severity_level::debug;
+  else if (quiet.called)
+    logLevel = severity_level::fatal;
+  boost::log::core::get()->set_filter(boost::log::trivial::severity >= logLevel);
 
   // execute called commands with called options
   if (help.called || args.empty()) // execute help() if no commands are given

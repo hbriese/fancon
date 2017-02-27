@@ -38,17 +38,6 @@ bool Util::validIter(const string::iterator &end, std::initializer_list<string::
   return true;
 }
 
-void Util::openSyslog(bool debug) {
-  int logLevel = (debug) ? LOG_DEBUG : LOG_NOTICE;
-  setlogmask(LOG_UPTO(logLevel));
-  openlog("fancon", LOG_PID, LOG_LOCAL1);
-  // LOG_NDELAY open before first log
-}
-
-void Util::closeSyslog() { closelog(); }
-
-void Util::log(int logSeverity, const string &message) { syslog(logSeverity, "%s", message.c_str()); }
-
 string Util::getDir(const string &hwID, DeviceType devType, const bool useSysFS) {
   string d;
   if (devType == DeviceType::FAN)
@@ -56,7 +45,7 @@ string Util::getDir(const string &hwID, DeviceType devType, const bool useSysFS)
   else if (devType == FAN_NVIDIA)
     d = string(fancon_dir) + nvidia_label;
   else
-    log(LOG_DEBUG, "SysFS can only be used for DeviceType::FAN");
+    LOG(severity_level::debug) << "SysFS can only be used for DeviceType::FAN";
 
   return (d += '/');
 }
@@ -78,7 +67,7 @@ string Util::readLine(string path) {
   std::getline(ifs, line);
 
   if (ifs.fail())
-    log(LOG_ERR, string("Failed to read from: ") + path);
+    LOG(severity_level::error) << "Failed to read from: " << path;
 
   return line;
 }

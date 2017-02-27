@@ -21,7 +21,6 @@ using std::istream;
 using std::to_string;
 using std::vector;
 using fancon::Util::coutThreadsafe;
-using fancon::Util::log;
 using fancon::Util::isNum;
 using fancon::Util::validIter;
 

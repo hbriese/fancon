@@ -20,7 +20,7 @@ int FanNVIDIA::readNvVar(const string &hwID, const char *var, bool targetGPU) {
   for (string l; std::getline(ips, l);)
     return Util::getLastNum(l);
 
-  log(LOG_ERR, string(var) + " could not be read, please submit a GitHub issue");
+  LOG(severity_level::error) << var << " could not be read, please submit a GitHub issue";
   return 0;
 }
 

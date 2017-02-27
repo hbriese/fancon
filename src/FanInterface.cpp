@@ -59,28 +59,19 @@ void FanInterface::verifyPoints(const UID &fanUID) {
   points.erase(invalidBegIt, points.end());
 
   if (!ignoring.str().empty()) {
-    stringstream err;
-    err << fanUID;
-    string spaces(err.str().size(), ' ');
+    stringstream uss;
+    uss << fanUID;
+    string spaces(uss.str().size(), ' ');
 
-    if (untestedPoints) {
-      err << " : has not been tested yet, so RPM speed cannot be used (only PWM)";
-      log(LOG_NOTICE, err.str());
-      err.str("");
-      err << spaces;
-    }
+    if (untestedPoints)
+      LOG(severity_level::warning) << uss.str() << " : has not been tested yet, so RPM speed cannot be used (only PWM)";
 
-    if (invalidPoints) {
-      err << " : invalid config entries;"
+    if (invalidPoints)
+      LOG(severity_level::warning) << ((untestedPoints) ? spaces : uss.str()) << " : invalid config entries;"
           << "rpm min=" << rpm_min << "(or 0), max=" << rpm_max
           << "; pwm min=" << pwm_min << "(or 0), max=" << pwm_max_absolute;
-      log(LOG_ERR, err.str());
-      err.str("");
-      err << spaces;
-    }
 
-    err << " : ignoring" << ignoring.str();
-    log(LOG_ERR, err.str());
+    LOG(severity_level::warning) << spaces << " : ignoring" << ignoring.str();
   }
 }
 
@@ -234,7 +225,7 @@ int tests::getPWMStart(function<int()> rPWM, function<void(int)> wPWM, function<
   }
 
   if (rPWM() != pwmStart)
-    log(LOG_DEBUG, "The starting PWM has changed since writing it!");
+    LOG(severity_level::debug) << "The starting PWM has changed since writing it!";
 
   return pwmStart;
 }

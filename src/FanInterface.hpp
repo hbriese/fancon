@@ -1,6 +1,7 @@
 #ifndef FANCON_FANINTERFACE_HPP
 #define FANCON_FANINTERFACE_HPP
 
+#include <chrono>
 #include <sstream>    // stringstream
 #include <functional>   // function
 #include "Util.hpp"
@@ -13,10 +14,11 @@ using fancon::UID;
 using fancon::FanConfig;
 using fancon::Util::read;
 using fancon::Util::write;
-using fancon::Util::log;
 using fancon::Util::getPath;
 using fancon::Util::speed_change_t;
 using fancon::Util::pwm_max_absolute;
+
+namespace chrono = std::chrono;
 
 namespace fancon {
 struct FanTestResult {
