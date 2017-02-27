@@ -20,13 +20,16 @@ using fancon::Util::log;
 namespace fancon {
 class UID {
 public:
-  UID(istream &is) { is >> *this; }
+  UID(istream &is) {
+    is >> *this;
+    type = getType();
+  }
+  UID(string chipname, int hwID, string dev_name)
+      : chipname(std::move(chipname)), hwID(hwID), dev_name(std::move(dev_name)) { type = getType(); }
 
-  UID(const string &cn_prefix, int hwmon_id, const string feat_name)
-      : cn_label(cn_prefix), hwmon_id(hwmon_id), dev_name(feat_name) {}
-
-  string cn_label;
-  int hwmon_id;
+  DeviceType type;
+  string chipname;
+  int hwID;
   string dev_name;
 
   /* FORMAT: e.g.
@@ -46,6 +49,8 @@ public:
 private:
   const char cn_end_sep = '/',
       hwmon_id_end_sep = ':';
+
+  DeviceType getType();
 };
 
 ostream &operator<<(ostream &os, const fancon::UID &u);

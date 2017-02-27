@@ -13,7 +13,7 @@ endif ()
 
 include_directories(src)
 set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/UID.cpp src/UID.hpp src/SensorController.cpp src/SensorController.hpp
-        src/Config.cpp src/Config.hpp src/TemperatureSensor.hpp src/Fan.cpp src/Fan.hpp)
+        src/Config.cpp src/Config.hpp src/TemperatureSensor.hpp src/Fan.cpp src/Fan.hpp src/FanNVIDIA.cpp src/FanNVIDIA.hpp src/FanInterface.cpp src/FanInterface.hpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 ## Threads (pthread)

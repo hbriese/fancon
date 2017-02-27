@@ -1,6 +1,8 @@
 #include "SensorController.hpp"
 
-fancon::SensorController::SensorController(bool debug, uint nThreads) {
+using namespace fancon;
+
+SensorController::SensorController(bool debug, uint nThreads) {
   sensors_init(NULL);
   sensor_chips = getSensorChips();
 
@@ -10,12 +12,12 @@ fancon::SensorController::SensorController(bool debug, uint nThreads) {
   fancon::Util::openSyslog(debug);
 }
 
-fancon::SensorController::~SensorController() {
+SensorController::~SensorController() {
   sensors_cleanup();
   fancon::Util::closeSyslog();
 }
 
-vector<SensorChip> fancon::SensorController::getSensorChips() {
+vector<SensorChip> SensorController::getSensorChips() {
   vector<SensorChip> sensor_chips;
   const sensors_chip_name *cn = nullptr;
   int ci = 0;
@@ -26,7 +28,7 @@ vector<SensorChip> fancon::SensorController::getSensorChips() {
   return sensor_chips;
 }
 
-bool fancon::SensorController::skipLine(const string &line) {
+bool SensorController::skipLine(const string &line) {
   // break when valid char found
   auto it = line.begin();
   for (; it != line.end(); ++it)
@@ -37,29 +39,49 @@ bool fancon::SensorController::skipLine(const string &line) {
   return line.front() == '#' || it == line.end();
 }
 
-vector<UID> fancon::SensorController::getUIDs(const char *devPf) {
+vector<UID> SensorController::getNvidiaFans() {
+  /* Sample output:
+   * [0] percy-dh:0[gpu:0] (GeForce GTX 980 Ti) */
+
+  const char idBegSep = '[', idEndSep = ']';  // first occurrence of these ONLY
+  const char modelBegSep = '(', modelEndSep = ')';
+
   vector<UID> uids;
-  const sensors_feature *sf;
+  redi::ipstream ips("nvidia-settings -q gpus | grep gpu:");
 
-  for (auto &sc : sensor_chips) {
-    const sensors_chip_name *cn = *sc;
-    int hwmon_id = getLastNum(string(cn->path));
+  string line;
+  while (std::getline(ips, line)) {
+    auto idBegIt = find(line.begin(), line.end(), idBegSep) + 1;
+    auto idEndIt = find(idBegIt, line.end(), idEndSep);
 
-    int sfi = 0;
-    while ((sf = sensors_get_features(cn, &sfi)) != NULL) {
-      // check for supported device postfix, e.g. fan or temp
-      string name(sf->name);
-      if (name.find(devPf) != string::npos)
-        uids.push_back(fancon::UID(cn->prefix, hwmon_id, name));
-    }
+    auto modelBegIt = find(idEndIt, line.end(), modelBegSep);
+    auto modelEndIt = find(modelBegIt, line.end(), modelEndSep);
+    auto nameBegIt = find_if(modelBegIt, modelEndIt, [](const char &c) { return std::isdigit(c); });
+    auto &nameEndIt = modelEndIt;
+
+    string idStr(idBegIt, idEndIt);
+    if (validIter(line.end(), {idBegIt, idEndIt, nameBegIt, nameEndIt}) && Util::isNum(idStr)) {
+      string name(nameBegIt, nameEndIt);
+      std::replace(name.begin(), name.end(), ' ', '_');   // replace spaces in name with underscores
+      uids.emplace_back(fancon::UID(string(fancon::Util::nvidia_label), std::stoi(idStr), name));
+    } else
+      log(LOG_DEBUG, string("Invalid nvidia grep line: ") + line);
   }
 
   return uids;
 }
 
-void fancon::SensorController::writeConf(const string &path) {
+vector<UID> SensorController::getFansAll() {
+  auto fans = getFans();
+  auto nvFans = getNvidiaFans();
+  Util::moveAppend(nvFans, fans);
+
+  return fans;
+}
+
+void SensorController::writeConf(const string &path) {
   // TODO: set up fans as running - i.e. inc default temp_uid and set current temp & rpm for fanconfig
-  auto f_uids = getUIDs(Fan::path_pf);
+  auto fUIDs = getFansAll();
   std::fstream fs(path, std::ios_base::in);   // read from the beginning of the file, append writes
   bool pExists = exists(path);
   bool sccFound = false;
@@ -68,7 +90,7 @@ void fancon::SensorController::writeConf(const string &path) {
   if (pExists) { // read existing UIDs
     log(LOG_NOTICE, "Config exists, adding absent fans");
 
-    for (string line; std::getline(fs, line, '\n');) {
+    for (string line; std::getline(fs, line);) {
       if (skipLine(line))
         continue;
 
@@ -84,7 +106,7 @@ void fancon::SensorController::writeConf(const string &path) {
       UID fanUID(liss);
 
       vector<UID>::iterator it;
-      if (fanUID.valid() && (it = find(f_uids.begin(), f_uids.end(), fanUID)) != f_uids.end())
+      if (fanUID.valid() && (it = find(fUIDs.begin(), fUIDs.end(), fanUID)) != fUIDs.end())
         curUIDIts.push_back(it);
     }
     fs.close();
@@ -111,7 +133,7 @@ void fancon::SensorController::writeConf(const string &path) {
   }
 
   // write UIDs (not already in file)
-  for (auto it = f_uids.begin(); it != f_uids.end(); ++it)
+  for (auto it = fUIDs.begin(); it != fUIDs.end(); ++it)
     if (find(curUIDIts.begin(), curUIDIts.end(), it) == curUIDIts.end())    // not currently configured
       fs << *it << endl;
 
@@ -119,9 +141,9 @@ void fancon::SensorController::writeConf(const string &path) {
     log(LOG_ERR, "Failed to write config file: " + path);
 }
 
-vector<unique_ptr<fancon::TSParent>> fancon::SensorController::readConf(const string &path) {
+vector<unique_ptr<TSParent>> SensorController::readConf(const string &path) {
   ifstream ifs(path);
-  vector<unique_ptr<fancon::TSParent>> tsParents;
+  vector<unique_ptr<TSParent>> tsParents;
 
   bool sccFound = false;
 
@@ -146,45 +168,77 @@ vector<unique_ptr<fancon::TSParent>> fancon::SensorController::readConf(const st
         liss.seekg(0, std::ios::beg);
     }
 
-    UID fan_uid(liss);
-    UID ts_uid(liss);
-    FanConfig fan_conf(liss);
+    UID fanUID(liss);
+    UID tsUID(liss);
+    FanConfig fanConf(liss);
 
     // check conf line is valid
-    if (!fan_uid.valid() || !ts_uid.valid() || !fan_conf.valid())
+    if (!fanUID.valid() || !tsUID.valid() || !fanConf.valid())
       continue;
 
     // TODO: test fan and add PWM values where there are RPMs <<
-//        for (auto &p : fan_conf.points)
+//        for (auto &p : fanConf.points)
 //            if (!p.validPWM())
 //                p.pwm = f.testPWM(p.rpm);
 
     auto tspIt = find_if(tsParents.begin(), tsParents.end(),
-                         [&ts_uid](const unique_ptr<TSParent> &pp) -> bool { return pp->ts_uid == ts_uid; });
+                         [&tsUID](const unique_ptr<TSParent> &pp) -> bool { return pp->ts_uid == tsUID; });
 
-    auto f = make_unique<Fan>(fan_uid, fan_conf, conf.dynamic);
+    if (tspIt == tsParents.end()) {   // make new TSP if missing
+      tsParents.emplace_back(make_unique<TSParent>(tsUID));
+      tspIt = tsParents.end() - 1;
+    }
 
-    if (tspIt != tsParents.end())       // found, push fan onto stack
-      (*tspIt)->fans.emplace_back(move(f));
-    else                                // make new TSParent
-      tsParents.emplace_back(make_unique<TSParent>(ts_uid, move(f)));
+    if (fanUID.type == FAN_NVIDIA) {
+      auto fn = make_unique<FanNVIDIA>(fanUID, fanConf, conf.dynamic);
+      if (!fn->points.empty())
+        (*tspIt)->fansNVIDIA.emplace_back(move(fn));
+      else
+        fn.reset();
+    } else {
+      auto f = make_unique<Fan>(fanUID, fanConf, conf.dynamic);
+      if (!f->points.empty())
+        (*tspIt)->fans.emplace_back(move(f));
+      else
+        f.reset();
+    }
   }
 
-//  return ts_parents;
   return tsParents;
 }
 
-fancon::TSParent::TSParent(UID tsUID, unique_ptr<Fan> fp, int temp)
-    : ts_uid(tsUID), temp(temp) { fans.emplace_back(move(fp)); }
+vector<UID> SensorController::getUIDs(const char *devPf) {
+  vector<UID> uids;
+  const sensors_feature *sf;
 
-fancon::TSParent::TSParent(TSParent &&other) : ts_uid(other.ts_uid), temp(other.temp) {
+  for (auto &sc : sensor_chips) {
+    const sensors_chip_name *cn = *sc;
+    int hwmon_id = getLastNum(string(cn->path));
+
+    int sfi = 0;
+    while ((sf = sensors_get_features(cn, &sfi)) != NULL) {
+      // check for supported device postfix, e.g. fan or temp
+      string name(sf->name);
+      if (name.find(devPf) != string::npos)
+        uids.emplace_back(fancon::UID(cn->prefix, hwmon_id, name));
+    }
+  }
+
+  return uids;
+}
+
+TSParent::TSParent(TSParent &&other) : ts_uid(other.ts_uid), temp(other.temp) {
   for (auto &fp : fans)
     fans.emplace_back(move(fp));
   fans.clear();
+
+  for (auto &fp : fansNVIDIA)
+    fansNVIDIA.emplace_back(move(fp));
+  fansNVIDIA.clear();
 }
 
-bool fancon::TSParent::update() {
-  int newTemp = fancon::TemperatureSensor::getTemp(ts_uid.getBasePath());
+bool TSParent::update() {
+  int newTemp = TemperatureSensor::getTemp(ts_uid.getBasePath());
 
   if (newTemp != temp) {
     temp = newTemp;

@@ -2,18 +2,20 @@
 #define fancon_UTIL_HPP
 
 #include <iostream>     // endl
-#include <algorithm>    // all_of, reverse
-#include <exception>    // runtime_exception
+#include <algorithm>    // all_of
+#include <chrono>
 #include <mutex>
+#include <thread>
 #include <string>
 #include <sstream>
 #include <fstream>      // ifstream, ofstream
-//#include <memory>       // shared_ptr
+#include <vector>
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <sys/syslog.h>
 #include <csignal>
 
+namespace chrono = std::chrono;
 namespace bfs = boost::filesystem;
 
 using std::string;
@@ -22,23 +24,26 @@ using std::cout;
 using std::endl;
 using std::ofstream;
 using std::ifstream;
-//using std::shared_ptr;
+using std::vector;
 using boost::filesystem::exists;
 using boost::filesystem::path;
 
 namespace fancon {
-namespace Util {
 enum DaemonState { RUN, STOP = SIGINT, RELOAD = SIGHUP };
+enum DeviceType { FAN, FAN_NVIDIA, TEMP_SENSOR };
 
+namespace Util {
 constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
-
+constexpr const char *nvidia_label = "nvidia";
 constexpr const char *fancon_dir = "/etc/fancon.d/";
-
 constexpr const char *fancon_path = "/etc/fancon.d/hwmon";
 
 static std::mutex coutLock;
 
-int getLastNum(string str);   // TODO: take as reference and do not reverse
+static const int speed_change_t = 3;    // seconds to allow for rpm changes when altering the pwm
+static const int pwm_max_absolute = 255;
+
+int getLastNum(const string &str);
 bool isNum(const string &str);
 void coutThreadsafe(const string &out);
 
@@ -47,29 +52,24 @@ bool validIter(const string::iterator &end, std::initializer_list<string::iterat
 
 void openSyslog(bool debug = false);
 void closeSyslog();
-inline void log(int logSeverity, const string &message) {
-  syslog(logSeverity, "%s", message.c_str());
-}
+void log(int logSeverity, const string &message);
 
-/* getPath: returns the usual path (used by the driver) if it exists, else a /etc/fancon.d/ path */
-inline string getPath(const string &path_pf, const string &hwmon_id, const bool useSysFS = false) {
-  return string(((useSysFS) ? hwmon_path + hwmon_id + '/' + path_pf
-                            : fancon_path + hwmon_id + '/' + path_pf));
-}
+string getDir(const string &hwID, DeviceType devType, const bool useSysFS = false);
+string getPath(const string &path_pf, const string &hwID, DeviceType devType = FAN, const bool useSysFS = false);
 
 string readLine(string path);
 
 template<typename T>
 T read(const string &path, int nFailed = 0) {
   ifstream ifs(path);
-  T ret;
+  T ret{};  // initialize to default in case fails
   ifs >> ret;
   ifs.close();
 
   if (ifs.fail()) {
     if (nFailed > 4)
-      fancon::Util::log(LOG_ERR, string("Failed to read from: ") + path
-          + ((exists(path)) ? " - filesystem or permission error" : " - doesn't exist!"));
+      log(LOG_DEBUG, string("Failed to read from: ") + path
+          + ((exists(path)) ? " - filesystem or permission error" : " - doesn't tested!"));
     else
       return read<T>(path, ++nFailed);
   }
@@ -78,8 +78,9 @@ T read(const string &path, int nFailed = 0) {
 }
 
 template<typename T>
-inline T read(const string &path_pf, const string &hwmon_id, bool useSysFS = false) {
-  return read<T>(getPath(path_pf, hwmon_id, useSysFS));
+inline T read(const string &path_pf, const string &hwmon_id,
+              DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
+  return read<T>(getPath(path_pf, hwmon_id, devType, useSysFS));
 }
 
 template<typename T>
@@ -92,15 +93,26 @@ void write(const string &path, T val, int nFailed = 0) {
     if (nFailed > 4) {
       std::stringstream err;
       err << "Failed to write '" << val << "' to: " << path << " - filesystem of permission error";
-      fancon::Util::log(LOG_ERR, err.str());
+      fancon::Util::log(LOG_DEBUG, err.str());
     } else
       return write<T>(path, std::move(val), ++nFailed);
   }
 }
 
 template<typename T>
-inline void write(const string &path_pf, const string &hwmon_id, T val, bool useSysFS = false) {
-  return write<T>(getPath(path_pf, hwmon_id, useSysFS), val);
+inline void write(const string &path_pf, const string &hwmon_id, T val,
+                  DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
+  return write<T>(getPath(path_pf, hwmon_id, devType, useSysFS), val);
+}
+
+template<typename T>
+void moveAppend(vector<T> &src, vector<T> &dst) {
+  if (!dst.empty()) {
+    dst.reserve(dst.size() + src.size());
+    std::move(std::begin(src), std::end(src), std::back_inserter(dst));
+    src.clear();
+  } else
+    dst = std::move(src);
 }
 }   // UTIL
 }   // fancon

@@ -2,22 +2,33 @@
 
 using namespace fancon;
 
-bool UID::valid() const { return (!cn_label.empty()) && (hwmon_id != -1) && (!dev_name.empty()); }
+bool UID::valid() const { return (!chipname.empty()) && (hwID != -1) && (!dev_name.empty()); }
 
 const string UID::getBasePath() const {
   string bpath(fancon::Util::hwmon_path);
-  bpath.append(to_string(hwmon_id)).append("/").append(dev_name);
+  bpath.append(to_string(hwID)).append("/").append(dev_name);
   return bpath;
 }
 
 bool UID::operator==(const UID &other) const {
-  return (this->cn_label == other.cn_label) &&
+  return (this->chipname == other.chipname) &&
       (this->dev_name == other.dev_name) &&
-      (this->hwmon_id == other.hwmon_id);
+      (this->hwID == other.hwID);
+}
+
+DeviceType UID::getType() {
+  const string tempDevName("temp");
+
+  if (chipname == Util::nvidia_label)
+    return DeviceType::FAN_NVIDIA;
+  else if (search(dev_name.begin(), dev_name.end(), tempDevName.begin(), tempDevName.end()) != dev_name.end())
+    return DeviceType::TEMP_SENSOR;
+  else
+    return DeviceType::FAN;
 }
 
 ostream &fancon::operator<<(ostream &os, const UID &u) {
-  os << u.cn_label << u.cn_end_sep << to_string(u.hwmon_id) << u.hwmon_id_end_sep << u.dev_name;
+  os << u.chipname << u.cn_end_sep << to_string(u.hwID) << u.hwmon_id_end_sep << u.dev_name;
   return os;
 }
 
@@ -38,15 +49,15 @@ istream &fancon::operator>>(istream &is, UID &u) {
       log(LOG_ERR, string("Invalid UID: ") + in);
 
     // set invalid values
-    u.cn_label = string();
-    u.hwmon_id = -1;
+    u.chipname = string();
+    u.hwID = -1;
     u.dev_name = string();
     return is;
   }
 
-  u.cn_label = string(cnBeginIt, cnEndIt);
+  u.chipname = string(cnBeginIt, cnEndIt);
   string hwID = string(hwIdBegIt, hwIdEndIt);
-  u.hwmon_id = stoi(hwID);
+  u.hwID = stoi(hwID);
   u.dev_name = string(devnBegIt, devnEndIt);
 
   return is;

@@ -33,15 +33,14 @@ using std::ref;
 using std::reference_wrapper;
 using fancon::SensorController;
 using fancon::TemperatureSensor;
-using fancon::TestResult;
-using fancon::Util::DaemonState;
+using fancon::FanTestResult;
+using fancon::DaemonState;
 using fancon::Util::log;
 
 int main(int argc, char *argv[]);
 
 namespace fancon {
 const char *conf_path = "/etc/fancon.conf";
-
 const string pid_file = string(fancon::Util::fancon_dir) + "pid";
 
 DaemonState daemon_state;
@@ -56,15 +55,15 @@ bool pidExists(pid_t pid);
 void writeLock();
 vector<ulong> getThreadTasks(uint nThreads, ulong nTasks);
 
-void test(SensorController &sensorController, const bool profileFans, uint testRetries, bool singleThread = 0);
-void testUID(UID &uid, const bool profileFans = false, uint retries = 4);
+void test(SensorController &sensorController, uint testRetries, bool singleThread = 0);
+void testUID(UID &uid, uint retries = 4);
 
 void handleSignal(int sig);
 void start(SensorController &sc, const bool fork_ = false, uint nThreads = 0, const bool writeLock = true);
 void send(DaemonState state);
 
 struct Command {
-  Command(const string &name, bool requireRoot = false, bool shrtName = false)
+  Command(const string &name, bool requireRoot = true, bool shrtName = false)
       : name(name), called(false), require_root(requireRoot) {
     if (shrtName) {
       shrt_name += name.front();
@@ -86,8 +85,8 @@ struct Command {
 
 struct Option : Command {
 public:
-  Option(const string &name, bool shrtName = true, bool hasValue = false)
-      : Command(name, shrtName), has_value(hasValue) {}
+  Option(const string &name, bool hasValue = false, bool shrtName = true)
+      : Command(name, false, shrtName), has_value(hasValue) {}
 
   bool has_value;
   uint val = 0;

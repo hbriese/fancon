@@ -72,8 +72,8 @@ public:
    * either ":RPM" or ";PWM" is required
    */
 
-  inline bool validPWM() const { return pwm >= 0; };
-  inline bool validRPM() const { return rpm >= 0; }
+  bool validPWM() const { return pwm >= 0; }
+  bool validRPM() const { return rpm >= 0; }
   bool valid() const { return validRPM() || validPWM(); }
 
   friend ostream &operator<<(ostream &os, const Point &p);

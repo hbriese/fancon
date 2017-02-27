@@ -34,7 +34,7 @@ gcc may be substituted for clang
 
 ```sh
 $ git clone https://github.com/HBriese/fancon.git
-$ sudo apt-get install gcc make cmake lm-sensors rsyslog libgcc-6-dev libc6 libc++-helpers lm-sensors libsensors4-dev libboost-filesystem-dev linux-libc-dev libpthread-stubs0-dev
+$ sudo apt-get install gcc make cmake lm-sensors rsyslog libgcc-6-dev libc6 libc++-helpers lm-sensors libsensors4-dev libboost-filesystem-dev linux-libc-dev libpthread-stubs0-dev libpstreams-dev
 $ mkdir fancon/Build && cd fancon/Build && cmake -DCMAKE_BUILD_TYPE=Release .. && make && sudo make install
 ```
 
