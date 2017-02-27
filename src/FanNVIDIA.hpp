@@ -1,6 +1,7 @@
 #ifndef FANCON_FANNVIDIA_HPP
 #define FANCON_FANNVIDIA_HPP
 
+#include <pstreams/pstream.h>
 #include "FanInterface.hpp"
 
 namespace fancon {
@@ -14,8 +15,6 @@ public:
   static FanTestResult test(const UID &fanUID);
 
 private:
-  static void enableCoolbits();
-
   static int readNvVar(const string &hwID, const char *var, bool targetGPU = false);
   template<typename T>
   static void writeNvVar(const string &hwID, const char *var, T &val, bool targetGPU = false) {

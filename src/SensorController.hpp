@@ -8,7 +8,7 @@
 #include <sstream>      // stringstream, ostream
 #include <vector>
 #include <sensors/sensors.h>
-#include <pstreams/pstream.h>
+#include <pstreams/pstream.h>   // pstream
 #include "Util.hpp"
 #include "UID.hpp"
 #include "Config.hpp"
@@ -63,6 +63,9 @@ private:
 
   vector<SensorChip> getSensorChips();
   vector<UID> getUIDs(const char *devicePathPostfix);
+
+  bool checkNvidiaSupport();
+  static void enableNvidiaFanControlCoolbit();
 };
 
 class TSParent {

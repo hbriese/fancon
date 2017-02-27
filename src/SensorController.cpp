@@ -6,6 +6,9 @@ SensorController::SensorController(bool debug, uint nThreads) {
   sensors_init(NULL);
   sensor_chips = getSensorChips();
 
+  if (checkNvidiaSupport())
+    enableNvidiaFanControlCoolbit();
+
   if (nThreads)
     conf.threads = nThreads;
 
@@ -67,6 +70,9 @@ vector<UID> SensorController::getNvidiaFans() {
     } else
       log(LOG_DEBUG, string("Invalid nvidia grep line: ") + line);
   }
+
+  // enable NVIDIA fan control coolbits bit if required
+  enableNvidiaFanControlCoolbit();
 
   return uids;
 }
@@ -225,6 +231,47 @@ vector<UID> SensorController::getUIDs(const char *devPf) {
   }
 
   return uids;
+}
+
+bool SensorController::checkNvidiaSupport() {
+  string c("which nvidia-settings");
+  redi::ipstream ips(c);
+  string l;
+  std::getline(ips, l);
+
+  return !l.empty();
+}
+
+void SensorController::enableNvidiaFanControlCoolbit() {
+  string command("sudo nvidia-xconfig -t | grep Coolbits");
+  redi::pstream ips(command);
+  string l;
+  std::getline(ips, l);
+  int iv = (!l.empty()) ? Util::getLastNum(l) : 0;  // initial value
+  int cv(iv);   // current
+
+  vector<int> cbV{1, 2, 4, 8, 16};
+  int fanControlBit = 2;
+  vector<bool> cbS(cbV.size(), 0);
+
+  for (auto i = cbV.size() - 1; i > 0 && cv > 0; --i)
+    if ((cbS[i] = (cv / cbV[i]) >= 1))
+      cv -= cbV[i];
+
+  int nv = iv;
+  if (cv > 0) {
+    log(LOG_ERR, "Invalid coolbits value, fixing with fan control bit set");
+    nv -= cv;
+  }
+
+  if (!cbS[fanControlBit])
+    nv += cbV[fanControlBit];
+
+  if (nv != iv) {
+    command = string("sudo nvidia-xconfig --cool-bits=") + to_string(nv) + " > /dev/null";
+    system(command.c_str());
+    log(LOG_NOTICE, "Reboot, or restart your display server to enable NVIDIA fan control");
+  }
 }
 
 TSParent::TSParent(TSParent &&other) : ts_uid(other.ts_uid), temp(other.temp) {
