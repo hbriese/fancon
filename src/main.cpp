@@ -92,11 +92,12 @@ string fancon::listFans(SensorController &sc) {
     sst << uid;
     ss << setw(20) << left << sst.str();
 
-    FanInterface f(uid);
-    if (f.tested) {
+    FanPaths p(uid, uid.type);
+    string hwID = to_string(uid.hwID);
+    if (p.tested()) {
       sst.str("");
-      sst << f.rpm_min << " - " << f.rpm_max;
-      ss << setw(scw) << left << sst.str() << f.pwm_min << " (or 0)";
+      sst << read<int>(p.rpm_min_pf, hwID, uid.type) << " - " << read<int>(p.rpm_max_pf, hwID, uid.type);
+      ss << setw(scw) << left << sst.str() << read<int>(p.pwm_min_pf, hwID, uid.type) << " (or 0)";
     } else
       utMessage = true;
 

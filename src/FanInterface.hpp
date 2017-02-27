@@ -63,9 +63,9 @@ public:
       pwm_min, pwm_start;
   vector<fancon::Point> points;
 
-  virtual int readRPM() { return 0; };
-  virtual void writePWM(int pwm) { pwm = 0; };
-  virtual void writeEnableMode(int mode) { mode = 0; }
+  virtual int readRPM() = 0;
+  virtual void writePWM(int pwm) = 0;
+  virtual void writeEnableMode(int mode) = 0;
 
   void verifyPoints(const UID &fanUID);
 

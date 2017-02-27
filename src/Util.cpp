@@ -15,7 +15,7 @@ int Util::getLastNum(const string &str) {
 
   string numStr(begDigRevIt.base(), endIt + 1);
   std::stringstream ss(numStr);
-  int num = -1;
+  int num{};
   ss >> num;
   return num;
 }
