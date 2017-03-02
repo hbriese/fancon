@@ -13,7 +13,6 @@
 #include "Util.hpp"
 #include "UID.hpp"
 #include "Config.hpp"
-#include "TemperatureSensor.hpp"
 
 namespace bfs = boost::filesystem;
 
@@ -37,19 +36,19 @@ public:
 
   constexpr static const char *path_pf = "fan";
 
-  inline void writePWM(int pwm) { write<int>(pwm_p, pwm); }
-  inline int readRPM() { return read<int>(rpm_p); }
-  inline void writeEnableMode(int mode) { write<int>(enable_pf, hwID, mode, DeviceType::FAN, true); }
-  inline int readEnableMode() { return read<int>(enable_pf, hwID, DeviceType::FAN, true); }
+  int readPWM() { return read<int>(pwm_p); }
+  void writePWM(int pwm) { write(pwm_p, pwm); }
+  int readRPM() { return read<int>(rpm_p); }
+  void writeEnableMode(int mode) { write(enable_pf, hwIDStr, mode, DeviceType::FAN, true); }
+  int readEnableMode() { return read<int>(enable_pf, hwIDStr, DeviceType::FAN, true); }
 
-  using FanInterface::update;
   int testPWM(int rpm);    // TODO: remove
 
-  static FanTestResult test(const UID &fanUID);
+//  using FanInterface::test;
   using FanInterface::writeTestResult;
 
 private:
-  int driver_enable_mode;
+  const string hwIDStr;
 
   string pwm_p, rpm_p;
   string enable_pf;

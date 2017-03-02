@@ -45,20 +45,9 @@ struct FanTestResult {
   }
 };
 
-namespace tests {
-FanTestResult runTests(function<int()> rPWM, function<void(int)> wPWM, function<int()> rRPM,
-                       function<void(int)> wEnableMode, int manualEnableMode, int prevEnableMode);
-
-int getMaxRPM(function<void(int)> wPWM, function<int()> rRPM);
-int getMaxPWM(function<void(int)> wPWM, function<int()> rRPM, const int rpm_max);
-long getStopTime(function<void(int)> wPWM, function<int()> rRPM);
-int getPWMStart(function<int()> rPWM, function<void(int)> wPWM, function<int()> rRPM);
-std::pair<int, int> getPWMRPMMin(function<void(int)> wPWM, function<int()> rRPM, int startPWM);
-}
-
 class FanInterface {
 public:
-  FanInterface(const UID &uid, const FanConfig &conf = FanConfig(), bool dynamic = true);
+  FanInterface(const UID &uid, const FanConfig &conf, bool dynamic, int driverEnableMode, int manualEnableMode = 1);
 
   bool tested = false;   // characteristic variables written
   int rpm_min, rpm_max,
@@ -66,6 +55,7 @@ public:
   vector<fancon::Point> points;
 
   virtual int readRPM() = 0;
+  virtual int readPWM() = 0;
   virtual void writePWM(int pwm) = 0;
   virtual void writeEnableMode(int mode) = 0;
 
@@ -74,15 +64,24 @@ public:
   inline int calcPWM(int rpm) { return (int) (((rpm - rpm_min) / slope) + pwm_min); }
   virtual void update(int temp);
 
+  FanTestResult test();
   static void writeTestResult(const UID &uid, const FanTestResult &result, DeviceType devType);
 
 protected:
-  static const int manual_enable_mode = 1;
-  const string hwID;
+  int driver_enable_mode;
+  const int manual_enable_mode;
+  const int hwID;
+  const string hwIDStr;
 
   long stop_t;
   double slope;   // i.e. rpm-per-pwm
   bool dynamic;
+
+  int getMaxRPM();
+  int getMaxPWM(const int rpm_max);
+  long getStopTime();
+  int getPWMStart();
+  std::pair<int, int> getPWMRPMMin(const int startPWM);
 };
 
 struct FanPaths {
@@ -95,7 +94,7 @@ struct FanPaths {
       rpm_min_pf, rpm_max_pf,
       pwm_start_pf, slope_pf,
       stop_t_pf;
-  string hwmonID;
+  string hwID;
 
   bool tested() const;
 };

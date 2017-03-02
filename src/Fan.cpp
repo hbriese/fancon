@@ -3,7 +3,7 @@
 using namespace fancon;
 
 Fan::Fan(const UID &fanUID, const FanConfig &conf, bool dynamic)
-    : FanInterface(fanUID, conf, dynamic) {
+    : FanInterface(fanUID, conf, dynamic, 2), hwIDStr(to_string(hwID)) {
   FanPaths p(fanUID);
 
   // keep paths (with changing values) for future rw
@@ -11,9 +11,10 @@ Fan::Fan(const UID &fanUID, const FanConfig &conf, bool dynamic)
   rpm_p = p.rpm_p;
   enable_pf = p.enable_pf;
 
-  // read pwm enable mode set from the driver, to restore in fan deconstructor
-  if ((driver_enable_mode = readEnableMode()) == manual_enable_mode)
-    driver_enable_mode = 2;   // don't let the fan stay in manual mode after exit!!
+  // Correct driver enable mode if it is not default
+  int em;
+  if ((em = readEnableMode()) > driver_enable_mode)
+    driver_enable_mode = em;
 
   if (!points.empty()) {
     // set manual mode
@@ -48,18 +49,18 @@ int Fan::testPWM(int rpm) {
   return nextPWM;
 }
 
-FanTestResult Fan::test(const UID &fanUID) {
-  FanPaths p(fanUID);
-  string hwID = to_string(fanUID.hwID);
-
-  auto rRPM = [&p]() { return read<int>(p.rpm_p); };
-  auto rPWM = [&p]() { return read<int>(p.pwm_p); };
-  auto wPWM = [&p](int pwm) { return write<int>(p.pwm_p, pwm); };
-  auto rEnableMode = [&p, &hwID]() { return read<int>(p.enable_pf, hwID, DeviceType::FAN, true); };
-  auto wEnableMode = [&p, &hwID](int mode) { return write<int>(p.enable_pf, hwID, mode, DeviceType::FAN, true); };
-
-  // store pre-test (likely driver controlled) fan mode
-  int prevEnableMode = rEnableMode();
-
-  return tests::runTests(rPWM, wPWM, rRPM, wEnableMode, manual_enable_mode, prevEnableMode);
-}
+//FanTestResult Fan::test(const UID &fanUID) {
+//  FanPaths p(fanUID);
+//  string hwID = to_string(fanUID.hwID);
+//
+//  auto rRPM = [&p]() { return read<int>(p.rpm_p); };
+//  auto rPWM = [&p]() { return read<int>(p.pwm_p); };
+//  auto wPWM = [&p](int pwm) { return write<int>(p.pwm_p, pwm); };
+//  auto rEnableMode = [&p, &hwID]() { return read<int>(p.enable_pf, hwID, DeviceType::FAN, true); };
+//  auto wEnableMode = [&p, &hwID](int mode) { return write<int>(p.enable_pf, hwID, mode, DeviceType::FAN, true); };
+//
+//  // store pre-test (likely driver controlled) fan mode
+//  int prevEnableMode = rEnableMode();
+//
+//  return tests::runTests(rPWM, wPWM, rRPM, wEnableMode, manual_enable_mode, prevEnableMode);
+//}

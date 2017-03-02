@@ -14,8 +14,11 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 #include <csignal>
+#include <sys/types.h>
 
 #define LOG(lvl)  BOOST_LOG_TRIVIAL(lvl)
+
+namespace bfs = boost::filesystem;
 
 using std::clog;
 using std::string;
@@ -31,14 +34,16 @@ using boost::filesystem::path;
 using boost::log::trivial::severity_level;
 
 namespace fancon {
-enum DaemonState { RUN, STOP = SIGINT, RELOAD = SIGHUP };
+enum DaemonState { RUN, STOP = SIGTERM, RELOAD = SIGHUP };
 enum DeviceType { FAN, FAN_NVIDIA, TEMP_SENSOR };
 
 namespace Util {
-constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
-constexpr const char *nvidia_label = "nvidia";
+constexpr const char *conf_path = "/etc/fancon.conf";
 constexpr const char *fancon_dir = "/etc/fancon.d/";
 constexpr const char *fancon_path = "/etc/fancon.d/hwmon";
+constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
+constexpr const char *nvidia_label = "nvidia";
+const string pid_file = string(fancon_dir) + "pid";
 
 static std::mutex coutLock;
 
@@ -47,6 +52,10 @@ static const int pwm_max_absolute = 255;
 
 int getLastNum(const string &str);
 bool isNum(const string &str);
+
+bool locked();
+void lock();
+
 void coutThreadsafe(const string &out);
 
 /* found: returns false if any of the iterators are invalid */
@@ -65,10 +74,10 @@ T read(const string &path, int nFailed = 0) {
   ifs.close();
 
   if (ifs.fail()) {
-    if (nFailed > 4)
-      LOG(severity_level::debug) << "Failed to read from: " << path
-                                 << ((exists(path)) ? " - filesystem or permission error" : " - doesn't tested!");
-    else
+    if (nFailed > 4) {
+      const char *reason = ((exists(path)) ? " - filesystem or permission error" : " - doesn't exist!");
+      LOG(severity_level::debug) << "Failed to read from: " << path << reason;
+    } else
       return read<T>(path, ++nFailed);
   }
 

@@ -10,8 +10,9 @@
 #include <sstream>
 #include <functional>   // ref, reference_wrapped
 #include <thread>
+#include <X11/Xlib.h>
+#include <NVCtrl/NVCtrlLib.h>
 #include <sensors/sensors.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include "Util.hpp"
@@ -32,16 +33,16 @@ using std::move;
 using std::ref;
 using std::reference_wrapper;
 using fancon::SensorController;
-using fancon::TemperatureSensor;
+using fancon::TempSensorParent;
 using fancon::FanTestResult;
 using fancon::DaemonState;
+using fancon::Util::conf_path;
+using fancon::Util::locked;
+using fancon::Util::lock;
 
 int main(int argc, char *argv[]);
 
 namespace fancon {
-const char *conf_path = "/etc/fancon.conf";
-const string pid_file = string(fancon::Util::fancon_dir) + "pid";
-
 DaemonState daemon_state;
 
 string help();
@@ -50,19 +51,17 @@ void firstTimeSetup();
 string listFans(SensorController &sensorController);
 string listSensors(SensorController &sensorController);
 
-bool pidExists(pid_t pid);
-void writeLock();
 vector<ulong> getThreadTasks(uint nThreads, ulong nTasks);
 
 void test(SensorController &sensorController, uint testRetries, bool singleThread = 0);
 void testUID(UID &uid, uint retries = 4);
 
 void handleSignal(int sig);
-void start(SensorController &sc, const bool fork_ = false, uint nThreads = 0, const bool writeLock = true);
+void start(SensorController &sc, const bool fork_);
 void send(DaemonState state);
 
 struct Command {
-  Command(const string &name, bool requireRoot = true, bool shrtName = false)
+  Command(const string &name, bool shrtName, const bool requireRoot = true)
       : name(name), called(false), require_root(requireRoot) {
     if (shrtName) {
       shrt_name += name.front();
@@ -85,7 +84,7 @@ struct Command {
 struct Option : Command {
 public:
   Option(const string &name, bool hasValue = false, bool shrtName = true)
-      : Command(name, false, shrtName), has_value(hasValue) {}
+      : Command(name, shrtName, false), has_value(hasValue) {}
 
   bool has_value;
   uint val = 0;

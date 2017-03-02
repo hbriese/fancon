@@ -1,3 +1,4 @@
+#include <boost/filesystem/operations.hpp>
 #include "Util.hpp"
 
 using namespace fancon;
@@ -28,6 +29,19 @@ void Util::coutThreadsafe(const string &out) {
   coutLock.lock();
   cout << out;
   coutLock.unlock();
+}
+
+bool Util::locked() {
+  auto pid = read < pid_t > (pid_file);
+  return exists(pid_file) && exists(string("/proc/") + to_string(pid)) && pid != getpid();
+}
+
+void Util::lock() {
+  if (locked()) {
+    cout << "Error: a fancon process is already running, please close it to continue" << endl;
+    exit(EXIT_FAILURE);
+  } else
+    write < pid_t > (pid_file, getpid());
 }
 
 bool Util::validIter(const string::iterator &end, std::initializer_list<string::iterator> iterators) {

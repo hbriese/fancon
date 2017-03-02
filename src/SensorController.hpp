@@ -4,17 +4,19 @@
 #include <algorithm>    // search, find_if
 #include <iostream>     // skipws, endl
 #include <utility>      // move, pair
-#include <memory>       // unique_ptr, shared_ptr, make_shared
+#include <numeric>      // iota
+#include <memory>       // unique_ptr
 #include <sstream>      // stringstream, ostream
 #include <vector>
 #include <sensors/sensors.h>
-#include <pstreams/pstream.h>   // pstream
+#include <X11/Xlib.h>   // Bool, Display
+#include <NVCtrl/NVCtrlLib.h>
 #include "Util.hpp"
 #include "UID.hpp"
 #include "Config.hpp"
 #include "Fan.hpp"
-#include "FanNVIDIA.hpp"
-#include "TemperatureSensor.hpp"
+#include "FanNV.hpp"
+#include "TempSensorParent.hpp"
 
 using std::endl;
 using std::search;
@@ -32,53 +34,39 @@ using fancon::UID;
 using fancon::Fan;
 using fancon::SensorControllerConfig;
 using fancon::FanConfig;
-using fancon::TemperatureSensor;
+using fancon::TempSensorParent;
+using fancon::dw;   // DisplayWrapper
 using fancon::Util::getLastNum;
 using fancon::Util::validIter;
 
-using SensorChip = unique_ptr<const sensors_chip_name *>;
-
 namespace fancon {
-class TSParent;
-class SensorControllerConfig;
+struct SensorsWrapper {
+  SensorsWrapper();
+  ~SensorsWrapper() { sensors_cleanup(); }
+  vector<const sensors_chip_name *> chips;
+};
 
 class SensorController {
 public:
   SensorController(uint nThreads = 0);
-  ~SensorController();
 
   fancon::SensorControllerConfig conf;
 
-  bool skipLine(const string &line);
   inline vector<UID> getFans() { return getUIDs(Fan::path_pf); }
-  vector<UID> getNvidiaFans();
+  vector<UID> getFansNV();
   vector<UID> getFansAll();
-  inline vector<UID> getSensors() { return getUIDs(TemperatureSensor::path_pf); }
+  inline vector<UID> getSensors() { return getUIDs(TempSensorParent::path_pf); }
 
   void writeConf(const string &path);
-  vector<unique_ptr<fancon::TSParent>> readConf(const string &path);
+  vector<unique_ptr<fancon::TempSensorParent>> readConf(const string &path);
 
 private:
-  vector<SensorChip> sensor_chips;
+  const bool nvidia_support;
 
-  vector<SensorChip> getSensorChips();
   vector<UID> getUIDs(const char *devicePathPostfix);
-
+  bool skipLine(const string &line);
   bool checkNvidiaSupport();
-  static void enableNvidiaFanControlCoolbit();
-};
-
-class TSParent {
-public:
-  TSParent(UID tsUID, int temp = 0) : ts_uid(tsUID), temp(temp) {}
-  TSParent(TSParent &&other);
-
-  UID ts_uid;
-  vector<unique_ptr<Fan>> fans;
-  vector<unique_ptr<FanNVIDIA>> fansNVIDIA;
-  int temp;
-
-  bool update();
+  static void enableNvidiaFanControlCoolbit();    // doesn't work when confined
 };
 }
 
