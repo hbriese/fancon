@@ -78,6 +78,8 @@ ostream &fancon::operator<<(ostream &os, const Point &p) {
 istream &fancon::operator>>(istream &is, Point &p) {
   string in;
   is >> in;
+  if (in.empty())
+    return is;
   std::remove_if(in.begin(), in.end(), [](auto &c) { return isspace(c); });
 
   string::iterator rpmSepIt, pwmSepIt;
@@ -99,8 +101,10 @@ istream &fancon::operator>>(istream &is, Point &p) {
   bool pwmFound = validIter(in.end(), {pwmBegIt, pwmEndIt});
 
   // must contain temp, and either a rpm or pwm value
-  if (!tempFound || (!rpmFound & !pwmFound))
+  if (!tempFound || (!rpmFound & !pwmFound)) {
     LOG(severity_level::error) << "Invalid fan config: " << in;
+    return is;
+  }
 
   string tempStr = (tempFound) ? string(tempBegIt, tempEndIt) : string();
   p.temp = (isNum(tempStr)) ? stoi(tempStr) : 0;

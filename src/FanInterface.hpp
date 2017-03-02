@@ -2,6 +2,7 @@
 #define FANCON_FANINTERFACE_HPP
 
 #include <chrono>
+#include <iterator>     // next, prev, distance
 #include <sstream>    // stringstream
 #include <functional>   // function
 #include "Util.hpp"
@@ -15,12 +16,13 @@ using fancon::FanConfig;
 using fancon::Util::read;
 using fancon::Util::write;
 using fancon::Util::getPath;
-using fancon::Util::speed_change_t;
-using fancon::Util::pwm_max_absolute;
 
 namespace chrono = std::chrono;
 
 namespace fancon {
+static const int speed_change_t = 3;    // seconds to allow for rpm changes when altering the pwm
+static const int pwm_max_absolute = 255;
+
 struct FanTestResult {
   FanTestResult() { canTest = false; }
   FanTestResult(int rpm_min, int rpm_max, int pwm_min, int pwm_max, int pwm_start, long stop_time, double slope)
@@ -76,6 +78,7 @@ protected:
   long stop_t;
   double slope;   // i.e. rpm-per-pwm
   bool dynamic;
+  bool stopped = false;
 
   int getMaxRPM();
   int getMaxPWM(const int rpm_max);

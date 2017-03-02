@@ -48,19 +48,3 @@ int Fan::testPWM(int rpm) {
 
   return nextPWM;
 }
-
-//FanTestResult Fan::test(const UID &fanUID) {
-//  FanPaths p(fanUID);
-//  string hwID = to_string(fanUID.hwID);
-//
-//  auto rRPM = [&p]() { return read<int>(p.rpm_p); };
-//  auto rPWM = [&p]() { return read<int>(p.pwm_p); };
-//  auto wPWM = [&p](int pwm) { return write<int>(p.pwm_p, pwm); };
-//  auto rEnableMode = [&p, &hwID]() { return read<int>(p.enable_pf, hwID, DeviceType::FAN, true); };
-//  auto wEnableMode = [&p, &hwID](int mode) { return write<int>(p.enable_pf, hwID, mode, DeviceType::FAN, true); };
-//
-//  // store pre-test (likely driver controlled) fan mode
-//  int prevEnableMode = rEnableMode();
-//
-//  return tests::runTests(rPWM, wPWM, rRPM, wEnableMode, manual_enable_mode, prevEnableMode);
-//}

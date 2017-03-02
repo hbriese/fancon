@@ -41,7 +41,7 @@ void Util::lock() {
     cout << "Error: a fancon process is already running, please close it to continue" << endl;
     exit(EXIT_FAILURE);
   } else
-    write < pid_t > (pid_file, getpid());
+    write(pid_file, getpid());
 }
 
 bool Util::validIter(const string::iterator &end, std::initializer_list<string::iterator> iterators) {
@@ -58,7 +58,7 @@ string Util::getDir(const string &hwID, DeviceType devType, const bool useSysFS)
     d = string((useSysFS) ? hwmon_path : fancon_path) + hwID;
   else if (devType == FAN_NVIDIA)
     d = string(fancon_dir) + nvidia_label;
-  else
+  else if (useSysFS)
     LOG(severity_level::debug) << "SysFS can only be used for DeviceType::FAN";
 
   return (d += '/');

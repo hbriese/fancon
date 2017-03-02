@@ -91,15 +91,15 @@ void FanInterface::update(int temp) {
     it = prev(points.end());
 
   int pwm = it->pwm;
-  auto nextIt = std::next(it);
+  auto nextIt = next(it);
 
   if (pwm > 0) {
-    if (dynamic && nextIt != points.end()) {
-      int nextPWM = (nextIt != points.end()) ? nextIt->pwm : calcPWM(nextIt->rpm);
-      pwm = pwm + ((nextPWM - pwm) / (nextIt->temp - it->temp));
-    } else if (readRPM() == 0)
+    if (stopped)  // start fan if stopped
       pwm = pwm_start;
-  }
+    else if (dynamic && nextIt != points.end())   // interpolate PWM between present and next point
+      pwm = pwm + ((nextIt->pwm - pwm) / (nextIt->temp - it->temp));
+  } else
+    stopped = true;
 
   writePWM(pwm);
 }

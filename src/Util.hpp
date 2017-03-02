@@ -47,9 +47,6 @@ const string pid_file = string(fancon_dir) + "pid";
 
 static std::mutex coutLock;
 
-static const int speed_change_t = 3;    // seconds to allow for rpm changes when altering the pwm
-static const int pwm_max_absolute = 255;
-
 int getLastNum(const string &str);
 bool isNum(const string &str);
 
@@ -75,8 +72,8 @@ T read(const string &path, int nFailed = 0) {
 
   if (ifs.fail()) {
     if (nFailed > 4) {
-      const char *reason = ((exists(path)) ? " - filesystem or permission error" : " - doesn't exist!");
-      LOG(severity_level::debug) << "Failed to read from: " << path << reason;
+      const char *reason = ((exists(path)) ? " - filesystem or permission error" : " - doesn't exist");
+      LOG(severity_level::debug) << "Failed to read from: " << path << reason << " as " << getuid();
     } else
       return read<T>(path, ++nFailed);
   }
@@ -99,7 +96,7 @@ void write(const string &path, T val, int nFailed = 0) {
   if (ofs.fail()) {
     if (nFailed > 4)
       LOG(severity_level::debug) << "Failed to write '" << val << "' to: " << path
-                                 << " - filesystem of permission error";
+                                 << " - filesystem of permission error as UID " << getuid();
     else
       return write<T>(path, std::move(val), ++nFailed);
   }

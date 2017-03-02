@@ -4,7 +4,6 @@
 #include <algorithm>    // lower_bound
 #include <array>
 #include <chrono>       // system_clock::now, duration
-#include <iterator>     // next, prev, distance
 #include <functional>
 #include <thread>       // this_thread::sleep
 #include <utility>      // pair, make_pair
@@ -16,8 +15,8 @@
 
 namespace bfs = boost::filesystem;
 
+using std::next;
 using std::prev;
-using std::move;
 using std::stringstream;
 using std::function;
 using boost::filesystem::path;
