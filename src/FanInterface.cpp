@@ -27,7 +27,7 @@ void FanInterface::verifyPoints(const UID &fanUID) {
   bool invalidPoints = false, untestedPoints = false;
   stringstream ignoring;
 
-  auto checkError = [&invalidPoints, &ignoring](fancon::Point &p, int val, int min, int max) -> bool {
+  auto hasError = [&invalidPoints, &ignoring](fancon::Point &p, int val, int min, int max) -> bool {
     if (val > max || ((val < min) & (val != 0))) {
       ignoring << ' ' << p;
       return (invalidPoints = true);
@@ -37,13 +37,15 @@ void FanInterface::verifyPoints(const UID &fanUID) {
 
   // check if points are invalid: value larger than maximum, or small than min and non-zero
   auto invalidBegIt =
-      std::remove_if(points.begin(), points.end(), [this, &checkError, &untestedPoints, &ignoring](fancon::Point &p) {
+      std::remove_if(points.begin(), points.end(), [this, &hasError, &untestedPoints, &ignoring](fancon::Point &p) {
+        bool rm = true;
+
         if (p.validPWM())   // use pwm
-          return checkError(p, p.pwm, pwm_min, pwm_max_absolute);
+          rm = hasError(p, p.pwm, pwm_min, pwm_max_absolute);
         else if (!tested) { // check if RPM can be used, else log and remove
           ignoring << ' ' << p;
-          return (untestedPoints = true);
-        } else if (!checkError(p, p.rpm, rpm_min, rpm_max)) {   // use rpm
+          rm = (untestedPoints = true);
+        } else if (!(rm = hasError(p, p.rpm, rpm_min, rpm_max))) {   // use rpm
           // calculate pwm and ensure calcPWM is valid
           auto cpwm = calcPWM(p.rpm);
           if (cpwm > 255)
@@ -53,11 +55,12 @@ void FanInterface::verifyPoints(const UID &fanUID) {
           p.pwm = cpwm;
         }
 
-        return false;
+        return rm;
       });
 
   // erase invalid points
-  points.erase(invalidBegIt, points.end());
+  if (invalidBegIt != points.end())
+    points.erase(invalidBegIt, points.end());
 
   if (!ignoring.str().empty()) {
     stringstream uss;
