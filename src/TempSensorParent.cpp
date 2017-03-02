@@ -6,10 +6,6 @@ TempSensorParent::TempSensorParent(TempSensorParent &&other) : ts_path(other.ts_
   for (auto &fp : fans)
     fans.emplace_back(move(fp));
   fans.clear();
-
-  for (auto &fp : fansNVIDIA)
-    fansNVIDIA.emplace_back(move(fp));
-  fansNVIDIA.clear();
 }
 
 bool TempSensorParent::update() {

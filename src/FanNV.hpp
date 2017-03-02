@@ -1,6 +1,8 @@
 #ifndef FANCON_FANNV_HPP
 #define FANCON_FANNV_HPP
 
+#ifdef FANCON_NVIDIA_SUPPORT
+
 #include <pstreams/pstream.h>
 #include <X11/Xlib.h>
 #include <NVCtrl/NVCtrl.h>
@@ -17,9 +19,7 @@ struct DisplayWrapper {
   Display *operator*();
   Display *dp;
   bool open() const { return dp != NULL; }
-};
-
-static DisplayWrapper dw;
+} static dw;
 
 namespace NV {
 struct Data_R {
@@ -52,9 +52,6 @@ public:
   FanNV(const UID &fanUID, const FanConfig &conf = FanConfig(), bool dynamic = true);
   ~FanNV() { writeEnableMode(driver_enable_mode); }
 
-//  using FanInterface::test;
-//  using FanInterface::writeTestResult;
-
   int readRPM() { return NV::rpm.read(hwID); };
   int readPWM() { return percentToPWM(NV::pwm_percent.read(hwID)); }
   void writePWM(int pwm) { NV::pwm_percent.write(hwID, pwmToPercent(pwm)); }
@@ -65,4 +62,5 @@ private:
   static int percentToPWM(int percent);
 };
 }
+#endif //FANCON_NVIDIA_SUPPORT
 #endif //FANCON_FANNV_HPP

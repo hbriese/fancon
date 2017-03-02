@@ -13,6 +13,7 @@
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
+#include <cstdlib>
 #include <csignal>
 #include <sys/types.h>
 

@@ -9,14 +9,18 @@
 #include <sstream>      // stringstream, ostream
 #include <vector>
 #include <sensors/sensors.h>
-#include <X11/Xlib.h>   // Bool, Display
-#include <NVCtrl/NVCtrlLib.h>
 #include "Util.hpp"
 #include "UID.hpp"
 #include "Config.hpp"
 #include "Fan.hpp"
-#include "FanNV.hpp"
 #include "TempSensorParent.hpp"
+
+#ifdef FANCON_NVIDIA_SUPPORT
+#include <X11/Xlib.h>   // Bool, Display
+#include <NVCtrl/NVCtrlLib.h>
+#include "FanNV.hpp"
+using fancon::dw;   // DisplayWrapper
+#endif //FANCON_NVIDIA_SUPPORT
 
 using std::endl;
 using std::search;
@@ -35,16 +39,11 @@ using fancon::Fan;
 using fancon::SensorControllerConfig;
 using fancon::FanConfig;
 using fancon::TempSensorParent;
-using fancon::dw;   // DisplayWrapper
 using fancon::Util::getLastNum;
 using fancon::Util::validIter;
 
 namespace fancon {
-struct SensorsWrapper {
-  SensorsWrapper();
-  ~SensorsWrapper() { sensors_cleanup(); }
-  vector<const sensors_chip_name *> chips;
-};
+struct SensorsWrapper;
 
 class SensorController {
 public:
@@ -53,20 +52,32 @@ public:
   fancon::SensorControllerConfig conf;
 
   inline vector<UID> getFans() { return getUIDs(Fan::path_pf); }
-  vector<UID> getFansNV();
   vector<UID> getFansAll();
   inline vector<UID> getSensors() { return getUIDs(TempSensorParent::path_pf); }
 
   void writeConf(const string &path);
-  vector<unique_ptr<fancon::TempSensorParent>> readConf(const string &path);
+  vector<unique_ptr<TempSensorParent>> readConf(const string &path);
 
 private:
-  const bool nvidia_support;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-private-field"
+  bool nvidia_control = false;
+#pragma GCC diagnostic pop
 
   vector<UID> getUIDs(const char *devicePathPostfix);
   bool skipLine(const string &line);
-  bool checkNvidiaSupport();
+
+#ifdef FANCON_NVIDIA_SUPPORT
+  vector<UID> getFansNV();
+  bool nvidiaSupported();
   static void enableNvidiaFanControlCoolbit();    // doesn't work when confined
+#endif //FANCON_NVIDIA_SUPPORT
+};
+
+struct SensorsWrapper {
+  SensorsWrapper();
+  ~SensorsWrapper() { sensors_cleanup(); }
+  vector<const sensors_chip_name *> chips;
 };
 }
 

@@ -1,3 +1,4 @@
+#ifdef FANCON_NVIDIA_SUPPORT
 #include "FanNV.hpp"
 
 using namespace fancon;
@@ -14,10 +15,23 @@ DisplayWrapper::DisplayWrapper() {
     setenv("DISPLAY", da.c_str(), 1);
     setenv("XAUTHORITY", xa.c_str(), 1);
   }
+
+  // try :0 if display is not set
+  if (string(getenv("DISPLAY")).empty())
+    setenv("DISPLAY", ":0", 1);
+
   // TODO: check that values are legit
-  if (!(dp = XOpenDisplay(NULL)))
-    LOG(severity_level::error) << "Failed to connect to X11 display: "
-                               << "$DISPLAY " << getenv("DISPLAY") << " $XAUTHORITY " << getenv("XAUTHORITY");
+  if (!(dp = XOpenDisplay(NULL))) {
+    string da(getenv("$DISPLAY")), xa(getenv("$XAUTHORITY"));
+    LOG(severity_level::debug) << "Failed to connect to X11: "
+                               << "$DISPLAY " << ((!da.empty()) ? da : "not found")
+                               << " $XAUTHORITY " << ((!xa.empty()) ? xa : "not found");
+    if (da.empty())
+      LOG(severity_level::debug) << "Set \"display=\" in " << Util::conf_path << " to your display (echo $DISPLAY)";
+    if (xa.empty())
+      LOG(severity_level::debug) << "Set \"xauthority=\" in " << Util::conf_path
+                                 << " to your .Xauthority file (echo $XAUTHORITY)";
+  }
 }
 
 Display *DisplayWrapper::operator*() {
@@ -53,3 +67,4 @@ int NV::Data_R::read(const int hwID) const {
 
   return val;
 }
+#endif //FANCON_NVIDIA_SUPPORT

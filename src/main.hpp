@@ -10,8 +10,6 @@
 #include <sstream>
 #include <functional>   // ref, reference_wrapped
 #include <thread>
-#include <X11/Xlib.h>
-#include <NVCtrl/NVCtrlLib.h>
 #include <sensors/sensors.h>
 #include <unistd.h>
 #include <sys/stat.h>

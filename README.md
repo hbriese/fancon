@@ -20,22 +20,25 @@ Low overhead and easy configuration are the main goals of fancon, this is achiev
 Snap [installation instructions](https://snapcraft.io/docs/core/install)
 
 ###### stable
-```bash
+```sh
 $ sudo snap install fancon
 ```
 
 ###### git master
-```bash
+```sh
 $ sudo snap install fancon --candidate
 ```
 
 ##### Build from source:
-gcc may be substituted for clang
+Note. gcc may be substituted for clang
+
+fancon may be compiled with the option '-D NVIDIA_SUPPORT=OFF', not requiring libxnvctrl-dev & libx11-dev
 
 ```sh
-$ git clone https://github.com/HBriese/fancon.git
-$ sudo apt-get install gcc make cmake lm-sensors libgcc-6-dev libc6 libc++-helpers lm-sensors libsensors4-dev libboost-filesystem-dev libboost-log-dev linux-libc-dev libpthread-stubs0-dev libpstreams-dev
-$ cd fancon && sudo ./install.sh
+$ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev
+$ sudo apt-get install libxnvctrl-dev libx11-dev
+$ git clone https://github.com/HBriese/fancon.git && cd fancon
+$ mkdir build; cd build && cmake -DNVIDIA_SUPPORT=ON -DCMAKE_BUILD_TYPE=Release.. && make && sudo make install
 ```
 
 

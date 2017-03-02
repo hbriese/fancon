@@ -2,98 +2,24 @@
 
 using namespace fancon;
 
-SensorsWrapper::SensorsWrapper() {
-  sensors_init(NULL);
-
-  const sensors_chip_name *cn = nullptr;
-  int ci = 0;
-  while ((cn = sensors_get_detected_chips(NULL, &ci)) != NULL)
-    chips.push_back(cn);
-}
-
-SensorController::SensorController(uint nThreads)
-    : nvidia_support(checkNvidiaSupport()) {
-//  if (nvidia_support)
+SensorController::SensorController(uint nThreads) {
+#ifdef FANCON_NVIDIA_SUPPORT
+  nvidia_control = nvidiaSupported();
+//  if (nvidia_control)
 //    enableNvidiaFanControlCoolbit();
+#endif //FANCON_NVIDIA_SUPPORT
 
   if (nThreads)
     conf.threads = nThreads;
 }
 
-vector<UID> SensorController::getFansNV() {
-  vector<UID> uids;
-  if (!nvidia_support)
-    return uids;
-
-  // Number of fans
-  int nFans = 0;
-  int ret = XNVCTRLQueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_COOLER, &nFans);
-  if (!ret) {
-    LOG(severity_level::error) << "Failed to query number of NVIDIA fans";
-    return uids;
-  } else if (nFans <= 0) {
-    LOG(severity_level::debug) << "No NVIDIA fans detected";
-    return uids;
-  }
-
-  // Number of GPUs
-  int nGPUs = 0;
-  ret = XNVCTRLQueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_GPU, &nGPUs);
-  if (!ret) {
-    LOG(severity_level::error) << "Failed to query number of NVIDIA GPUs";
-    return uids;
-  }
-
-  struct NVGPU {
-    NVGPU(const int gpuID = 0) : gpu_id(gpuID) {}
-    int gpu_id;
-    char *product_name = nullptr;
-    unsigned char *fans = nullptr;
-  };
-
-  // there must always be nFans >= nGPUs
-  if (nFans < nGPUs)
-    nGPUs = nFans;
-
-  vector<NVGPU> gpus(static_cast<unsigned long>(nGPUs));
-  std::iota(gpus.begin(), gpus.end(), 0);   // 0, 1, 2...
-
-  for (int i = 0; i < nGPUs; ++i) {
-    // GPU product name
-    ret = XNVCTRLQueryTargetStringAttribute(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
-                                            NV_CTRL_STRING_PRODUCT_NAME, &(gpus[i].product_name));
-    if (!ret) {
-      LOG(severity_level::error) << "Failed to query gpu: " << i << " product name";
-      return uids;
-    }
-
-    if (nFans != nGPUs) { // Fans owned by what GPUs
-      int len = 0;
-      ret = XNVCTRLQueryTargetBinaryData(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
-                                         NV_CTRL_BINARY_DATA_COOLERS_USED_BY_GPU, &(gpus[i].fans), &len);
-      if (!ret) {
-        LOG(severity_level::error) << "Failed to query number of fans for GPU: " << i;
-        return uids;
-      } else if (&(gpus[i].fans[0]) == nullptr)
-        LOG(severity_level::warning) << "No fans found for GPU: " << i;
-    }
-
-    string productName(gpus[i].product_name);
-    auto nameBegIt = find_if(productName.begin(), productName.end(), [](const char &c) { return std::isdigit(c); });
-    if (nameBegIt == productName.end())
-      nameBegIt = productName.begin();
-
-    std::replace(nameBegIt, productName.end(), ' ', '_');
-    uids.emplace_back(UID(Util::nvidia_label, i, string(nameBegIt, productName.end())));
-  }
-
-  return uids;
-}
-
 vector<UID> SensorController::getFansAll() {
   auto fans = getFans();
+
+#ifdef FANCON_NVIDIA_SUPPORT
   auto nvFans = getFansNV();
   Util::moveAppend(nvFans, fans);
+#endif //FANCON_NVIDIA_SUPPORT
 
   return fans;
 }
@@ -208,22 +134,25 @@ vector<unique_ptr<TempSensorParent>> SensorController::readConf(const string &pa
       tspIt = tsParents.end() - 1;
     }
 
-    if (fanUID.type == FAN_NVIDIA && nvidia_support) {
-      if (nvidia_support) {
-        auto fn = make_unique<FanNV>(fanUID, fanConf, conf.dynamic);
-        if (!fn->points.empty())
-          (*tspIt)->fansNVIDIA.emplace_back(move(fn));
-        else
-          fn.reset();
-      } else
-        LOG(severity_level::debug) << "NVIDIA fan exists in config, but nvidia control is not supported";
-    } else if (fanUID.type == FAN) {
+    if (fanUID.type == FAN) {
       auto f = make_unique<Fan>(fanUID, fanConf, conf.dynamic);
       if (!f->points.empty())
         (*tspIt)->fans.emplace_back(move(f));
       else
         f.reset();
     }
+#ifdef FANCON_NVIDIA_SUPPORT
+    else if (fanUID.type == FAN_NVIDIA) {
+      if (nvidia_control) {
+        auto fn = make_unique<FanNV>(fanUID, fanConf, conf.dynamic);
+        if (!fn->points.empty())
+          (*tspIt)->fans.emplace_back(move(fn));
+        else
+          fn.reset();
+      } else
+        LOG(severity_level::debug) << "NVIDIA fan exists in config, but nvidia control is not supported";
+    }
+#endif //FANCON_NVIDIA_SUPPORT
   }
 
   return tsParents;
@@ -260,7 +189,78 @@ bool SensorController::skipLine(const string &line) {
   return line.front() == '#' || it == line.end();
 }
 
-bool SensorController::checkNvidiaSupport() {
+#ifdef FANCON_NVIDIA_SUPPORT
+vector<UID> SensorController::getFansNV() {
+  vector<UID> uids;
+  if (!nvidia_control)
+    return uids;
+
+  // Number of fans
+  int nFans = 0;
+  int ret = XNVCTRLQueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_COOLER, &nFans);
+  if (!ret) {
+    LOG(severity_level::error) << "Failed to query number of NVIDIA fans";
+    return uids;
+  } else if (nFans <= 0) {
+    LOG(severity_level::debug) << "No NVIDIA fans detected";
+    return uids;
+  }
+
+  // Number of GPUs
+  int nGPUs = 0;
+  ret = XNVCTRLQueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_GPU, &nGPUs);
+  if (!ret) {
+    LOG(severity_level::error) << "Failed to query number of NVIDIA GPUs";
+    return uids;
+  }
+
+  struct NVGPU {
+    NVGPU(const int gpuID = 0) : gpu_id(gpuID) {}
+    int gpu_id;
+    char *product_name = nullptr;
+    unsigned char *fans = nullptr;
+  };
+
+  // there must always be nFans >= nGPUs
+  if (nFans < nGPUs)
+    nGPUs = nFans;
+
+  vector<NVGPU> gpus(static_cast<unsigned long>(nGPUs));
+  std::iota(gpus.begin(), gpus.end(), 0);   // 0, 1, 2...
+
+  for (int i = 0; i < nGPUs; ++i) {
+    // GPU product name
+    ret = XNVCTRLQueryTargetStringAttribute(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
+                                            NV_CTRL_STRING_PRODUCT_NAME, &(gpus[i].product_name));
+    if (!ret) {
+      LOG(severity_level::error) << "Failed to query gpu: " << i << " product name";
+      return uids;
+    }
+
+    if (nFans != nGPUs) { // Fans owned by what GPUs
+      int len = 0;
+      ret = XNVCTRLQueryTargetBinaryData(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
+                                         NV_CTRL_BINARY_DATA_COOLERS_USED_BY_GPU, &(gpus[i].fans), &len);
+      if (!ret) {
+        LOG(severity_level::error) << "Failed to query number of fans for GPU: " << i;
+        return uids;
+      } else if (&(gpus[i].fans[0]) == nullptr)
+        LOG(severity_level::warning) << "No fans found for GPU: " << i;
+    }
+
+    string productName(gpus[i].product_name);
+    auto nameBegIt = find_if(productName.begin(), productName.end(), [](const char &c) { return std::isdigit(c); });
+    if (nameBegIt == productName.end())
+      nameBegIt = productName.begin();
+
+    std::replace(nameBegIt, productName.end(), ' ', '_');
+    uids.emplace_back(UID(Util::nvidia_label, i, string(nameBegIt, productName.end())));
+  }
+
+  return uids;
+}
+
+bool SensorController::nvidiaSupported() {
 //  dw = DisplayWrapper(":0");
   if (!dw.open()) {
     LOG(severity_level::debug) << "X11 display cannot be opened";
@@ -320,4 +320,14 @@ void SensorController::enableNvidiaFanControlCoolbit() {
       LOG(severity_level::error) << "Failed to write coolbits value, nvidia fan test may fail!";
     LOG(severity_level::info) << "Reboot, or restart your display server to enable NVIDIA fan control";
   }
+}
+#endif //FANCON_NVIDIA_SUPPORT
+
+SensorsWrapper::SensorsWrapper() {
+  sensors_init(NULL);
+
+  const sensors_chip_name *cn = nullptr;
+  int ci = 0;
+  while ((cn = sensors_get_detected_chips(NULL, &ci)) != NULL)
+    chips.push_back(cn);
 }

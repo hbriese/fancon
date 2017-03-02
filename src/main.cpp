@@ -167,12 +167,24 @@ void fancon::test(SensorController &sc, uint testRetries, bool singleThread) {
 }
 
 void fancon::testUID(UID &uid, uint retries) {
-  stringstream ss;
-  FanTestResult res;
   auto devType = uid.type;
+  unique_ptr<FanInterface> fan;
 
+  if (devType == FAN)
+    fan.reset(new Fan(uid));
+  else if (devType == FAN_NVIDIA) {
+#ifdef FANCON_NVIDIA_SUPPORT
+    fan.reset(new FanNV(uid));
+#else
+    LOG(severity_level::warning) << "Trying to test NVIDIA fan, but NVIDIA support is disabled";
+    return;
+#endif
+  }
+
+  FanTestResult res;
+  stringstream ss;
   for (; retries > 0; --retries) {
-    res = (devType == FAN_NVIDIA) ? FanNV(uid).test() : Fan(uid).test();
+    res = fan->test();
 
     if (res.testable() && res.valid()) {
       FanInterface::writeTestResult(uid, res, devType);
@@ -267,16 +279,10 @@ void fancon::start(SensorController &sc, const bool fork_) {
     threads.emplace_back([](vector<unique_ptr<TempSensorParent>>::iterator first,
                             vector<unique_ptr<TempSensorParent>>::iterator last, DaemonState &state, uint &updateTime) {
       while (state == fancon::DaemonState::RUN) {
-        for (auto tspIt = first; tspIt != last; ++tspIt) {
-          // update fans if temp changed
-          if ((*tspIt)->update()) {
+        for (auto tspIt = first; tspIt != last; ++tspIt)
+          if ((*tspIt)->update())   // update fans if temp changed
             for (auto &fp : (*tspIt)->fans)
               fp->update((*tspIt)->temp);
-
-            for (auto &fp : (*tspIt)->fansNVIDIA)
-              fp->update((*tspIt)->temp);
-          }
-        }
 
         sleep(updateTime);
       }

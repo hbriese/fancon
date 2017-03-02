@@ -2,9 +2,12 @@ cmake_minimum_required(VERSION 3.1)
 set (CMAKE_CXX_STANDARD 14)
 project(fancon)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wpedantic -Werror")
+endif ()
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
 endif ()
 
 # Enable testing in this project
@@ -23,9 +26,7 @@ find_package(Threads REQUIRED)
 set(LIBS ${LIBS} ${CMAKE_THREAD_LIBS_INIT})
 
 ## Boost
-#option(BOOST_ALL_DYN_LINK on)
-#set(Boost_USE_STATIC_LIBS OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_ALL_DYN_LINK")
+add_definitions("-D BOOST_ALL_DYN_LINK")
 set(Boost_USE_MULTITHREADED ON)
 find_package(Boost REQUIRED COMPONENTS filesystem system log_setup log)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -37,16 +38,23 @@ find_library(LM_SENSORS_LIBRARIES NAMES libsensors sensors)
 include_directories(${LM_SENSORS_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${LM_SENSORS_LIBRARIES})
 
-## X11
-find_package(X11 REQUIRED)
-include_directories(${X11_INCLUDE_DIR})
-set(LIBS ${LIBS} ${X11_LIBRARIES})
+option(NVIDIA_SUPPORT "Build with NVIDIA GPU support" ON)
 
-# NVCTRLlib
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
-find_package(NVCtrlLib REQUIRED)
-include_directories(NVCtrlLib_INCLUDE_DIR)
-set(LIBS ${LIBS} ${NVCtrlLib_LIBRARY})
+## X11
+find_package(X11)
+if (${X11_FOUND} AND NVIDIA_SUPPORT)
+    include_directories(${X11_INCLUDE_DIR})
+    set(LIBS ${LIBS} ${X11_LIBRARIES})
+
+    # NVCTRLlib
+    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
+    find_package(NVCtrlLib)
+    if (${NVCtrlLib_FOUND})
+        include_directories(NVCtrlLib_INCLUDE_DIR)
+        set(LIBS ${LIBS} ${NVCtrlLib_LIBRARY})
+        add_definitions("-D FANCON_NVIDIA_SUPPORT")
+    endif () # NVCtrlLib_FOUND
+endif () # X11_FOUND AND NVIDIA_SUPPORT
 
 ## Link libraries
 target_link_libraries(${PROJECT_NAME} ${LIBS})

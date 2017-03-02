@@ -5,7 +5,7 @@
 - check UID chip name against chip
 - better fail checking - exists(pwmX, rpmX, (?) pwmX_enable)
 - (NVIDIA) handle non-equal amount of GPUs and fans
-- systemd service uses 1/6th of the memory once restart (or stopped then started)
+- systemd service using wildly varying amounts of memory
 
 ### Features
 
@@ -19,7 +19,7 @@
 - Run sudo sensors-detect on install, then fancon test
 - Automatically set CoolBits option
 - Add support for PWM % point
-- time change per rpm
+- time change per rpm (use stop_t?)
 
 ### Performance 
 

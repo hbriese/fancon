@@ -1,15 +1,13 @@
 #ifndef FANCON_TEMPSENSORPARENT_HPP
 #define FANCON_TEMPSENSORPARENT_HPP
 
-#include <memory>
+#include <memory>     // unique_ptr
 #include "UID.hpp"
-#include "Fan.hpp"
-#include "FanNV.hpp"
+#include "FanInterface.hpp"
 
 using std::unique_ptr;
 using fancon::UID;
-using fancon::Fan;
-using fancon::FanNV;
+using fancon::FanInterface;
 
 namespace fancon {
 class TempSensorParent {
@@ -23,8 +21,7 @@ public:
   constexpr static const char *path_pf = "temp";
 
   string ts_path;
-  vector<unique_ptr<Fan>> fans;
-  vector<unique_ptr<FanNV>> fansNVIDIA;
+  vector<unique_ptr<FanInterface>> fans;
   int temp;
 
   bool update();
