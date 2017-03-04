@@ -4,6 +4,8 @@
 using namespace fancon;
 
 DisplayWrapper::DisplayWrapper() {
+  const char *denv = "DISPLAY", *xaenv = "XAUTHORITY";
+
   redi::ipstream ips("echo \"$(ps wwaux 2>/dev/null | grep -wv PID | grep -v grep)\" "
                          "| grep '/X.* :[0-9][0-9]* .*-auth' | egrep -v 'startx|xinit' "
                          "| sed -e 's,^.*/X.* \\(:[0-9][0-9]*\\) .* -auth \\([^ ][^ ]*\\).*$,\\1\\,\\2,' | sort -u");
@@ -12,25 +14,25 @@ DisplayWrapper::DisplayWrapper() {
   auto sepIt = find(pair.begin(), pair.end(), ',');
   if (!pair.empty() || sepIt != pair.end()) {
     string da(pair.begin(), sepIt), xa(sepIt + 1, pair.end());
-    setenv("DISPLAY", da.c_str(), 1);
-    setenv("XAUTHORITY", xa.c_str(), 1);
+    setenv(denv, da.c_str(), 1);
+    setenv(xaenv, xa.c_str(), 1);
   }
 
-  // try :0 if display is not set
-  if (string(getenv("DISPLAY")).empty())
-    setenv("DISPLAY", ":0", 1);
+  // try :0 if $DISPLAY is not set
+  bool forceDEnv;
+  if ((forceDEnv = !getenv(denv)))
+    setenv(denv, ":0", 1);
 
-  // TODO: check that values are legit
   if (!(dp = XOpenDisplay(NULL))) {
-    string da(getenv("$DISPLAY")), xa(getenv("$XAUTHORITY"));
-    LOG(severity_level::debug) << "Failed to connect to X11: "
-                               << "$DISPLAY " << ((!da.empty()) ? da : "not found")
-                               << " $XAUTHORITY " << ((!xa.empty()) ? xa : "not found");
-    if (da.empty())
-      LOG(severity_level::debug) << "Set \"display=\" in " << Util::conf_path << " to your display (echo $DISPLAY)";
-    if (xa.empty())
+    // set log as debug only, so headless users don't get spammed
+    LOG(severity_level::debug) << "Failed to connect to X11 display";
+
+    if (forceDEnv)
+      LOG(severity_level::debug) << "Set \"display=\" in " << Util::conf_path
+                                 << " to your display (echo $" << denv << ')';
+    if (!getenv(xaenv))
       LOG(severity_level::debug) << "Set \"xauthority=\" in " << Util::conf_path
-                                 << " to your .Xauthority file (echo $XAUTHORITY)";
+                                 << " to your .Xauthority file (echo $" << xaenv << ')';
   }
 }
 
