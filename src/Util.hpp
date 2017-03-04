@@ -36,13 +36,14 @@ using boost::log::trivial::severity_level;
 
 namespace fancon {
 enum DaemonState { RUN, STOP = SIGTERM, RELOAD = SIGHUP };
-enum DeviceType { FAN, FAN_NVIDIA, TEMP_SENSOR };
+enum DeviceType { FAN, FAN_NVIDIA, SENSOR, SENSOR_NVIDIA };
 
 namespace Util {
 constexpr const char *conf_path = "/etc/fancon.conf";
 constexpr const char *fancon_dir = "/etc/fancon.d/";
-constexpr const char *fancon_path = "/etc/fancon.d/hwmon";
 constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
+constexpr const char *fancon_hwmon_path = "/etc/fancon.d/hwmon";
+constexpr const char *temp_sensor_label = "temp";
 constexpr const char *nvidia_label = "nvidia";
 const string pid_file = string(fancon_dir) + "pid";
 
@@ -73,8 +74,8 @@ T read(const string &path, int nFailed = 0) {
 
   if (ifs.fail()) {
     if (nFailed > 4) {
-      const char *reason = ((exists(path)) ? " - filesystem or permission error" : " - doesn't exist");
-      LOG(severity_level::debug) << "Failed to read from: " << path << reason << " as " << getuid();
+      const char *reason = ((exists(path)) ? "filesystem or permission error" : "doesn't exist");
+      LOG(severity_level::error) << "Failed to read from: " << path << " - " << reason << " as user id " << getuid();
     } else
       return read<T>(path, ++nFailed);
   }
@@ -96,8 +97,8 @@ void write(const string &path, T val, int nFailed = 0) {
 
   if (ofs.fail()) {
     if (nFailed > 4)
-      LOG(severity_level::debug) << "Failed to write '" << val << "' to: " << path
-                                 << " - filesystem of permission error as UID " << getuid();
+      LOG(severity_level::error) << "Failed to write '" << val << "' to: " << path
+                                 << " - filesystem of permission error as user id " << getuid();
     else
       return write<T>(path, std::move(val), ++nFailed);
   }

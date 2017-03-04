@@ -13,12 +13,12 @@
 #include "UID.hpp"
 #include "Config.hpp"
 #include "Fan.hpp"
-#include "TempSensorParent.hpp"
+#include "SensorParentInterface.hpp"
 
 #ifdef FANCON_NVIDIA_SUPPORT
 #include <X11/Xlib.h>   // Bool, Display
 #include <NVCtrl/NVCtrlLib.h>
-#include "FanNV.hpp"
+#include "NvidiaDevices.hpp"
 using fancon::dw;   // DisplayWrapper
 #endif //FANCON_NVIDIA_SUPPORT
 
@@ -38,7 +38,7 @@ using fancon::UID;
 using fancon::Fan;
 using fancon::SensorControllerConfig;
 using fancon::FanConfig;
-using fancon::TempSensorParent;
+using fancon::SensorParentInterface;
 using fancon::Util::getLastNum;
 using fancon::Util::validIter;
 
@@ -51,24 +51,23 @@ public:
 
   fancon::SensorControllerConfig conf;
 
-  inline vector<UID> getFans() { return getUIDs(Fan::path_pf); }
-  vector<UID> getFansAll();
-  inline vector<UID> getSensors() { return getUIDs(TempSensorParent::path_pf); }
+  vector<UID> getFans();
+  vector<UID> getSensors();
 
   void writeConf(const string &path);
-  vector<unique_ptr<TempSensorParent>> readConf(const string &path);
+  vector<unique_ptr<SensorParentInterface>> readConf(const string &path);
 
 private:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-private-field"
   bool nvidia_control = false;
-#pragma GCC diagnostic pop
 
   vector<UID> getUIDs(const char *devicePathPostfix);
   bool skipLine(const string &line);
 
 #ifdef FANCON_NVIDIA_SUPPORT
+  int getNVGPUs();
+  vector<int> nvProcessBinaryData(const unsigned char *data, const int len);
   vector<UID> getFansNV();
+  vector<UID> getSensorsNV();
   bool nvidiaSupported();
   static void enableNvidiaFanControlCoolbit();    // doesn't work when confined
 #endif //FANCON_NVIDIA_SUPPORT

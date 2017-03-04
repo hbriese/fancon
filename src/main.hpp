@@ -31,7 +31,7 @@ using std::move;
 using std::ref;
 using std::reference_wrapper;
 using fancon::SensorController;
-using fancon::TempSensorParent;
+using fancon::SensorParentInterface;
 using fancon::FanTestResult;
 using fancon::DaemonState;
 using fancon::Util::conf_path;

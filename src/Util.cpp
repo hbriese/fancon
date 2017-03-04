@@ -55,13 +55,13 @@ bool Util::validIter(const string::iterator &end, std::initializer_list<string::
 string Util::getDir(const string &hwID, DeviceType devType, const bool useSysFS) {
   string d;
   if (devType == DeviceType::FAN)
-    d = string((useSysFS) ? hwmon_path : fancon_path) + hwID;
+    d = string((useSysFS) ? hwmon_path : fancon_hwmon_path);
   else if (devType == FAN_NVIDIA)
     d = string(fancon_dir) + nvidia_label;
   else if (useSysFS)
     LOG(severity_level::debug) << "SysFS can only be used for DeviceType::FAN";
 
-  return (d += '/');
+  return (d += hwID + '/');
 }
 
 string Util::getPath(const string &path_pf, const string &hwID, DeviceType devType, const bool useSysFS) {

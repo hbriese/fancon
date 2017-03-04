@@ -38,7 +38,7 @@ fancon may be compiled with the option '-D NVIDIA_SUPPORT=OFF', not requiring li
 $ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev
 $ sudo apt-get install libxnvctrl-dev libx11-dev
 $ git clone https://github.com/HBriese/fancon.git && cd fancon
-$ mkdir build; cd build && cmake -DNVIDIA_SUPPORT=ON -DCMAKE_BUILD_TYPE=Release.. && make && sudo make install
+$ mkdir build; cd build && cmake -DNVIDIA_SUPPORT=ON -DCMAKE_BUILD_TYPE=Release .. && make && sudo make install
 ```
 
 

@@ -6,7 +6,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wpedantic -Werror")
 endif ()
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" AND CMAKE_BUILD_TYPE STREQUAL "Release")
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")  ##  AND CMAKE_BUILD_TYPE STREQUAL "Release"
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
 endif ()
 
@@ -17,8 +17,8 @@ endif ()
 
 include_directories(src)
 set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/UID.cpp src/UID.hpp src/SensorController.cpp
-        src/SensorController.hpp src/Config.cpp src/Config.hpp src/Fan.cpp src/Fan.hpp src/FanNV.cpp
-        src/FanNV.hpp src/FanInterface.cpp src/FanInterface.hpp src/TempSensorParent.cpp src/TempSensorParent.hpp)
+        src/SensorController.hpp src/Config.cpp src/Config.hpp src/Fan.cpp src/Fan.hpp src/NvidiaDevices.cpp
+        src/NvidiaDevices.hpp src/FanInterface.cpp src/FanInterface.hpp src/SensorParentInterface.cpp src/SensorParentInterface.hpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 ## Threads (pthread)
@@ -53,6 +53,7 @@ if (${X11_FOUND} AND NVIDIA_SUPPORT)
         include_directories(NVCtrlLib_INCLUDE_DIR)
         set(LIBS ${LIBS} ${NVCtrlLib_LIBRARY})
         add_definitions("-D FANCON_NVIDIA_SUPPORT")
+        message("NVIDIA supported")
     endif () # NVCtrlLib_FOUND
 endif () # X11_FOUND AND NVIDIA_SUPPORT
 

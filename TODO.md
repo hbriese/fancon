@@ -9,7 +9,6 @@
 
 ### Features
 
-- Add NV temperauter sensor as a source
 - Add support for AMD GPU fans
 - handle step up time and step down time (maybe?)
 - add options: new/exclude fan testing using regular expression option
@@ -23,11 +22,9 @@
 
 ### Performance 
 
-- test between | sed 's/^.*: //' and | awk '{print $4}'
+- test between "sed 's/^.*: //'" and "awk '{print $4}'"
 
 ### Refactoring
-
-- don't 'REQUIRE' X11, but set compile option
 
 ### Documentation
 

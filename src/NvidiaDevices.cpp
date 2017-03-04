@@ -1,5 +1,5 @@
 #ifdef FANCON_NVIDIA_SUPPORT
-#include "FanNV.hpp"
+#include "NvidiaDevices.hpp"
 
 using namespace fancon;
 
@@ -44,6 +44,21 @@ Display *DisplayWrapper::operator*() {
   return dp;
 }
 
+int NV::Data_R::read(const int hwID) const {
+  int val{};
+  if (!XNVCTRLQueryTargetAttribute(*dw, target, hwID, 0, attribute, &val)) {
+    LOG(severity_level::error) << "NVIDIA fan " << hwID << ": failed reading " << title;
+    val = 0;
+  }
+
+  return val;
+}
+
+void NV::Data_RW::write(const int hwID, int val) const {
+  if (!XNVCTRLSetTargetAttributeAndGetStatus(*dw, target, hwID, 0, attribute, val))
+    LOG(severity_level::error) << "NVIDIA fan " << hwID << ": failed writing " << title << " = " << val;
+}
+
 FanNV::FanNV(const UID &fanUID, const FanConfig &conf, bool dynamic)
     : FanInterface(fanUID, conf, dynamic, 0) {
   if (!points.empty()) {
@@ -58,13 +73,5 @@ int FanNV::pwmToPercent(int pwm) { return static_cast<int>((static_cast<double>(
 
 int FanNV::percentToPWM(int percent) { return static_cast<int>(static_cast<double>(percent / 100) * pwm_max_absolute); }
 
-int NV::Data_R::read(const int hwID) const {
-  int val{};
-  if (!XNVCTRLQueryTargetAttribute(*dw, target, hwID, 0, attribute, &val)) {
-    LOG(severity_level::error) << "NVIDIA fan " << hwID << ": failed reading " << title;
-    val = 0;
-  }
-
-  return val;
-}
+bool SensorParentNV::operator==(const UID &other) const { return hwID == other.hwID; }
 #endif //FANCON_NVIDIA_SUPPORT

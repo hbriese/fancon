@@ -26,7 +26,7 @@ string fancon::help() {
 }
 
 void fancon::firstTimeSetup() {
-  create_directory(fancon::Util::fancon_dir);
+  create_directory(Util::fancon_dir);
 
   string pmSleepDir("/etc/pm/sleep.d/");
   const char *pmScriptErr = "Failed to write pm script, fancon may not work on wakeup, please make a github issue";
@@ -61,7 +61,7 @@ void fancon::firstTimeSetup() {
 }
 
 string fancon::listFans(SensorController &sc) {
-  auto uids = sc.getFansAll();
+  auto uids = sc.getFans();
   stringstream ss;
 
   int fcw = 20, scw = 15;
@@ -136,7 +136,7 @@ vector<ulong> fancon::getThreadTasks(uint nThreads, ulong nTasks) {
 void fancon::test(SensorController &sc, uint testRetries, bool singleThread) {
   sc.writeConf(conf_path);
 
-  auto fanUIDs = sc.getFansAll();
+  auto fanUIDs = sc.getFans();
   if (fanUIDs.empty())
     cerr << "No fans were detected, try running 'sudo sensors-detect' first" << endl;
 
@@ -276,8 +276,10 @@ void fancon::start(SensorController &sc, const bool fork_) {
     auto endIt = next(begIt, threadTasks[i]);
 
     // main loop, stopped when signal is sent to signal handler
-    threads.emplace_back([](vector<unique_ptr<TempSensorParent>>::iterator first,
-                            vector<unique_ptr<TempSensorParent>>::iterator last, DaemonState &state, uint &updateTime) {
+    threads.emplace_back([](vector<unique_ptr<SensorParentInterface>>::iterator first,
+                            vector<unique_ptr<SensorParentInterface>>::iterator last,
+                            DaemonState &state,
+                            uint &updateTime) {
       while (state == fancon::DaemonState::RUN) {
         for (auto tspIt = first; tspIt != last; ++tspIt)
           if ((*tspIt)->update())   // update fans if temp changed

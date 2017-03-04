@@ -1,13 +1,13 @@
-#ifndef FANCON_FANNV_HPP
-#define FANCON_FANNV_HPP
-
 #ifdef FANCON_NVIDIA_SUPPORT
+#ifndef FANCON_NVIDIADEVICES_HPP
+#define FANCON_NVIDIADEVICES_HPP
 
 #include <pstreams/pstream.h>
 #include <X11/Xlib.h>
 #include <NVCtrl/NVCtrl.h>
 #include <NVCtrl/NVCtrlLib.h>
 #include "FanInterface.hpp"
+#include "SensorParentInterface.hpp"
 
 namespace fancon {
 struct DisplayWrapper {
@@ -36,15 +36,13 @@ struct Data_R {
 struct Data_RW : Data_R {
   using Data_R::Data_R;
 
-  void write(const int hwID, int val) const {
-    if (!XNVCTRLSetTargetAttributeAndGetStatus(*dw, target, hwID, 0, attribute, val))
-      LOG(severity_level::error) << "NVIDIA fan " << hwID << ": failed writing " << title << " = " << val;
-  }
+  void write(const int hwID, int val) const;
 };
 
 static const Data_R rpm("RPM", NV_CTRL_THERMAL_COOLER_SPEED);
 static const Data_RW pwm_percent("PWM %", NV_CTRL_THERMAL_COOLER_LEVEL);
 static const Data_RW enable_mode("Fan speed enable mode", NV_CTRL_GPU_COOLER_MANUAL_CONTROL, NV_CTRL_TARGET_TYPE_GPU);
+static const Data_R temp("temperature", NV_CTRL_THERMAL_SENSOR_READING, NV_CTRL_TARGET_TYPE_THERMAL_SENSOR);
 }
 
 class FanNV : public FanInterface {
@@ -61,6 +59,17 @@ private:
   static int pwmToPercent(int pwm);
   static int percentToPWM(int percent);
 };
+
+class SensorParentNV : public SensorParentInterface {
+public:
+  SensorParentNV(const UID &uid) : hwID(uid.hwID) {}
+
+  int hwID;
+
+  bool operator==(const UID &other) const;
+
+  inline int read() { return NV::temp.read(hwID); };
+};
 }
 #endif //FANCON_NVIDIA_SUPPORT
-#endif //FANCON_FANNV_HPP
+#endif //FANCON_NVIDIADEVICES_HPP

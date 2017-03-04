@@ -13,8 +13,8 @@ SensorController::SensorController(uint nThreads) {
     conf.threads = nThreads;
 }
 
-vector<UID> SensorController::getFansAll() {
-  auto fans = getFans();
+vector<UID> SensorController::getFans() {
+  auto fans = getUIDs(Fan::path_pf);
 
 #ifdef FANCON_NVIDIA_SUPPORT
   auto nvFans = getFansNV();
@@ -24,9 +24,20 @@ vector<UID> SensorController::getFansAll() {
   return fans;
 }
 
+vector<UID> SensorController::getSensors() {
+  auto sensors = getUIDs(Util::temp_sensor_label);
+
+#ifdef FANCON_NVIDIA_SUPPORT
+  auto nvSensors = getSensorsNV();
+  Util::moveAppend(nvSensors, sensors);
+#endif //FANCON_NVIDIA_SUPPORT
+
+  return sensors;
+}
+
 void SensorController::writeConf(const string &path) {
   // TODO: set up fans as running - i.e. inc default temp_uid and set current temp & rpm for fanconfig
-  auto fUIDs = getFansAll();
+  auto fUIDs = getFans();
   std::fstream fs(path, std::ios_base::in);   // read from the beginning of the file, append writes
   bool pExists = exists(path);
   bool sccFound = false;
@@ -69,7 +80,7 @@ void SensorController::writeConf(const string &path) {
       << "# Example:      Below 22°C fan stopped, 77°F (22°C) 500 RPM ... 80°C full speed fan" << endl
       << "# it8728/2:fan1 coretemp/0:temp2   [0;0] [77f:500] [35:650] [55:1000] [65:1200] [80;255]" << endl
       << "#" << endl
-      << "# <Fan UID>     <Temperature Sensor UID>    <[temperature (°C): speed (RPM); PWM (0-255)]>" << endl;
+      << "# <Fan UID>     <Sensor UID>    <[temperature (°C): speed (RPM); PWM (0-255)]>" << endl;
   };
 
   if (!pExists) {
@@ -86,9 +97,9 @@ void SensorController::writeConf(const string &path) {
     LOG(severity_level::error) << "Failed to write config file: " << path;
 }
 
-vector<unique_ptr<TempSensorParent>> SensorController::readConf(const string &path) {
+vector<unique_ptr<SensorParentInterface>> SensorController::readConf(const string &path) {
   ifstream ifs(path);
-  vector<unique_ptr<TempSensorParent>> tsParents;
+  vector<unique_ptr<SensorParentInterface>> sParents;
 
   bool sccFound = false;
 
@@ -113,12 +124,12 @@ vector<unique_ptr<TempSensorParent>> SensorController::readConf(const string &pa
         liss.seekg(0, std::ios::beg);
     }
 
-    UID fanUID(liss);
-    UID tsUID(liss);
+    UID fUID(liss);
+    UID sUID(liss);
     FanConfig fanConf(liss);
 
     // check conf line is valid
-    if (!fanUID.valid() || !tsUID.valid() || !fanConf.valid())
+    if (!fUID.valid() || !sUID.valid() || !fanConf.valid())
       continue;
 
     // TODO: test fan and add PWM values where there are RPMs <<
@@ -126,36 +137,52 @@ vector<unique_ptr<TempSensorParent>> SensorController::readConf(const string &pa
 //            if (!p.validPWM())
 //                p.pwm = f.testPWM(p.rpm);
 
-    auto tspIt = find_if(tsParents.begin(), tsParents.end(),
-                         [&tsUID](const unique_ptr<TempSensorParent> &pp) -> bool { return (*pp) == tsUID; });
+    auto spIt = find_if(sParents.begin(), sParents.end(),
+                        [&sUID](const unique_ptr<SensorParentInterface> &pp) -> bool { return (*pp) == sUID; });
 
-    if (tspIt == tsParents.end()) {   // make new TSP if missing
-      tsParents.emplace_back(make_unique<TempSensorParent>(tsUID));
-      tspIt = tsParents.end() - 1;
+    if (spIt == sParents.end()) {   // make new TSP if missing
+      if (sUID.type == SENSOR)
+        sParents.emplace_back(make_unique<SensorParent>(sUID));
+#ifdef FANCON_NVIDIA_SUPPORT
+      else if (sUID.type == SENSOR_NVIDIA) {
+        if (nvidia_control)
+          sParents.emplace_back(make_unique<SensorParentNV>(sUID));
+        else {
+          LOG(severity_level::warning) << "Config line is invalid (NVIDIA control is not supported): " << line;
+          continue;
+        }
+      }
+#endif //FANCON_NVIDIA_SUPPORT
+      else {
+        LOG(severity_level::warning) << "Config line is invalid (sensor UID is not a sensor): " << line;
+        continue;
+      }
+
+      spIt = sParents.end() - 1;
     }
 
-    if (fanUID.type == FAN) {
-      auto f = make_unique<Fan>(fanUID, fanConf, conf.dynamic);
+    if (fUID.type == FAN) {
+      auto f = make_unique<Fan>(fUID, fanConf, conf.dynamic);
       if (!f->points.empty())
-        (*tspIt)->fans.emplace_back(move(f));
+        (*spIt)->fans.emplace_back(move(f));
       else
         f.reset();
     }
 #ifdef FANCON_NVIDIA_SUPPORT
-    else if (fanUID.type == FAN_NVIDIA) {
+    else if (fUID.type == FAN_NVIDIA) {
       if (nvidia_control) {
-        auto fn = make_unique<FanNV>(fanUID, fanConf, conf.dynamic);
+        auto fn = make_unique<FanNV>(fUID, fanConf, conf.dynamic);
         if (!fn->points.empty())
-          (*tspIt)->fans.emplace_back(move(fn));
+          (*spIt)->fans.emplace_back(move(fn));
         else
           fn.reset();
       } else
-        LOG(severity_level::debug) << "NVIDIA fan exists in config, but nvidia control is not supported";
+        LOG(severity_level::warning) << "Conf line is invalid (NVIDIA control is not supported): " << line;
     }
 #endif //FANCON_NVIDIA_SUPPORT
   }
 
-  return tsParents;
+  return sParents;
 }
 
 vector<UID> SensorController::getUIDs(const char *devPf) {
@@ -190,71 +217,99 @@ bool SensorController::skipLine(const string &line) {
 }
 
 #ifdef FANCON_NVIDIA_SUPPORT
-vector<UID> SensorController::getFansNV() {
-  vector<UID> uids;
+int SensorController::getNVGPUs() {
+  int nGPUs = 0;
   if (!nvidia_control)
-    return uids;
-
-  // Number of fans
-  int nFans = 0;
-  int ret = XNVCTRLQueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_COOLER, &nFans);
-  if (!ret) {
-    LOG(severity_level::error) << "Failed to query number of NVIDIA fans";
-    return uids;
-  } else if (nFans <= 0) {
-    LOG(severity_level::debug) << "No NVIDIA fans detected";
-    return uids;
-  }
+    return nGPUs;
 
   // Number of GPUs
-  int nGPUs = 0;
-  ret = XNVCTRLQueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_GPU, &nGPUs);
-  if (!ret) {
+
+  int ret = XNVCTRLQueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_GPU, &nGPUs);
+  if (!ret)
     LOG(severity_level::error) << "Failed to query number of NVIDIA GPUs";
-    return uids;
+
+  return nGPUs;
+}
+
+vector<int> SensorController::nvProcessBinaryData(const unsigned char *data, const int len) {
+  vector<int> v;
+  for (int i = 0; i < len; ++i) {
+    int val = static_cast<int>(*(data + i));
+    if (val == 0)       // memory set to 0 when allocated
+      break;
+    v.push_back(--val); // return an index (start at 0), binary data start at 1
   }
 
-  struct NVGPU {
-    NVGPU(const int gpuID = 0) : gpu_id(gpuID) {}
-    int gpu_id;
-    char *product_name = nullptr;
-    unsigned char *fans = nullptr;
-  };
+  return v;
+}
 
-  // there must always be nFans >= nGPUs
-  if (nFans < nGPUs)
-    nGPUs = nFans;
-
-  vector<NVGPU> gpus(static_cast<unsigned long>(nGPUs));
-  std::iota(gpus.begin(), gpus.end(), 0);   // 0, 1, 2...
+vector<UID> SensorController::getFansNV() {
+  vector<UID> uids;
+  auto nGPUs = getNVGPUs();
 
   for (int i = 0; i < nGPUs; ++i) {
+    vector<int> fanIDs, tSensorIDs;
+
+    // GPU fans
+    unsigned char *coolers = nullptr;
+    int len = 0;    // buffer size allocated
+    int ret = XNVCTRLQueryTargetBinaryData(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
+                                           NV_CTRL_BINARY_DATA_COOLERS_USED_BY_GPU, &coolers, &len);
+    if (!ret || coolers == nullptr) {
+      LOG(severity_level::error) << "Failed to query number of fans for GPU: " << i;
+      return uids;
+    }
+    fanIDs = nvProcessBinaryData(coolers, len);
+
     // GPU product name
+    char *product_name = nullptr;
     ret = XNVCTRLQueryTargetStringAttribute(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
-                                            NV_CTRL_STRING_PRODUCT_NAME, &(gpus[i].product_name));
-    if (!ret) {
+                                            NV_CTRL_STRING_PRODUCT_NAME, &product_name);
+    if (!ret || product_name == nullptr) {
       LOG(severity_level::error) << "Failed to query gpu: " << i << " product name";
       return uids;
     }
+    string productName(product_name);
 
-    if (nFans != nGPUs) { // Fans owned by what GPUs
-      int len = 0;
-      ret = XNVCTRLQueryTargetBinaryData(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
-                                         NV_CTRL_BINARY_DATA_COOLERS_USED_BY_GPU, &(gpus[i].fans), &len);
-      if (!ret) {
-        LOG(severity_level::error) << "Failed to query number of fans for GPU: " << i;
-        return uids;
-      } else if (&(gpus[i].fans[0]) == nullptr)
-        LOG(severity_level::warning) << "No fans found for GPU: " << i;
+    // Disregard preceding titles
+    vector<string> titles = {"GeForce", "GTX"};
+    auto begIt = productName.begin();
+    for (const auto &t : titles) {
+      auto newBegIt = search(begIt, productName.end(), t.begin(), t.end()) + t.size();
+      if (*newBegIt == ' ') // skip spaces
+        ++newBegIt;
+      if (newBegIt != productName.end())
+        begIt = newBegIt;
     }
+    std::replace(begIt, productName.end(), ' ', '_');   // replace spaces with underscores
 
-    string productName(gpus[i].product_name);
-    auto nameBegIt = find_if(productName.begin(), productName.end(), [](const char &c) { return std::isdigit(c); });
-    if (nameBegIt == productName.end())
-      nameBegIt = productName.begin();
+    for (const auto &fi : fanIDs)
+      uids.emplace_back(UID(Util::nvidia_label, fi, string(begIt, productName.end())));
+  }
 
-    std::replace(nameBegIt, productName.end(), ' ', '_');
-    uids.emplace_back(UID(Util::nvidia_label, i, string(nameBegIt, productName.end())));
+  return uids;
+}
+
+vector<UID> SensorController::getSensorsNV() {
+  vector<UID> uids;
+  auto nGPUs = getNVGPUs();
+
+  for (auto i = 0; i < nGPUs; ++i) {
+    vector<int> tSensorIDs;
+
+    int len = 0;
+    // GPU temperature sensors
+    unsigned char *tSensors = nullptr;
+    int ret = XNVCTRLQueryTargetBinaryData(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
+                                           NV_CTRL_BINARY_DATA_THERMAL_SENSORS_USED_BY_GPU, &tSensors, &len);
+    if (!ret || tSensors == nullptr) {
+      LOG(severity_level::error) << "Failed to query number of temperature sensors for GPU: " << i;
+      return uids;
+    }
+    tSensorIDs = nvProcessBinaryData(tSensors, len);
+
+    for (const auto &tsi : tSensorIDs)
+      uids.emplace_back(UID(Util::nvidia_label, tsi, string(Util::temp_sensor_label)));
   }
 
   return uids;
@@ -270,7 +325,7 @@ bool SensorController::nvidiaSupported() {
   int eventBase, errorBase;
   auto ret = XNVCTRLQueryExtension(*dw, &eventBase, &errorBase);
   if (!ret) {
-    LOG(severity_level::debug) << "NV-CONTROL X does not exist!";
+    LOG(severity_level::debug) << "NVIDIA fan control not supported";   // NV-CONTROL X does not exist!
     return false;
   } else if (errorBase)
     LOG(severity_level::warning) << "NV-CONTROL X return error base: " << errorBase;

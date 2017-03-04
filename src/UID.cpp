@@ -17,14 +17,18 @@ bool UID::operator==(const UID &other) const {
 }
 
 DeviceType UID::getType() {
-  const string tempDevName("temp");
+  const string sdn(Util::temp_sensor_label);
+  const bool isSensor = search(dev_name.begin(), dev_name.end(), sdn.begin(), sdn.end()) != dev_name.end();
+  const bool isNVIDIA = chipname == Util::nvidia_label;
 
-  if (chipname == Util::nvidia_label)
-    return DeviceType::FAN_NVIDIA;
-  else if (search(dev_name.begin(), dev_name.end(), tempDevName.begin(), tempDevName.end()) != dev_name.end())
-    return DeviceType::TEMP_SENSOR;
+  DeviceType type;
+
+  if (isNVIDIA)
+    type = (isSensor) ? DeviceType::SENSOR_NVIDIA : DeviceType::FAN_NVIDIA;
   else
-    return DeviceType::FAN;
+    type = (isSensor) ? DeviceType::SENSOR : DeviceType::FAN;
+
+  return type;
 }
 
 ostream &fancon::operator<<(ostream &os, const UID &u) {
