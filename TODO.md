@@ -18,7 +18,8 @@
 - Run sudo sensors-detect on install, then fancon test
 - Automatically set CoolBits option
 - Add support for PWM % point
-- time change per rpm (use stop_t?)
+- time change per rpm (use stop_time?)
+- Add display & xauth to config file
 
 ### Performance 
 

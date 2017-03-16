@@ -16,7 +16,7 @@ BOOST_LOG_GLOBAL_LOGGER_INIT(logger, logger_t) {
           % expr::attr<boost::log::trivial::severity_level>(aux::default_attribute_names::severity())
           % expr::smessage;
 
-  // error console sink
+  // console/journalctl sink
   auto s = add_console_log(std::clog, keywords::format = formatter);
   s->set_filter(trivial::severity >= llvl::info);   // default filter
 

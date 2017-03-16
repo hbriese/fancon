@@ -1,7 +1,7 @@
 #ifndef fancon_UTIL_HPP
 #define fancon_UTIL_HPP
 
-#include <iostream>     // endl
+#include <iostream>     // cout, endl
 #include <algorithm>    // all_of
 #include <mutex>
 #include <thread>

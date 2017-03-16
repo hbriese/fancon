@@ -72,15 +72,15 @@ void SensorController::writeConf(const string &path) {
   fs.open(path, std::ios_base::app);  // out
 
   auto writeTop = [](std::fstream &s) {
-    s << "# update: time between rpm changes (in seconds); threads: max number of threads to run fancond" << endl
-      << "# dynamic: interpolated rpm between two points (based on temperature) rather than next point" << endl
-      << SensorControllerConfig() << endl << endl
-      << "# Note:" << endl
-      << "# fancon test MUST be run (on the fan) before use of RPM for speed control" << endl
-      << "# Append 'f' to the temperature for fahrenheit" << endl << endl
-      << "# Example:      Below 22°C fan stopped, 77°F (22°C) 500 RPM ... 80°C full speed fan" << endl
-      << "# it8728/2:fan1 coretemp/0:temp2   [0;0] [77f:500] [35:650] [55:1000] [65:1200] [80;255]" << endl
-      << "#" << endl
+    s << "# update: time between rpm changes (in seconds); threads: max number of threads to run fancond\n"
+      << "# dynamic: interpolated rpm between two points (based on temperature) rather than next point\n"
+      << SensorControllerConfig() << "\n\n"
+      << "# Note:\n"
+      << "# fancon test MUST be run (on the fan) before use of RPM for speed control\n"
+      << "# Append 'f' to the temperature for fahrenheit\n\n"
+      << "# Example:      Below 22°C fan stopped, 77°F (22°C) 500 RPM ... 80°C full speed fan\n"
+      << "# it8728/2:fan1 coretemp/0:temp2   [0;0] [77f:500] [35:650] [55:1000] [65:1200] [80;255]\n"
+      << "#\n"
       << "# <Fan UID>     <Sensor UID>    <[temperature (°C): speed (RPM); PWM (0-255)]>" << endl;
   };
 
@@ -92,7 +92,7 @@ void SensorController::writeConf(const string &path) {
   // write UIDs (not already in file)
   for (auto it = fUIDs.begin(); it != fUIDs.end(); ++it)
     if (find(curUIDIts.begin(), curUIDIts.end(), it) == curUIDIts.end())    // not currently configured
-      fs << *it << endl;
+      fs << *it << '\n';
 
   if (fs.fail())
     LOG(llvl::error) << "Failed to write config file: " << path;
