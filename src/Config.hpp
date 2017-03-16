@@ -22,7 +22,7 @@ using std::to_string;
 using std::vector;
 using fancon::Util::coutThreadsafe;
 using fancon::Util::isNum;
-using fancon::Util::validIter;
+using fancon::Util::validIters;
 
 namespace fancon {
 class SensorControllerConfig {
@@ -32,7 +32,7 @@ public:
 
   bool dynamic = true;
   uint update_time_s = 2;
-  uint threads = std::thread::hardware_concurrency();
+  uint threads = 1; // default to single-threaded
 
   bool valid() { return update_time_s > 0; }
 

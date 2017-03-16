@@ -35,16 +35,17 @@ using fancon::SensorParentInterface;
 using fancon::FanTestResult;
 using fancon::DaemonState;
 using fancon::Util::conf_path;
-using fancon::Util::locked;
-using fancon::Util::lock;
+
+namespace Util = fancon::Util;
 
 int main(int argc, char *argv[]);
 
 namespace fancon {
 DaemonState daemon_state;
 
-string help();
-void firstTimeSetup();
+void help();
+
+void writeResumeConf();
 
 string listFans(SensorController &sensorController);
 string listSensors(SensorController &sensorController);
@@ -59,7 +60,7 @@ void start(SensorController &sc, const bool fork_);
 void send(DaemonState state);
 
 struct Command {
-  Command(const string &name, bool shrtName, const bool requireRoot = true)
+  Command(const string &name, bool shrtName = false, const bool requireRoot = true)
       : name(name), called(false), require_root(requireRoot) {
     if (shrtName) {
       shrt_name += name.front();

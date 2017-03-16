@@ -4,9 +4,10 @@ using namespace fancon;
 
 SensorController::SensorController(uint nThreads) {
 #ifdef FANCON_NVIDIA_SUPPORT
-  nvidia_control = nvidiaSupported();
+  nvidia_control = NV::supported();
+  LOG(llvl::debug) << "Nvidia control " << ((!nvidia_control) ? "un" : "") << "supported";
 //  if (nvidia_control)
-//    enableNvidiaFanControlCoolbit();
+//    NV::enableFanControlCoolbit();
 #endif //FANCON_NVIDIA_SUPPORT
 
   if (nThreads)
@@ -44,7 +45,7 @@ void SensorController::writeConf(const string &path) {
 
   vector<vector<UID>::iterator> curUIDIts;
   if (pExists) { // read existing UIDs
-    LOG(severity_level::info) << "Config exists, adding absent fans";
+    LOG(llvl::info) << "Config exists, adding absent fans";
 
     for (string line; std::getline(fs, line);) {
       if (skipLine(line))
@@ -84,7 +85,7 @@ void SensorController::writeConf(const string &path) {
   };
 
   if (!pExists) {
-    LOG(severity_level::info) << "Writing new config: " << path;
+    LOG(llvl::info) << "Writing new config: " << path;
     writeTop(fs);
   }
 
@@ -94,7 +95,7 @@ void SensorController::writeConf(const string &path) {
       fs << *it << endl;
 
   if (fs.fail())
-    LOG(severity_level::error) << "Failed to write config file: " << path;
+    LOG(llvl::error) << "Failed to write config file: " << path;
 }
 
 vector<unique_ptr<SensorParentInterface>> SensorController::readConf(const string &path) {
@@ -143,18 +144,20 @@ vector<unique_ptr<SensorParentInterface>> SensorController::readConf(const strin
     if (spIt == sParents.end()) {   // make new TSP if missing
       if (sUID.type == SENSOR)
         sParents.emplace_back(make_unique<SensorParent>(sUID));
-#ifdef FANCON_NVIDIA_SUPPORT
       else if (sUID.type == SENSOR_NVIDIA) {
+#ifdef FANCON_NVIDIA_SUPPORT
         if (nvidia_control)
           sParents.emplace_back(make_unique<SensorParentNV>(sUID));
         else {
-          LOG(severity_level::warning) << "Config line is invalid (NVIDIA control is not supported): " << line;
+          LOG(llvl::warning) << "Config line is invalid (NVIDIA control is not supported): " << line;
           continue;
         }
-      }
+#else
+        LOG(llvl::warning) << "Config line is invalid (compiled with -DNVIDIA_SUPPORT=OFF): " << line;
 #endif //FANCON_NVIDIA_SUPPORT
+      }
       else {
-        LOG(severity_level::warning) << "Config line is invalid (sensor UID is not a sensor): " << line;
+        LOG(llvl::warning) << "Config line is invalid (sensor UID is not a sensor): " << line;
         continue;
       }
 
@@ -177,7 +180,7 @@ vector<unique_ptr<SensorParentInterface>> SensorController::readConf(const strin
         else
           fn.reset();
       } else
-        LOG(severity_level::warning) << "Conf line is invalid (NVIDIA control is not supported): " << line;
+        LOG(llvl::warning) << "Conf line is invalid (NVIDIA control is not supported): " << line;
     }
 #endif //FANCON_NVIDIA_SUPPORT
   }
@@ -223,10 +226,9 @@ int SensorController::getNVGPUs() {
     return nGPUs;
 
   // Number of GPUs
-
   int ret = XNVCTRLQueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_GPU, &nGPUs);
   if (!ret)
-    LOG(severity_level::error) << "Failed to query number of NVIDIA GPUs";
+    LOG(llvl::error) << "Failed to query number of NVIDIA GPUs";
 
   return nGPUs;
 }
@@ -256,7 +258,7 @@ vector<UID> SensorController::getFansNV() {
     int ret = XNVCTRLQueryTargetBinaryData(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
                                            NV_CTRL_BINARY_DATA_COOLERS_USED_BY_GPU, &coolers, &len);
     if (!ret || coolers == nullptr) {
-      LOG(severity_level::error) << "Failed to query number of fans for GPU: " << i;
+      LOG(llvl::error) << "Failed to query number of fans for GPU: " << i;
       return uids;
     }
     fanIDs = nvProcessBinaryData(coolers, len);
@@ -266,7 +268,7 @@ vector<UID> SensorController::getFansNV() {
     ret = XNVCTRLQueryTargetStringAttribute(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
                                             NV_CTRL_STRING_PRODUCT_NAME, &product_name);
     if (!ret || product_name == nullptr) {
-      LOG(severity_level::error) << "Failed to query gpu: " << i << " product name";
+      LOG(llvl::error) << "Failed to query gpu: " << i << " product name";
       return uids;
     }
     string productName(product_name);
@@ -303,7 +305,7 @@ vector<UID> SensorController::getSensorsNV() {
     int ret = XNVCTRLQueryTargetBinaryData(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
                                            NV_CTRL_BINARY_DATA_THERMAL_SENSORS_USED_BY_GPU, &tSensors, &len);
     if (!ret || tSensors == nullptr) {
-      LOG(severity_level::error) << "Failed to query number of temperature sensors for GPU: " << i;
+      LOG(llvl::error) << "Failed to query number of temperature sensors for GPU: " << i;
       return uids;
     }
     tSensorIDs = nvProcessBinaryData(tSensors, len);
@@ -313,68 +315,6 @@ vector<UID> SensorController::getSensorsNV() {
   }
 
   return uids;
-}
-
-bool SensorController::nvidiaSupported() {
-//  dw = DisplayWrapper(":0");
-  if (!dw.open()) {
-    LOG(severity_level::debug) << "X11 display cannot be opened";
-    return false;
-  }
-
-  int eventBase, errorBase;
-  auto ret = XNVCTRLQueryExtension(*dw, &eventBase, &errorBase);
-  if (!ret) {
-    LOG(severity_level::debug) << "NVIDIA fan control not supported";   // NV-CONTROL X does not exist!
-    return false;
-  } else if (errorBase)
-    LOG(severity_level::warning) << "NV-CONTROL X return error base: " << errorBase;
-
-  int major = 0, minor = 0;
-  ret = XNVCTRLQueryVersion(*dw, &major, &minor);
-  if (!ret) {
-    LOG(severity_level::error) << "Failed to query NV-CONTROL X version";
-    return false;
-  } else if ((major < 1) || (major == 1 && minor < 9))
-    LOG(severity_level::warning) << "NV-CONTROL X version is not officially supported (too old!)";
-
-  LOG(severity_level::debug) << "NVIDIA fan control supported";
-  return true;
-}
-
-void SensorController::enableNvidiaFanControlCoolbit() {
-  // TODO: find and set Coolbits value without 'nvidia-xconfig' - for when not available (e.g. in snap confinement)
-  string command("sudo nvidia-xconfig -t | grep Coolbits");
-  redi::pstream ips(command);
-  string l;
-  std::getline(ips, l);
-  int iv = (!l.empty()) ? Util::getLastNum(l) : 0;  // initial value
-  int cv(iv);   // current
-
-  const int nBits = 5;
-  const int fcBit = 2;    // 4
-  int cbV[nBits] = {1, 2, 4, 8, 16};  // pow(2, bit)
-  int cbS[nBits]{0};
-
-  for (auto i = nBits - 1; i >= 0; --i)
-    if ((cbS[i] = (cv / cbV[i]) >= 1))
-      cv -= cbV[i];
-
-  int nv = iv;
-  if (cv > 0) {
-    LOG(severity_level::error) << "Invalid coolbits value, fixing with fan control bit set";
-    nv -= cv;
-  }
-
-  if (!cbS[fcBit])
-    nv += cbV[fcBit];
-
-  if (nv != iv) {
-    command = string("sudo nvidia-xconfig --cool-bits=") + to_string(nv) + " > /dev/null";
-    if (system(command.c_str()) != 0)
-      LOG(severity_level::error) << "Failed to write coolbits value, nvidia fan test may fail!";
-    LOG(severity_level::info) << "Reboot, or restart your display server to enable NVIDIA fan control";
-  }
 }
 #endif //FANCON_NVIDIA_SUPPORT
 

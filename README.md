@@ -5,7 +5,6 @@
 fancon is a GNU/Linux fan control daemon and fan testing tool, allowing custom speed-temperature curves for fans, controllable by either PWM or RPM.
   - High performance
   - Low memory usage
-  - High test coverage
 
 Low overhead and easy configuration are the main goals of fancon, this is achieved by:
   - Use of C++, multi-threading, and optimized STL functions
@@ -32,10 +31,10 @@ $ sudo snap install fancon --candidate
 ##### Build from source:
 Note. gcc may be substituted for clang
 
-fancon may be compiled with the option '-D NVIDIA_SUPPORT=OFF', not requiring libxnvctrl-dev & libx11-dev
+fancon may be compiled with the option '-DNVIDIA_SUPPORT=OFF', not requiring libxnvctrl-dev & libx11-dev
 
 ```sh
-$ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev
+$ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers lm-sensors libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libsm-dev
 $ sudo apt-get install libxnvctrl-dev libx11-dev
 $ git clone https://github.com/HBriese/fancon.git && cd fancon
 $ mkdir build; cd build && cmake -DNVIDIA_SUPPORT=ON -DCMAKE_BUILD_TYPE=Release .. && make && sudo make install

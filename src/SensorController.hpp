@@ -19,7 +19,7 @@
 #include <X11/Xlib.h>   // Bool, Display
 #include <NVCtrl/NVCtrlLib.h>
 #include "NvidiaDevices.hpp"
-using fancon::dw;   // DisplayWrapper
+using fancon::NV::dw;   // DisplayWrapper
 #endif //FANCON_NVIDIA_SUPPORT
 
 using std::endl;
@@ -31,7 +31,6 @@ using std::unique_ptr;
 using std::make_unique;
 using std::move;
 using std::istringstream;
-using std::ostringstream;
 using std::pair;
 using std::vector;
 using fancon::UID;
@@ -40,7 +39,7 @@ using fancon::SensorControllerConfig;
 using fancon::FanConfig;
 using fancon::SensorParentInterface;
 using fancon::Util::getLastNum;
-using fancon::Util::validIter;
+using fancon::Util::validIters;
 
 namespace fancon {
 struct SensorsWrapper;
@@ -58,25 +57,23 @@ public:
   vector<unique_ptr<SensorParentInterface>> readConf(const string &path);
 
 private:
-  bool nvidia_control = false;
-
   vector<UID> getUIDs(const char *devicePathPostfix);
   bool skipLine(const string &line);
 
 #ifdef FANCON_NVIDIA_SUPPORT
+  bool nvidia_control = false;
+
   int getNVGPUs();
   vector<int> nvProcessBinaryData(const unsigned char *data, const int len);
   vector<UID> getFansNV();
   vector<UID> getSensorsNV();
-  bool nvidiaSupported();
-  static void enableNvidiaFanControlCoolbit();    // doesn't work when confined
 #endif //FANCON_NVIDIA_SUPPORT
 };
 
 struct SensorsWrapper {
   SensorsWrapper();
   ~SensorsWrapper() { sensors_cleanup(); }
-  vector<const sensors_chip_name *> chips;
+  vector<const sensors_chip_name *> chips;  // do *not* use smart ptr, due to sensors_cleanup()
 };
 }
 

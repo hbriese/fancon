@@ -68,14 +68,14 @@ void FanInterface::verifyPoints(const UID &fanUID) {
     string spaces(uss.str().size(), ' ');
 
     if (untestedPoints)
-      LOG(severity_level::warning) << uss.str() << " : has not been tested yet, so RPM speed cannot be used (only PWM)";
+      LOG(llvl::warning) << uss.str() << " : has not been tested yet, so RPM speed cannot be used (only PWM)";
 
     if (invalidPoints)
-      LOG(severity_level::warning) << ((untestedPoints) ? spaces : uss.str()) << " : invalid config entries;"
-          << "rpm min=" << rpm_min << "(or 0), max=" << rpm_max
-          << "; pwm min=" << pwm_min << "(or 0), max=" << pwm_max_absolute;
+      LOG(llvl::warning) << ((untestedPoints) ? spaces : uss.str()) << " : invalid config entries;"
+                         << "rpm min=" << rpm_min << "(or 0), max=" << rpm_max
+                         << "; pwm min=" << pwm_min << "(or 0), max=" << pwm_max_absolute;
 
-    LOG(severity_level::warning) << spaces << " : ignoring" << ignoring.str();
+    LOG(llvl::warning) << spaces << " : ignoring" << ignoring.str();
   }
 }
 
@@ -231,8 +231,8 @@ int FanInterface::getPWMStart() {
     sleep(speed_change_t * 2);
   }
 
-  if (readPWM() != pwmStart)
-    LOG(severity_level::debug) << "The starting PWM has changed since writing it!";
+  if (readPWM() != pwmStart)  // pwm has changed since writing it to device
+    LOG(llvl::debug) << "PWM control is not exclusive - this may cause inaccurate testing results";
 
   return pwmStart;
 }

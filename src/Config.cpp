@@ -15,29 +15,29 @@ istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
 
   // order of variables does not matter
   auto dynamicBegIt = search(in.begin(), in.end(), c.dynamicBegSep.begin(), c.dynamicBegSep.end());
-  if (validIter(in.end(), {dynamicBegIt}))
+  if (validIters(in.end(), {dynamicBegIt}))
     dynamicBegIt += c.dynamicBegSep.size();
   auto dynamicEndIt = find_if(dynamicBegIt, in.end(), [](const char &ch) { return !std::isalpha(ch); });
 
   auto updateBegIt = search(in.begin(), in.end(), c.updateBegSep.begin(), c.updateBegSep.end());
-  if (validIter(in.end(), {updateBegIt}))
+  if (validIters(in.end(), {updateBegIt}))
     updateBegIt += c.updateBegSep.size();
   auto updateEndIt = find_if(updateBegIt, in.end(), [](const char &ch) { return !std::isdigit(ch); });
 
   auto threadsBegIt = search(in.begin(), in.end(), c.threadsBegSep.begin(), c.threadsBegSep.end());
-  if (validIter(in.end(), {threadsBegIt}))
+  if (validIters(in.end(), {threadsBegIt}))
     threadsBegIt += c.threadsBegSep.size();
   auto threadsEndIt = find_if(threadsBegIt, in.end(), [](const char &ch) { return !std::isdigit(ch); });
 
-  bool dynamicFound = validIter(in.end(), {dynamicBegIt});
-  bool updateFound = validIter(in.end(), {updateBegIt});
-  bool threadsFound = validIter(in.end(), {threadsBegIt});
+  bool dynamicFound = validIters(in.end(), {dynamicBegIt});
+  bool updateFound = validIters(in.end(), {updateBegIt});
+  bool threadsFound = validIters(in.end(), {threadsBegIt});
 
   // fail if
   if ((!dynamicFound & !updateFound & !threadsFound) ||
       ((dynamicEndIt == in.end()) & (updateEndIt == in.end()) & (threadsEndIt == in.end()))) {
     c.update_time_s = 0;
-    LOG(severity_level::debug) << "Invalid entry: " << in;
+    LOG(llvl::debug) << "Invalid entry: " << in;
     return is;
   }
 
@@ -96,13 +96,13 @@ istream &fancon::operator>>(istream &is, Point &p) {
   auto pwmBegIt = pwmSepIt + 1;
   auto pwmEndIt = find(pwmBegIt, in.end(), p.endSep);
 
-  auto tempFound = validIter(in.end(), {tempBegIt, tempEndIt, tempAbsEndIt});
-  bool rpmFound = validIter(in.end(), {rpmBegIt, rpmEndIt});
-  bool pwmFound = validIter(in.end(), {pwmBegIt, pwmEndIt});
+  auto tempFound = validIters(in.end(), {tempBegIt, tempEndIt, tempAbsEndIt});
+  bool rpmFound = validIters(in.end(), {rpmBegIt, rpmEndIt});
+  bool pwmFound = validIters(in.end(), {pwmBegIt, pwmEndIt});
 
   // must contain temp, and either a rpm or pwm value
   if (!tempFound || (!rpmFound & !pwmFound)) {
-    LOG(severity_level::error) << "Invalid fan config: " << in;
+    LOG(llvl::error) << "Invalid fan config: " << in;
     return is;
   }
 

@@ -32,8 +32,12 @@ void Util::coutThreadsafe(const string &out) {
 }
 
 bool Util::locked() {
+  if (!exists(pid_file))
+    return false;
+
   auto pid = read < pid_t > (pid_file);
-  return exists(pid_file) && exists(string("/proc/") + to_string(pid)) && pid != getpid();
+  return exists(string("/proc/") + to_string(pid));
+//      && pid != getpid();
 }
 
 void Util::lock() {
@@ -44,7 +48,7 @@ void Util::lock() {
     write(pid_file, getpid());
 }
 
-bool Util::validIter(const string::iterator &end, std::initializer_list<string::iterator> iterators) {
+bool Util::validIters(const string::iterator &end, std::initializer_list<string::iterator> iterators) {
   for (auto it : iterators)
     if (it == end)
       return false;
@@ -58,8 +62,6 @@ string Util::getDir(const string &hwID, DeviceType devType, const bool useSysFS)
     d = string((useSysFS) ? hwmon_path : fancon_hwmon_path);
   else if (devType == FAN_NVIDIA)
     d = string(fancon_dir) + nvidia_label;
-  else if (useSysFS)
-    LOG(severity_level::debug) << "SysFS can only be used for DeviceType::FAN";
 
   return (d += hwID + '/');
 }
@@ -68,20 +70,21 @@ string Util::getPath(const string &path_pf, const string &hwID, DeviceType devTy
   return getDir(hwID, devType, useSysFS) + path_pf;
 }
 
-string Util::readLine(string path) {
-  // check for fancon config first, if not found (i.e. tests for fan not run), use regular file
-  string p_fc(path);
-  p_fc.append("_fancon");
-
-  if (exists(p_fc))
-    path = p_fc;
-
-  std::ifstream ifs(path);
+string Util::readLine(string path, int nFailed) {
+  ifstream ifs(path);
   string line;
   std::getline(ifs, line);
+  ifs.close();
 
-  if (ifs.fail())
-    LOG(severity_level::error) << "Failed to read from: " << path;
+  if (ifs.fail()) {
+    auto exist = exists(path);
+    if (exist && nFailed <= 3)  // retry 3 times
+      return readLine(path, ++nFailed);
+    else {  // fail immediately if file does not exist
+      const char *reason = (exist) ? "filesystem or permission error" : "doesn't exist";
+      LOG(llvl::error) << "Failed to read from: " << path << " - " << reason << "; user id " << getuid();
+    }
+  }
 
   return line;
 }
