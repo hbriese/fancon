@@ -155,8 +155,7 @@ vector<unique_ptr<SensorParentInterface>> SensorController::readConf(const strin
 #else
         LOG(llvl::warning) << "Config line is invalid (compiled with -DNVIDIA_SUPPORT=OFF): " << line;
 #endif //FANCON_NVIDIA_SUPPORT
-      }
-      else {
+      } else {
         LOG(llvl::warning) << "Config line is invalid (sensor UID is not a sensor): " << line;
         continue;
       }

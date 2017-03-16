@@ -24,11 +24,11 @@ public:
     type = getType();
   }
   UID(string chipname, int hwID, string dev_name)
-      : chipname(std::move(chipname)), hwID(hwID), dev_name(std::move(dev_name)) { type = getType(); }
+      : chipname(std::move(chipname)), hw_id(hwID), dev_name(std::move(dev_name)) { type = getType(); }
 
   DeviceType type;
   string chipname;
-  int hwID;
+  int hw_id;
   string dev_name;
 
   /* FORMAT: e.g.
@@ -46,8 +46,8 @@ public:
   bool operator==(const UID &other) const;
 
 private:
-  const char cn_end_sep = '/',
-      hwmon_id_end_sep = ':';
+  const char cn_esep = '/',
+      hw_id_esep = ':';
 
   DeviceType getType();
 };

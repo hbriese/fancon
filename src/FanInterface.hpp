@@ -24,7 +24,7 @@ static const int speed_change_t = 3;    // seconds to allow for rpm changes when
 static const int pwm_max_absolute = 255;
 
 struct FanTestResult {
-  FanTestResult() { canTest = false; }
+  FanTestResult() { can_test = false; }
   FanTestResult(int rpm_min, int rpm_max, int pwm_min, int pwm_max, int pwm_start, long stop_time, double slope)
       : rpm_min(rpm_min), rpm_max(rpm_max), pwm_min(pwm_min), pwm_max(pwm_max), pwm_start(pwm_start),
         stop_time(stop_time), slope(slope) {}
@@ -37,9 +37,9 @@ struct FanTestResult {
   long stop_time;
   double slope;
 
-  bool canTest = true;
+  bool can_test = true;
 
-  bool testable() { return canTest; }
+  bool testable() { return can_test; }
 
   bool valid() {
     return (rpm_min > 0) && (rpm_min < rpm_max) && (pwm_min > 0) && (pwm_max <= 255)
@@ -63,7 +63,7 @@ public:
 
   void verifyPoints(const UID &fanUID);
 
-  inline int calcPWM(int rpm) { return (int) (((rpm - rpm_min) / slope) + pwm_min); }
+  int calcPWM(int rpm) { return (int) (((rpm - rpm_min) / slope) + pwm_min); }
   virtual void update(int temp);
 
   FanTestResult test();
@@ -72,10 +72,10 @@ public:
 protected:
   int driver_enable_mode;
   const int manual_enable_mode;
-  const int hwID;
-  const string hwIDStr;
+  const int hw_id;
+  const string hw_id_str;
 
-  long stop_t;
+  long stop_time;
   double slope;   // i.e. rpm-per-pwm
   bool dynamic;
   bool stopped = false;
@@ -97,7 +97,7 @@ struct FanPaths {
       rpm_min_pf, rpm_max_pf,
       pwm_start_pf, slope_pf,
       stop_t_pf;
-  string hwID;
+  string hw_id;
 
   bool tested() const;
 };

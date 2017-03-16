@@ -47,9 +47,9 @@ public:
   friend istream &operator>>(istream &is, SensorControllerConfig &c);
 
 private:
-  const string dynamicBegSep = "dynamic=";
-  const string updateBegSep = "update=";
-  const string threadsBegSep = "threads=";
+  const string dynamic_bsep = "dynamic=";
+  const string update_bsep = "update=";
+  const string threads_bsep = "threads=";
 };
 
 ostream &operator<<(ostream &os, const fancon::SensorControllerConfig &c);
@@ -79,10 +79,10 @@ public:
   friend istream &operator>>(istream &is, Point &p);
 
 private:
-  const char tempBegSep = '[',
-      rpmBegSep = ':',
-      pwmBegSep = ';',
-      endSep = ']',
+  const char temp_bsep = '[',
+      rpm_bsep = ':',
+      pwm_bsep = ';',
+      esep = ']',
       fahrenheit = 'f';
 };
 

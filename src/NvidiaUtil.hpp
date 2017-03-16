@@ -17,10 +17,9 @@ struct DisplayWrapper {
     if (dp)
       XCloseDisplay(dp);
   }
-  void open(string display, string xauthority);
   Display *operator*();
   Display *dp;
-  bool isOpen() const { return dp != NULL; }
+  bool open(string display, string xauthority);
 } extern dw;  // link to global DisplayWrapper in .cpp
 
 bool supported();

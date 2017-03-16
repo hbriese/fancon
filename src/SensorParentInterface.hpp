@@ -27,14 +27,14 @@ public:
 
 class SensorParent : public SensorParentInterface {
 public:
-  SensorParent(const UID &uid) : ts_path(uid.getBasePath() + "_input") {}
+  SensorParent(const UID &uid) : ts_p(uid.getBasePath() + "_input") {}
   ~SensorParent() { fans.clear(); }
 
-  string ts_path;
+  string ts_p;
 
   bool operator==(const UID &other) const;
 
-  inline int read() { return Util::read<int>(ts_path) / 1000; }
+  int read() { return Util::read<int>(ts_p) / 1000; }
 };
 }
 

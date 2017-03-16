@@ -3,21 +3,21 @@
 using namespace fancon;
 
 FanInterface::FanInterface(const UID &uid, const FanConfig &c, bool dynamic, int driverEnableM, int manualEnableM)
-    : points(c.points), driver_enable_mode(driverEnableM), manual_enable_mode(manualEnableM), hwID(uid.hwID),
-      hwIDStr(to_string(hwID)), dynamic(dynamic) {
+    : points(c.points), driver_enable_mode(driverEnableM), manual_enable_mode(manualEnableM), hw_id(uid.hw_id),
+      hw_id_str(to_string(hw_id)), dynamic(dynamic) {
   FanPaths p(uid, uid.type);
   tested = p.tested();
 
   if (tested) {
     // Read values from fancon dir
-    rpm_min = read<int>(p.rpm_min_pf, hwIDStr, uid.type);
-    rpm_max = read<int>(p.rpm_max_pf, hwIDStr, uid.type);
-    pwm_min = read<int>(p.pwm_min_pf, hwIDStr, uid.type);
-    pwm_start = read<int>(p.pwm_start_pf, hwIDStr, uid.type);
-    slope = read<double>(p.slope_pf, hwIDStr, uid.type);
+    rpm_min = read<int>(p.rpm_min_pf, hw_id_str, uid.type);
+    rpm_max = read<int>(p.rpm_max_pf, hw_id_str, uid.type);
+    pwm_min = read<int>(p.pwm_min_pf, hw_id_str, uid.type);
+    pwm_start = read<int>(p.pwm_start_pf, hw_id_str, uid.type);
+    slope = read<double>(p.slope_pf, hw_id_str, uid.type);
 
     long temp = 0;
-    stop_t = ((temp = read<long>(p.stop_t_pf, hwIDStr, uid.type)) > 0) ? temp : 3000;
+    stop_time = ((temp = read<long>(p.stop_t_pf, hw_id_str, uid.type)) > 0) ? temp : 3000;
   }
 
   verifyPoints(uid);
@@ -145,7 +145,7 @@ FanTestResult FanInterface::test() {
 
 void FanInterface::writeTestResult(const UID &uid, const FanTestResult &r, DeviceType devType) {
   FanPaths p(uid);
-  string hwID = to_string(uid.hwID);
+  string hwID = to_string(uid.hw_id);
 
   write<int>(p.pwm_min_pf, hwID, r.pwm_min, devType);
   write<int>(p.pwm_max_pf, hwID, r.pwm_max, devType);
@@ -159,7 +159,7 @@ void FanInterface::writeTestResult(const UID &uid, const FanTestResult &r, Devic
 FanPaths::FanPaths(const UID &uid, DeviceType devType)
     : dev_type(devType) {
   const string devID = to_string(fancon::Util::getLastNum(uid.dev_name));
-  hwID = to_string(uid.hwID);
+  hw_id = to_string(uid.hw_id);
 
   string pwm_pf = "pwm" + devID;
   string rpm_pf = "fan" + devID;
@@ -174,13 +174,13 @@ FanPaths::FanPaths(const UID &uid, DeviceType devType)
   if (dev_type == FAN) {
     enable_pf = pwm_pf + "_enable";
     rpm_pf.append("_input");
-    rpm_p = fancon::Util::getPath(rpm_pf, hwID, dev_type, true);
-    pwm_p = fancon::Util::getPath(pwm_pf, hwID, dev_type, true);
+    rpm_p = fancon::Util::getPath(rpm_pf, hw_id, dev_type, true);
+    pwm_p = fancon::Util::getPath(pwm_pf, hw_id, dev_type, true);
   }
 }
 
 bool FanPaths::tested() const {
-  auto gp = [this](const string &pathPF) { return getPath(pathPF, hwID, dev_type); };
+  auto gp = [this](const string &pathPF) { return getPath(pathPF, hw_id, dev_type); };
   string paths[]{gp(pwm_min_pf), gp(pwm_max_pf), gp(rpm_min_pf), gp(rpm_max_pf),
                  gp(slope_pf), gp(stop_t_pf)};
 

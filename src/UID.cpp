@@ -2,18 +2,18 @@
 
 using namespace fancon;
 
-bool UID::valid() const { return (!chipname.empty()) && (hwID != -1) && (!dev_name.empty()); }
+bool UID::valid() const { return (!chipname.empty()) && (hw_id != -1) && (!dev_name.empty()); }
 
 const string UID::getBasePath() const {
   string bpath(fancon::Util::hwmon_path);
-  bpath.append(to_string(hwID)).append("/").append(dev_name);
+  bpath.append(to_string(hw_id)).append("/").append(dev_name);
   return bpath;
 }
 
 bool UID::operator==(const UID &other) const {
   return (this->chipname == other.chipname) &&
       (this->dev_name == other.dev_name) &&
-      (this->hwID == other.hwID);
+      (this->hw_id == other.hw_id);
 }
 
 DeviceType UID::getType() {
@@ -32,7 +32,7 @@ DeviceType UID::getType() {
 }
 
 ostream &fancon::operator<<(ostream &os, const UID &u) {
-  os << u.chipname << u.cn_end_sep << to_string(u.hwID) << u.hwmon_id_end_sep << u.dev_name;
+  os << u.chipname << u.cn_esep << to_string(u.hw_id) << u.hw_id_esep << u.dev_name;
   return os;
 }
 
@@ -42,9 +42,9 @@ istream &fancon::operator>>(istream &is, UID &u) {
   std::remove_if(in.begin(), in.end(), [](auto &c) { return isspace(c); });
 
   auto cnBeginIt = in.begin();
-  auto cnEndIt = find(cnBeginIt, in.end(), u.cn_end_sep);
+  auto cnEndIt = find(cnBeginIt, in.end(), u.cn_esep);
   auto hwIdBegIt = cnEndIt + 1;
-  auto hwIdEndIt = find(cnEndIt, in.end(), u.hwmon_id_end_sep);
+  auto hwIdEndIt = find(cnEndIt, in.end(), u.hw_id_esep);
   auto devnBegIt = hwIdEndIt + 1;
   auto devnEndIt = in.end();
 
@@ -54,14 +54,14 @@ istream &fancon::operator>>(istream &is, UID &u) {
 
     // set invalid values
     u.chipname = string();
-    u.hwID = -1;
+    u.hw_id = -1;
     u.dev_name = string();
     return is;
   }
 
   u.chipname = string(cnBeginIt, cnEndIt);
   string hwID = string(hwIdBegIt, hwIdEndIt);
-  u.hwID = stoi(hwID);
+  u.hw_id = stoi(hwID);
   u.dev_name = string(devnBegIt, devnEndIt);
 
   return is;

@@ -3,8 +3,8 @@
 using namespace fancon;
 
 ostream &fancon::operator<<(ostream &os, const fancon::SensorControllerConfig &c) {
-  os << c.updateBegSep << c.update_time_s << " " << c.threadsBegSep << c.threads
-     << " " << c.dynamicBegSep << ((c.dynamic) ? "true" : "false");
+  os << c.update_bsep << c.update_time_s << " " << c.threads_bsep << c.threads
+     << " " << c.dynamic_bsep << ((c.dynamic) ? "true" : "false");
   return os;
 }
 
@@ -14,19 +14,19 @@ istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
 
 
   // order of variables does not matter
-  auto dynamicBegIt = search(in.begin(), in.end(), c.dynamicBegSep.begin(), c.dynamicBegSep.end());
+  auto dynamicBegIt = search(in.begin(), in.end(), c.dynamic_bsep.begin(), c.dynamic_bsep.end());
   if (validIters(in.end(), {dynamicBegIt}))
-    dynamicBegIt += c.dynamicBegSep.size();
+    dynamicBegIt += c.dynamic_bsep.size();
   auto dynamicEndIt = find_if(dynamicBegIt, in.end(), [](const char &ch) { return !std::isalpha(ch); });
 
-  auto updateBegIt = search(in.begin(), in.end(), c.updateBegSep.begin(), c.updateBegSep.end());
+  auto updateBegIt = search(in.begin(), in.end(), c.update_bsep.begin(), c.update_bsep.end());
   if (validIters(in.end(), {updateBegIt}))
-    updateBegIt += c.updateBegSep.size();
+    updateBegIt += c.update_bsep.size();
   auto updateEndIt = find_if(updateBegIt, in.end(), [](const char &ch) { return !std::isdigit(ch); });
 
-  auto threadsBegIt = search(in.begin(), in.end(), c.threadsBegSep.begin(), c.threadsBegSep.end());
+  auto threadsBegIt = search(in.begin(), in.end(), c.threads_bsep.begin(), c.threads_bsep.end());
   if (validIters(in.end(), {threadsBegIt}))
-    threadsBegIt += c.threadsBegSep.size();
+    threadsBegIt += c.threads_bsep.size();
   auto threadsEndIt = find_if(threadsBegIt, in.end(), [](const char &ch) { return !std::isdigit(ch); });
 
   bool dynamicFound = validIters(in.end(), {dynamicBegIt});
@@ -69,9 +69,9 @@ Point &fancon::Point::operator=(const Point &other) {
 }
 
 ostream &fancon::operator<<(ostream &os, const Point &p) {
-  string rpm_out = (p.rpm != -1) ? string() + p.rpmBegSep + to_string(p.rpm) : string();
-  string pwm_out = (p.pwm != -1) ? string() + p.pwmBegSep + to_string(p.pwm) : string();
-  os << p.tempBegSep << p.temp << rpm_out << pwm_out << p.endSep;
+  string rpm_out = (p.rpm != -1) ? string() + p.rpm_bsep + to_string(p.rpm) : string();
+  string pwm_out = (p.pwm != -1) ? string() + p.pwm_bsep + to_string(p.pwm) : string();
+  os << p.temp_bsep << p.temp << rpm_out << pwm_out << p.esep;
   return os;
 }
 
@@ -83,18 +83,18 @@ istream &fancon::operator>>(istream &is, Point &p) {
   std::remove_if(in.begin(), in.end(), [](auto &c) { return isspace(c); });
 
   string::iterator rpmSepIt, pwmSepIt;
-  bool rpmSepFound = (rpmSepIt = find(in.begin(), in.end(), p.rpmBegSep)) != in.end();
-  bool pwmSepFound = (pwmSepIt = find(in.begin(), in.end(), p.pwmBegSep)) != in.end();
+  bool rpmSepFound = (rpmSepIt = find(in.begin(), in.end(), p.rpm_bsep)) != in.end();
+  bool pwmSepFound = (pwmSepIt = find(in.begin(), in.end(), p.pwm_bsep)) != in.end();
 
-  auto tempBegIt = find(in.begin(), in.end(), p.tempBegSep) + 1;
+  auto tempBegIt = find(in.begin(), in.end(), p.temp_bsep) + 1;
   auto tempAbsEndIt = (rpmSepFound) ? rpmSepIt : pwmSepIt;
   string::iterator tempEndIt = find_if(tempBegIt, tempAbsEndIt, [](const char &c) { return !isdigit(c); });
 
   auto rpmBegIt = rpmSepIt + 1;
-  auto rpmEndIt = find(rpmBegIt, in.end(), (pwmSepFound) ? p.pwmBegSep : p.endSep);
+  auto rpmEndIt = find(rpmBegIt, in.end(), (pwmSepFound) ? p.pwm_bsep : p.esep);
 
   auto pwmBegIt = pwmSepIt + 1;
-  auto pwmEndIt = find(pwmBegIt, in.end(), p.endSep);
+  auto pwmEndIt = find(pwmBegIt, in.end(), p.esep);
 
   auto tempFound = validIters(in.end(), {tempBegIt, tempEndIt, tempAbsEndIt});
   bool rpmFound = validIters(in.end(), {rpmBegIt, rpmEndIt});

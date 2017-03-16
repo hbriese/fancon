@@ -38,17 +38,14 @@ public:
   int readPWM() { return read<int>(pwm_p); }
   void writePWM(int pwm) { write(pwm_p, pwm); }
   int readRPM() { return read<int>(rpm_p); }
-  void writeEnableMode(int mode) { write(enable_pf, hwIDStr, mode, DeviceType::FAN, true); }
-  int readEnableMode() { return read<int>(enable_pf, hwIDStr, DeviceType::FAN, true); }
+  void writeEnableMode(int mode) { write(enable_pf, hw_id_str, mode, DeviceType::FAN, true); }
+  int readEnableMode() { return read<int>(enable_pf, hw_id_str, DeviceType::FAN, true); }
 
   int testPWM(int rpm);    // TODO: remove
 
-//  using FanInterface::test;
   using FanInterface::writeTestResult;
 
 private:
-  const string hwIDStr;
-
   string pwm_p, rpm_p;
   string enable_pf;
 };

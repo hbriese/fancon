@@ -3,7 +3,7 @@
 using namespace fancon;
 
 Fan::Fan(const UID &fanUID, const FanConfig &conf, bool dynamic)
-    : FanInterface(fanUID, conf, dynamic, 2), hwIDStr(to_string(hwID)) {
+    : FanInterface(fanUID, conf, dynamic, 2) {
   FanPaths p(fanUID);
 
   // keep paths (with changing values) for future rw

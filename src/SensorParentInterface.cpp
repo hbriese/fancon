@@ -19,6 +19,6 @@ bool SensorParentInterface::update() {
 }
 
 bool SensorParent::operator==(const UID &uid) const {
-  auto endIt = (find(ts_path.rbegin(), ts_path.rend(), '_') + 1).base();
-  return uid.getBasePath() == string(ts_path.begin(), endIt);
+  auto endIt = (find(ts_p.rbegin(), ts_p.rend(), '_') + 1).base();
+  return uid.getBasePath() == string(ts_p.begin(), endIt);
 }

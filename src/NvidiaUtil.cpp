@@ -10,7 +10,7 @@ NV::DisplayWrapper dw(NULL);
 }
 }
 
-void NV::DisplayWrapper::open(string da, string xa) {
+bool NV::DisplayWrapper::open(string da, string xa) {
   const char *denv = "DISPLAY", *xaenv = "XAUTHORITY";
   bool forcedDa = false;
 
@@ -45,16 +45,17 @@ void NV::DisplayWrapper::open(string da, string xa) {
   }
 
   // Open display and log errors
-  if (!(dp = XOpenDisplay(da.c_str()))) {
+  if (!(dp = XOpenDisplay(da.c_str()))) { // dp == NULL
     stringstream err;
-
     if (forcedDa)   // da.empty() == true   // TODO: review check - guessed da may be correct
       err << "Set \"display=\" in " << Util::conf_path << " to your display (echo $" << denv << ')';
     if (!getenv(xaenv))
       err << "Set \"xauthority=\" in " << Util::conf_path << " to your .Xauthority file (echo $" << xaenv << ')';
 
-    LOG(llvl::debug) << "Failed to open X11 display: " << err.str();
+    return false;
   }
+
+  return true;
 }
 
 Display *NV::DisplayWrapper::operator*() {
@@ -66,8 +67,7 @@ bool NV::supported() {
   if (!Util::locked())
     XInitThreads();       // run before first XOpenDisplay() from any process
 
-  dw.open({}, {});  // TODO: support user supplied display and xauthority
-  if (!dw.isOpen()) {
+  if (!dw.open({}, {})) {
     LOG(llvl::debug) << "X11 display cannot be opened";
     return false;
   }

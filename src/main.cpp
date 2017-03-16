@@ -68,8 +68,8 @@ void fancon::writeResumeConf() {
   }
 
   // make script executable
-  if (!system(string("chmod +x ").append(p).c_str()))
-    cerr << "Failed to make resume script executable, please run 'sudo chmod +x '" << p << '\'' << endl;
+  if (system(string("chmod +x ").append(p).c_str()))
+    cerr << "Failed to make resume script executable, please run 'sudo chmod +x " << p << '\'' << endl;
 }
 
 string fancon::listFans(SensorController &sc) {
@@ -90,7 +90,7 @@ string fancon::listFans(SensorController &sc) {
     ss << setw(fcw) << left << sst.str();
 
     FanPaths p(uid, uid.type);
-    string hwID = to_string(uid.hwID);
+    string hwID = to_string(uid.hw_id);
     if (p.tested()) {
       sst.str("");
       sst << read<int>(p.rpm_min_pf, hwID, uid.type) << " - " << read<int>(p.rpm_max_pf, hwID, uid.type);
@@ -159,7 +159,7 @@ void fancon::test(SensorController &sc, uint testRetries, bool singleThread) {
   cout << "Starting tests. This may take some time (to ensure accurate results)" << endl;
   vector<thread> threads;
   for (auto it = fanUIDs.begin(); it != fanUIDs.end(); ++it) {
-    auto dir = Util::getDir(to_string(it->hwID), it->type);
+    auto dir = Util::getDir(to_string(it->hw_id), it->type);
     if (!exists(dir))
       create_directory(dir);
 

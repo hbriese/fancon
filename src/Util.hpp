@@ -81,8 +81,8 @@ T read(const string &path, int nFailed = 0) {
 }
 
 template<typename T>
-inline T read(const string &path_pf, const string &hwmon_id,
-              DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
+T read(const string &path_pf, const string &hwmon_id,
+       DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
   return read<T>(getPath(path_pf, hwmon_id, devType, useSysFS));
 }
 
@@ -102,8 +102,8 @@ void write(const string &path, T val, int nFailed = 0) {
 }
 
 template<typename T>
-inline void write(const string &path_pf, const string &hwmon_id, T val,
-                  DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
+void write(const string &path_pf, const string &hwmon_id, T val,
+           DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
   return write<T>(getPath(path_pf, hwmon_id, devType, useSysFS), val);
 }
 
