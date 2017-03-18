@@ -3,56 +3,52 @@
 using namespace fancon;
 
 ostream &fancon::operator<<(ostream &os, const fancon::SensorControllerConfig &c) {
-  os << c.update_bsep << c.update_time_s << " " << c.threads_bsep << c.threads
-     << " " << c.dynamic_bsep << ((c.dynamic) ? "true" : "false");
+  os << c.update_prefix << c.update_time_s << " " << c.threads_prefix << c.threads
+     << " " << c.dynamic_prefix << ((c.dynamic) ? "true" : "false");
   return os;
 }
 
 istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
+  // Read whole line from istream
   std::istreambuf_iterator<char> eos;
   string in(std::istreambuf_iterator<char>(is), eos);
 
+  struct InputValue {
+    InputValue(string &input, const string &sep, std::function<bool(const char &ch)> predicate) {
+      beg = search(input.begin(), input.end(), sep.begin(), sep.end());
+      if (validIters(input.end(), {beg}))  // Forward iterator to the last character of sep
+        beg += sep.size();
 
-  // order of variables does not matter
-  auto dynamicBegIt = search(in.begin(), in.end(), c.dynamic_bsep.begin(), c.dynamic_bsep.end());
-  if (validIters(in.end(), {dynamicBegIt}))
-    dynamicBegIt += c.dynamic_bsep.size();
-  auto dynamicEndIt = find_if(dynamicBegIt, in.end(), [](const char &ch) { return !std::isalpha(ch); });
+      end = find_if(beg, input.end(), predicate);
+      found = beg != input.end() && beg != end;
+    }
 
-  auto updateBegIt = search(in.begin(), in.end(), c.update_bsep.begin(), c.update_bsep.end());
-  if (validIters(in.end(), {updateBegIt}))
-    updateBegIt += c.update_bsep.size();
-  auto updateEndIt = find_if(updateBegIt, in.end(), [](const char &ch) { return !std::isdigit(ch); });
+    string::iterator beg, end;
+    bool found;
+  };
 
-  auto threadsBegIt = search(in.begin(), in.end(), c.threads_bsep.begin(), c.threads_bsep.end());
-  if (validIters(in.end(), {threadsBegIt}))
-    threadsBegIt += c.threads_bsep.size();
-  auto threadsEndIt = find_if(threadsBegIt, in.end(), [](const char &ch) { return !std::isdigit(ch); });
+  InputValue dynamicVal(in, c.dynamic_prefix, [](const char &ch) { return !std::isalpha(ch); });
+  InputValue updateVal(in, c.update_prefix, [](const char &ch) { return !std::isdigit(ch); });
+  InputValue threadsVal(in, c.threads_prefix, [](const char &ch) { return !std::isdigit(ch); });
 
-  bool dynamicFound = validIters(in.end(), {dynamicBegIt});
-  bool updateFound = validIters(in.end(), {updateBegIt});
-  bool threadsFound = validIters(in.end(), {threadsBegIt});
-
-  // fail if
-  if ((!dynamicFound & !updateFound & !threadsFound) ||
-      ((dynamicEndIt == in.end()) & (updateEndIt == in.end()) & (threadsEndIt == in.end()))) {
+  // Fail if no values are found
+  if (!dynamicVal.found && !updateVal.found && !threadsVal.found) {
     c.update_time_s = 0;
-    LOG(llvl::debug) << "Invalid entry: " << in;
     return is;
   }
 
-  if (dynamicFound) {
-    string dynamicStr(dynamicBegIt, dynamicEndIt);
+  if (dynamicVal.found) {
+    string dynamicStr(dynamicVal.beg, dynamicVal.end);
     c.dynamic = (dynamicStr != "false" || dynamicStr != "0");
   }
 
-  if (updateFound) {
-    string updateStr(updateBegIt, updateEndIt);
+  if (updateVal.found) {
+    string updateStr(updateVal.beg, updateVal.end);
     c.update_time_s = (isNum(updateStr)) ? (uint) std::stoul(updateStr) : c.update_time_s;
   }
 
-  if (threadsFound) {
-    string threadsStr(threadsBegIt, threadsEndIt);
+  if (threadsVal.found) {
+    string threadsStr(threadsVal.beg, threadsVal.end);
     uint res = (isNum(threadsStr)) ? (uint) std::stoul(threadsStr) : c.threads;
     c.threads = (res <= std::thread::hardware_concurrency() && res > 0) ? res : c.threads;
   }

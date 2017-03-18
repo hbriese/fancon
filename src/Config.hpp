@@ -47,9 +47,9 @@ public:
   friend istream &operator>>(istream &is, SensorControllerConfig &c);
 
 private:
-  const string dynamic_bsep = "dynamic=";
-  const string update_bsep = "update=";
-  const string threads_bsep = "threads=";
+  const string dynamic_prefix = "dynamic=";
+  const string update_prefix = "update=";
+  const string threads_prefix = "threads=";
 };
 
 ostream &operator<<(ostream &os, const fancon::SensorControllerConfig &c);
