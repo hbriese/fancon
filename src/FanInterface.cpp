@@ -180,13 +180,9 @@ FanPaths::FanPaths(const UID &uid, DeviceType devType)
 }
 
 bool FanPaths::tested() const {
-  auto gp = [this](const string &pathPF) { return getPath(pathPF, hw_id, dev_type); };
-  string paths[]{gp(pwm_min_pf), gp(pwm_max_pf), gp(rpm_min_pf), gp(rpm_max_pf),
-                 gp(slope_pf), gp(stop_t_pf)};
-
   // fail if any path doesn't exist
-  for (auto &p : paths)
-    if (!exists(p))
+  for (const auto &pf : {&pwm_min_pf, &pwm_max_pf, &rpm_min_pf, &rpm_max_pf, &slope_pf, &stop_t_pf})
+    if (!exists(getPath(*pf, hw_id, dev_type)))
       return false;
 
   return true;

@@ -7,16 +7,16 @@
 
 # typically, download the source package of nvidia-settings from:
 # ftp://download.nvidia.com/XFree86/nvidia-settings/
-# once uncompressed, nvidia-settings-1.0/src/libXNVCtrl directory contents
-# libXNVCtrl.a, NVCtrlLib.h and NVCtrl.h.
+# once uncompressed, nvidia-settings-1.0/src/LibXNvCtrl directory contents
+# LibXNvCtrl.a, NVCtrlLib.h and NVCtrl.h.
 
 # or if it is already installed by the distribution:
-# /usr/lib/libXNVCtrl.a
+# /usr/lib/LibXNvCtrl.a
 # /usr/include/NVCtrl/NVCtrl.h
 # /usr/include/NVCtrl/NVCtrlLib.h
 
 # License issue:
-# libXNVCtrl is intended to be MIT-X11 / BSD but is marked as GPL in older
+# LibXNvCtrl is intended to be MIT-X11 / BSD but is marked as GPL in older
 # driver versions.
 # This issue has been raised in this thread:
 # http://www.nvnews.net/vbulletin/showpost.php?p=1756087&postcount=8
@@ -26,8 +26,8 @@ set(NVCtrlLib_FOUND false)
 set(NVCtrlLib_INCLUDE_DIR)
 set(NVCtrlLib_LIBRARY)
 
-# search for libXNVCtrl.a
-# typically in nvidia-settings-1.0/src/libXNVCtrl/libXNVCtrl.a
+# search for LibXNvCtrl.a
+# typically in nvidia-settings-1.0/src/LibXNvCtrl/LibXNvCtrl.a
 find_library(NVCtrlLib_LIBRARY XNVCtrl /usr/lib
         DOC "Path to NVCONTROL static library (libXNVCtrl.a)")
 find_path(NVCtrlLib_INCLUDE_DIR NVCtrlLib.h /usr/include/NVCtrl

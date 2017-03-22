@@ -1,7 +1,7 @@
 #ifndef FANCON_LOGGING_HPP
 #define FANCON_LOGGING_HPP
 
-#include <iostream>
+#include <iostream>   // cout, clog
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/smart_ptr/make_shared_object.hpp>
 #include <boost/log/support/date_time.hpp>

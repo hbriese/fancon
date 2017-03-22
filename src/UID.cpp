@@ -2,7 +2,10 @@
 
 using namespace fancon;
 
-bool UID::valid() const { return (!chipname.empty()) && (hw_id != -1) && (!dev_name.empty()); }
+bool UID::valid(DeviceType type_) const {
+  // Check for valid variables, and that the expected DeviceType matches
+  return !chipname.empty() && hw_id != -1 && !dev_name.empty() && (type & type_) == type;
+}
 
 const string UID::getBasePath() const {
   string bpath(fancon::Util::hwmon_path);
@@ -17,14 +20,13 @@ bool UID::operator==(const UID &other) const {
 }
 
 DeviceType UID::getType() {
-  const string sdn(Util::temp_sensor_label);
-  const bool isSensor = search(dev_name.begin(), dev_name.end(), sdn.begin(), sdn.end()) != dev_name.end();
+  DeviceType type;
+  const string sDevName(Util::temp_sensor_label);
+  const bool isSensor = search(dev_name.begin(), dev_name.end(), sDevName.begin(), sDevName.end()) != dev_name.end();
   const bool isNVIDIA = chipname == Util::nvidia_label;
 
-  DeviceType type;
-
   if (isNVIDIA)
-    type = (isSensor) ? DeviceType::SENSOR_NVIDIA : DeviceType::FAN_NVIDIA;
+    type = (isSensor) ? DeviceType::SENSOR_NV : DeviceType::FAN_NV;
   else
     type = (isSensor) ? DeviceType::SENSOR : DeviceType::FAN;
 

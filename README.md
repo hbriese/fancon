@@ -5,12 +5,14 @@
 fancon is a GNU/Linux fan control daemon and fan testing tool, allowing custom speed-temperature curves for fans, controllable by either PWM or RPM.
   - High performance
   - Low memory usage
+  - Support for system fans, and NVIDIA GPUs
 
 Low overhead and easy configuration are the main goals of fancon, this is achieved by:
-  - Use of C++, multi-threading, and optimized STL functions
+  - Use of C++ and optimized STL functions
+  - Extensive multi-threading support
   - Standard text file configuration - at /etc/fancon.conf
-  - Fan characteristic testing - all fans are not equal, so testing enables RPM fan speed configuration, not just PWM control like similar tools
-  - Support for stopping fans (for example, if not under load) and correct handling of required fan PWM for start
+  - Fan characteristic testing - allowing more meaningful speed configuration such as through fan RPM, not just PWM control like similar tools
+  - Support for turing off fans (for example, if not under load) and correct handling of required fan PWM for re-starting
 
 
 ### Installation
@@ -29,19 +31,19 @@ $ sudo snap install fancon --candidate
 ```
 
 ##### Build from source:
-Note. gcc may be substituted for clang
-
-fancon may be compiled with the option '-DNVIDIA_SUPPORT=OFF', not requiring libxnvctrl-dev & libx11-dev
+gcc may be substituted for clang
 
 ```sh
 $ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers lm-sensors libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libsm-dev
 $ sudo apt-get install libxnvctrl-dev libx11-dev
 $ git clone https://github.com/HBriese/fancon.git && cd fancon
-$ mkdir build; cd build && cmake -DNVIDIA_SUPPORT=ON -DCMAKE_BUILD_TYPE=Release .. && make && sudo make install
+$ mkdir build; cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make && sudo make install
 ```
+CMake configure options:
+- '-DNVIDIA_SUPPORT=OFF' (Default ON) disable support for NVIDIA GPUs - libxnvctrl-dev & libx11-dev are no longer required
+- '-DSTATIC_LIBSTDC++=ON' Statically link libstdc++, useful for binary distribution to older systems/distributions
 
-
-### Development
+### Contributions
 
 Want to contribute?
 Pull requests, issues and feature requests are welcome.

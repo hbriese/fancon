@@ -2,24 +2,18 @@
 
 ### Bugs
 
-- check UID chip name against chip
-- better fail checking - exists(pwmX, rpmX, (?) pwmX_enable)
-- (NVIDIA) handle non-equal amount of GPUs and fans
-- systemd service using wildly varying amounts of memory
-
 ### Features
 
 - Add support for AMD GPU fans
-- handle step up time and step down time (maybe?)
 - add options: new/exclude fan testing using regular expression option
 - CLI fan point configuration graph
 - Add 'precise' option for more accurate RPM control
 - Make max threads limited by fans, rather than limited by temperature sensors (care race conditions)
-- Run sudo sensors-detect on install, then fancon test
-- Automatically set CoolBits option
-- Add support for PWM % point
+- **Add support for PWM % point**
 - time change per rpm (use stop_time?)
-- Add display & xauth to config file
+- Add display & xauth options to config file
+- check UID chip name against chip
+- better fail checking - exists(pwmX, rpmX, (?) pwmX_enable)
 
 ### Performance 
 
@@ -27,6 +21,12 @@
 
 ### Refactoring
 
+- Fan speed_change_t to chrono::seconds and replace sleep() with sleep_for()
+
 ### Documentation
 
 - Add performance comparison to fancontrol
+
+## Watch
+
+NVML API - several functions missing before it can be used to replace XNVCtrl

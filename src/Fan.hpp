@@ -13,14 +13,10 @@
 #include "UID.hpp"
 #include "Config.hpp"
 
-namespace bfs = boost::filesystem;
-
 using std::next;
 using std::prev;
 using std::stringstream;
 using std::function;
-using boost::filesystem::path;
-using boost::filesystem::exists;
 using fancon::FanInterface;
 using fancon::Util::read;
 using fancon::Util::write;
@@ -33,14 +29,18 @@ public:
   Fan(const UID &fanUID, const FanConfig &conf = FanConfig(), bool dynamic = true);
   ~Fan() { writeEnableMode(driver_enable_mode); }
 
-  constexpr static const char *path_pf = "fan";
-
   int readPWM() { return read<int>(pwm_p); }
-  void writePWM(int pwm) { write(pwm_p, pwm); }
+  void writePWM(int pwm) {
+    // Attempt to recover control of the device if the write fails
+    if (!write(pwm_p, pwm))
+      if (!recoverControl(pwm))
+        LOG(llvl::warning) << "Lost control of: " << pwm_p;
+  }
   int readRPM() { return read<int>(rpm_p); }
   void writeEnableMode(int mode) { write(enable_pf, hw_id_str, mode, DeviceType::FAN, true); }
   int readEnableMode() { return read<int>(enable_pf, hw_id_str, DeviceType::FAN, true); }
 
+  bool recoverControl(int pwm);
   int testPWM(int rpm);    // TODO: remove
 
   using FanInterface::writeTestResult;

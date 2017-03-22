@@ -3,12 +3,14 @@
 
 #include <chrono>
 #include <iterator>     // next, prev, distance
+#include <thread>
 #include <sstream>    // stringstream
 #include <functional>   // function
 #include "Util.hpp"
 #include "UID.hpp"
 #include "Config.hpp"
 
+using std::this_thread::sleep_for;
 using std::stringstream;
 using std::function;
 using fancon::UID;
@@ -23,6 +25,7 @@ namespace fancon {
 static const int speed_change_t = 3;    // seconds to allow for rpm changes when altering the pwm
 static const int pwm_max_absolute = 255;
 
+//struct FanTestResult;   // TODO: test moving FanTestResult
 struct FanTestResult {
   FanTestResult() { can_test = false; }
   FanTestResult(int rpm_min, int rpm_max, int pwm_min, int pwm_max, int pwm_start, long stop_time, double slope)

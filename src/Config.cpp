@@ -2,13 +2,13 @@
 
 using namespace fancon;
 
-ostream &fancon::operator<<(ostream &os, const fancon::SensorControllerConfig &c) {
-  os << c.update_prefix << c.update_time_s << " " << c.threads_prefix << c.threads
-     << " " << c.dynamic_prefix << ((c.dynamic) ? "true" : "false");
+ostream &fancon::operator<<(ostream &os, const fancon::ControllerConfig &c) {
+  os << c.update_prefix << c.update_time.count() << ' ' << c.threads_prefix << c.threads
+     << ' ' << c.dynamic_prefix << ((c.dynamic) ? "true" : "false");
   return os;
 }
 
-istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
+istream &fancon::operator>>(istream &is, fancon::ControllerConfig &c) {
   // Read whole line from istream
   std::istreambuf_iterator<char> eos;
   string in(std::istreambuf_iterator<char>(is), eos);
@@ -16,7 +16,7 @@ istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
   struct InputValue {
     InputValue(string &input, const string &sep, std::function<bool(const char &ch)> predicate) {
       beg = search(input.begin(), input.end(), sep.begin(), sep.end());
-      if (validIters(input.end(), {beg}))  // Forward iterator to the last character of sep
+      if (notEqualTo({beg}, input.end()))  // Forward iterator to the last character of sep
         beg += sep.size();
 
       end = find_if(beg, input.end(), predicate);
@@ -33,7 +33,7 @@ istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
 
   // Fail if no values are found
   if (!dynamicVal.found && !updateVal.found && !threadsVal.found) {
-    c.update_time_s = 0;
+    c.update_time = seconds(0);
     return is;
   }
 
@@ -44,7 +44,7 @@ istream &fancon::operator>>(istream &is, fancon::SensorControllerConfig &c) {
 
   if (updateVal.found) {
     string updateStr(updateVal.beg, updateVal.end);
-    c.update_time_s = (isNum(updateStr)) ? (uint) std::stoul(updateStr) : c.update_time_s;
+    c.update_time = (isNum(updateStr)) ? seconds(std::stoi(updateStr)) : c.update_time;
   }
 
   if (threadsVal.found) {
@@ -92,27 +92,33 @@ istream &fancon::operator>>(istream &is, Point &p) {
   auto pwmBegIt = pwmSepIt + 1;
   auto pwmEndIt = find(pwmBegIt, in.end(), p.esep);
 
-  auto tempFound = validIters(in.end(), {tempBegIt, tempEndIt, tempAbsEndIt});
-  bool rpmFound = validIters(in.end(), {rpmBegIt, rpmEndIt});
-  bool pwmFound = validIters(in.end(), {pwmBegIt, pwmEndIt});
+  auto tempFound = notEqualTo({tempBegIt, tempEndIt}, in.end());
+  bool rpmFound = notEqualTo({rpmBegIt, rpmEndIt}, in.end());
+  bool pwmFound = notEqualTo({pwmBegIt, pwmEndIt}, in.end());
 
-  // must contain temp, and either a rpm or pwm value
+  // Must contain temp, and either a rpm or pwm value
   if (!tempFound || (!rpmFound & !pwmFound)) {
     LOG(llvl::error) << "Invalid fan config: " << in;
     return is;
   }
 
-  string tempStr = (tempFound) ? string(tempBegIt, tempEndIt) : string();
-  p.temp = (isNum(tempStr)) ? stoi(tempStr) : 0;
-  // check for fahrenheit, convert to celsius if found
-  if (std::tolower(*tempEndIt) == p.fahrenheit)
-    p.temp = static_cast<int>((p.temp - 32) / 1.8);
+  if (tempFound) {
+    string tempStr(tempBegIt, tempEndIt);
+    p.temp = (isNum(tempStr)) ? stoi(tempStr) : 0;
+    // Convert to celsius if fahrenheit flag given
+    if (std::tolower(*tempEndIt) == p.fahrenheit)
+      p.temp = static_cast<int>((p.temp - 32) / 1.8);
+  }
 
-  string rpmStr = (rpmFound) ? string(rpmBegIt, rpmEndIt) : string();
-  p.rpm = (isNum(rpmStr)) ? stoi(rpmStr) : -1;
+  if (rpmFound) {
+    string rpmStr(rpmBegIt, rpmEndIt);
+    p.rpm = (isNum(rpmStr)) ? stoi(rpmStr) : -1;
+  }
 
-  string pwmStr = (pwmFound) ? string(pwmBegIt, pwmEndIt) : string();
-  p.pwm = (isNum(pwmStr)) ? stoi(pwmStr) : -1;
+  if (pwmFound) {
+    string pwmStr(pwmBegIt, pwmEndIt);
+    p.pwm = (isNum(pwmStr)) ? stoi(pwmStr) : -1;
+  }
 
   return is;
 }

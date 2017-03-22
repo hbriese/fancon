@@ -1,13 +1,13 @@
 #ifndef fancon_UTIL_HPP
 #define fancon_UTIL_HPP
 
-#include <iostream>     // cout, endl
 #include <algorithm>    // all_of
-#include <mutex>
+#include <chrono>
 #include <thread>
 #include <string>
 #include <sstream>
 #include <fstream>      // ifstream, ofstream
+#include <utility>      // pair
 #include <vector>
 #include <cstdlib>
 #include <csignal>
@@ -15,23 +15,29 @@
 #include <boost/filesystem.hpp>
 #include "Logging.hpp"
 
-namespace bfs = boost::filesystem;
-
+using std::move;
+using std::ifstream;
+using std::ofstream;
 using std::string;
 using std::stringstream;
 using std::to_string;
-using std::cout;
-using std::endl;
-using std::ofstream;
-using std::ifstream;
+using std::this_thread::sleep_for;
+using std::chrono::seconds;
+using std::unique_ptr;
+using std::shared_ptr;
+using std::make_unique;
+using std::make_shared;
+using std::pair;
 using std::vector;
 using boost::filesystem::create_directory;
 using boost::filesystem::exists;
-using boost::filesystem::path;
 
 namespace fancon {
 enum DaemonState { RUN, STOP = SIGTERM, RELOAD = SIGHUP };
-enum DeviceType { FAN, FAN_NVIDIA, SENSOR, SENSOR_NVIDIA };
+enum DeviceType {
+  FAN = (1u << 0), FAN_NV = (1u << 1), FAN_INTERFACE = FAN | FAN_NV,
+  SENSOR = (1u << 2), SENSOR_NV = (1u << 3), SENSOR_INTERFACE = SENSOR | SENSOR_NV
+};
 
 namespace Util {
 constexpr const char *conf_path = "/etc/fancon.conf";
@@ -42,8 +48,6 @@ constexpr const char *temp_sensor_label = "temp";
 constexpr const char *nvidia_label = "nvidia";
 constexpr const char *pid_file = "/var/run/fancon.pid";
 
-static std::mutex coutLock;
-
 int getLastNum(const string &str);
 bool isNum(const string &str);
 
@@ -51,72 +55,103 @@ bool isNum(const string &str);
 bool locked();
 void lock();
 
-void coutThreadsafe(const string &out);
-
-bool validIters(const string::iterator &end, std::initializer_list<string::iterator> iterators);
+template<typename IT>
+bool notEqualTo(std::initializer_list<const IT> values, const IT to);
 
 string getDir(const string &hwID, DeviceType devType, const bool useSysFS = false);
-string getPath(const string &path_pf, const string &hwID, DeviceType devType = FAN, const bool useSysFS = false);
+string getPath(const string &path_pf, const string &hwID,
+               DeviceType devType = DeviceType::FAN, const bool useSysFS = false);
 
-string readLine(string path, int nFailed = 0);
+string readLine(string path, int nFailed = 0);  // TODO: string -> string&
 
 template<typename T>
-T read(const string &path, int nFailed = 0) {
+T read(const string &path, int nFailed = 0);
+
+template<typename T>
+T read(const string &path_pf, const string &hw_id,
+       DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
+  return read<T>(getPath(path_pf,
+                         hw_id,
+                         devType,
+                         useSysFS));
+}
+
+template<typename T>
+bool write(const string &path, T val, int nFailed = 0);
+
+template<typename T>
+bool write(const string &path_pf, const string &hwmon_id, T val,
+           DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
+  return write<T>(getPath(path_pf,
+                          hwmon_id,
+                          devType,
+                          useSysFS), val);
+}
+
+template<typename T>
+void moveAppend(vector<T> &src, vector<T> &dst);
+}
+}
+
+//----------------------
+// TEMPLATE DEFINITIONS
+//----------------------
+
+template<typename IT>
+bool fancon::Util::notEqualTo(std::initializer_list<const IT> values, const IT to) {
+  for (auto it : values)
+    if (it == to)
+      return false;
+
+  return true;
+}
+
+template<typename T>
+T fancon::Util::read(const string &path, int nFailed) {
   ifstream ifs(path);
-  T ret{};  // initialize to default in case fails
+  T ret{};
   ifs >> ret;
   ifs.close();
 
   if (ifs.fail()) {
     auto exist = exists(path);
-    if (exist && nFailed <= 3)  // retry 3 times
+    // Retry 3 times if file exists
+    if (exist && nFailed <= 3)
       return read<T>(path, ++nFailed);
-    else {  // fail immediately if file does not exist
-      const char *reason = (exist) ? "filesystem or permission error" : "doesn't exist";
-      LOG(llvl::error) << "Failed to read from: " << path << " - " << reason << "; user id " << getuid();
-    }
+
+    const char *reason = (exist) ? "filesystem or permission error" : "doesn't exist";
+    LOG(llvl::error) << "Failed to read from: " << path << " - " << reason << "; user id " << getuid();
   }
 
   return ret;
 }
 
 template<typename T>
-T read(const string &path_pf, const string &hwmon_id,
-       DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
-  return read<T>(getPath(path_pf, hwmon_id, devType, useSysFS));
-}
-
-template<typename T>
-void write(const string &path, T val, int nFailed = 0) {
+bool fancon::Util::write(const string &path, T val, int nFailed) {
   ofstream ofs(path);
-  ofs << val << endl;
+  ofs << val;
   ofs.close();
 
   if (ofs.fail()) {
     if (nFailed <= 3)   // retry 3 times
-      return write<T>(path, std::move(val), ++nFailed);
-    else
-      LOG(llvl::error) << "Failed to write '" << val << "' to: " << path
-                       << " - filesystem of permission error; user id " << getuid();
+      return write<T>(path, move(val), ++nFailed);
+
+    LOG(llvl::debug) << "Failed to write '" << val << "' to: " << path
+                     << " - filesystem of permission error; user id " << getuid();
+    return false;
   }
+
+  return true;
 }
 
 template<typename T>
-void write(const string &path_pf, const string &hwmon_id, T val,
-           DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
-  return write<T>(getPath(path_pf, hwmon_id, devType, useSysFS), val);
-}
-
-template<typename T>
-void moveAppend(vector<T> &src, vector<T> &dst) {
+void fancon::Util::moveAppend(vector<T> &src, vector<T> &dst) {
   if (!dst.empty()) {
     dst.reserve(dst.size() + src.size());
-    std::move(std::begin(src), std::end(src), std::back_inserter(dst));
+    move(std::begin(src), std::end(src), std::back_inserter(dst));
     src.clear();
   } else
-    dst = std::move(src);
+    dst = move(src);
 }
-}   // UTIL
-}   // fancon
 
 #endif //fancon_UTIL_HPP

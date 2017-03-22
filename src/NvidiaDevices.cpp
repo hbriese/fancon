@@ -4,7 +4,8 @@
 using namespace fancon;
 
 FanNV::FanNV(const UID &fanUID, const FanConfig &conf, bool dynamic)
-    : FanInterface(fanUID, conf, dynamic, 0) {
+    : FanInterface(fanUID, conf, dynamic,
+                   NV_CTRL_GPU_COOLER_MANUAL_CONTROL_FALSE, NV_CTRL_GPU_COOLER_MANUAL_CONTROL_TRUE) {
   if (!points.empty()) {
     // set manual mode
     writeEnableMode(manual_enable_mode);

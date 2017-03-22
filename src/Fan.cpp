@@ -24,6 +24,17 @@ Fan::Fan(const UID &fanUID, const FanConfig &conf, bool dynamic)
   }
 }
 
+bool Fan::recoverControl(int pwm) {
+  // Attempt to regain manual fan control, sleeping between attempts
+  for (int i = 0; i < 4; ++i, sleep(1)) {
+    writeEnableMode(manual_enable_mode);
+    if (write(pwm_p, pwm))
+      return true;
+  }
+
+  return false;
+}
+
 int Fan::testPWM(int rpm) {
   // assume the calculation is the real pwm for a starting point
   auto nextPWM(calcPWM(rpm));

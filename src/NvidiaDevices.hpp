@@ -3,7 +3,7 @@
 #define FANCON_NVDEVICES_HPP
 
 #include "FanInterface.hpp"
-#include "SensorParentInterface.hpp"
+#include "SensorInterface.hpp"
 #include "NvidiaUtil.hpp"
 
 namespace fancon {
@@ -22,9 +22,8 @@ private:
   static int percentToPWM(int percent);
 };
 
-class SensorParentNV : public SensorParentInterface {
-public:
-  SensorParentNV(const UID &uid) : hw_id(uid.hw_id) {}
+struct SensorNV : public SensorInterface {
+  SensorNV(const UID &uid) : hw_id(uid.hw_id) {}
 
   int hw_id;
 
@@ -33,5 +32,6 @@ public:
   int read() { return NV::temp.read(hw_id); };
 };
 }
+
 #endif //FANCON_NVDEVICES_HPP
 #endif //FANCON_NVIDIA_SUPPORT

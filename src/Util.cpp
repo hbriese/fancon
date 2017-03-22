@@ -25,12 +25,6 @@ bool Util::isNum(const string &str) {
   return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
 }
 
-void Util::coutThreadsafe(const string &out) {
-  coutLock.lock();
-  cout << out;
-  coutLock.unlock();
-}
-
 bool Util::locked() {
   if (!exists(pid_file))
     return false;
@@ -42,25 +36,17 @@ bool Util::locked() {
 
 void Util::lock() {
   if (locked()) {
-    cout << "Error: a fancon process is already running, please close it to continue" << endl;
+    LOG(llvl::error) << "A fancon process is already running, please close it to continue";
     exit(EXIT_FAILURE);
   } else
     write(pid_file, getpid());
-}
-
-bool Util::validIters(const string::iterator &end, std::initializer_list<string::iterator> iterators) {
-  for (auto it : iterators)
-    if (it == end)
-      return false;
-
-  return true;
 }
 
 string Util::getDir(const string &hwID, DeviceType devType, const bool useSysFS) {
   string d;
   if (devType == DeviceType::FAN)
     d = string((useSysFS) ? hwmon_path : fancon_hwmon_path);
-  else if (devType == FAN_NVIDIA)
+  else if (devType == FAN_NV)
     d = string(fancon_dir) + nvidia_label;
 
   return (d += hwID + '/');
@@ -78,12 +64,12 @@ string Util::readLine(string path, int nFailed) {
 
   if (ifs.fail()) {
     auto exist = exists(path);
-    if (exist && nFailed <= 3)  // retry 3 times
+    // Retry read 3 times if file exists, before failing
+    if (exist && nFailed <= 3)
       return readLine(path, ++nFailed);
-    else {  // fail immediately if file does not exist
-      const char *reason = (exist) ? "filesystem or permission error" : "doesn't exist";
-      LOG(llvl::error) << "Failed to read from: " << path << " - " << reason << "; user id " << getuid();
-    }
+
+    const char *reason = (exist) ? "filesystem or permission error" : "doesn't exist";
+    LOG(llvl::error) << "Failed to read from: " << path << " - " << reason << "; user id " << getuid();
   }
 
   return line;

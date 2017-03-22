@@ -4,21 +4,17 @@
 #include <algorithm>    // transform, sort
 #include <csignal>
 #include <cmath>        // floor
-#include <iostream>
 #include <iomanip>      // setw, left
 #include <string>
 #include <sstream>
-#include <functional>   // ref, reference_wrapped
+#include <functional>   // reference_wrapped
 #include <thread>
 #include <sensors/sensors.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include "Util.hpp"
-#include "SensorController.hpp"
+#include "Controller.hpp"
 
-using std::cerr;
-using std::cout;
-using std::endl;
 using std::string;
 using std::to_string;
 using std::stringstream;
@@ -26,12 +22,10 @@ using std::setw;
 using std::left;
 using std::next;
 using std::thread;
-using std::make_pair;
 using std::move;
-using std::ref;
 using std::reference_wrapper;
-using fancon::SensorController;
-using fancon::SensorParentInterface;
+using fancon::Controller;
+using fancon::MappedFan;
 using fancon::FanTestResult;
 using fancon::DaemonState;
 using fancon::Util::conf_path;
@@ -45,18 +39,44 @@ DaemonState daemon_state;
 
 void help();
 
-void writeResumeConf();
-
-string listFans(SensorController &sensorController);
-string listSensors(SensorController &sensorController);
+void listFans(Controller &sensorController);
+void listSensors(Controller &sensorController);
 
 vector<ulong> getThreadTasks(uint nThreads, ulong nTasks);
 
-void test(SensorController &sensorController, uint testRetries, bool singleThread = 0);
+template<typename T>
+vector<pair<typename T::iterator, typename T::iterator>> getTasks(uint threads, T &vec) {
+  vector<pair<typename T::iterator, typename T::iterator>> threadTasks;
+  auto tasks = vec.size();
+
+  // Cannot have more threads than tasks
+  if (tasks < threads)
+    threads = static_cast<uint>(tasks);
+
+  // Allocate base number of tasks for each thread
+  ulong baseTasks = tasks / threads;   // tasks per thread
+  auto tasksRem = tasks % threads;
+  vector<ulong> nThreadTasks(threads - tasksRem, baseTasks);
+
+  // Hand off remaining tasks
+  if (tasksRem)   // insert threads that have extra tasks
+    nThreadTasks.insert(nThreadTasks.end(), tasksRem, baseTasks + 1);
+
+  auto begIt = vec.begin();
+  for (const auto &nTasks : nThreadTasks) {
+    auto endIt = next(begIt, nTasks);
+    threadTasks.emplace_back(std::make_pair(begIt, endIt));
+    begIt = endIt;  // Next threads begIt is the previous thread's endIt
+  }
+
+  return threadTasks;
+}
+
+void test(Controller &sensorController, uint testRetries, bool singleThread = 0);
 void testUID(UID &uid, uint retries = 4);
 
 void handleSignal(int sig);
-void start(SensorController &sc, const bool fork_);
+void start(Controller &sc, const bool fork_);
 void send(DaemonState state);
 
 struct Command {
@@ -86,7 +106,7 @@ public:
       : Command(name, shrtName, false), has_value(hasValue) {}
 
   bool has_value;
-  uint val = 0;
+  uint val{0};
 };
 }
 

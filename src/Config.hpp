@@ -20,40 +20,41 @@ using std::ostream;
 using std::istream;
 using std::to_string;
 using std::vector;
-using fancon::Util::coutThreadsafe;
 using fancon::Util::isNum;
-using fancon::Util::validIters;
+using fancon::Util::notEqualTo;
+
+using std::chrono::seconds;
 
 namespace fancon {
-class SensorControllerConfig {
+class ControllerConfig {
 public:
-  SensorControllerConfig() {}
-  SensorControllerConfig(istream &is) { is >> *this; }
+  ControllerConfig() {}
+  ControllerConfig(istream &is) { is >> *this; }
 
   bool dynamic = true;
-  uint update_time_s = 2;
+  std::chrono::seconds update_time{2};
   uint threads = 1; // default to single-threaded
 
-  bool valid() { return update_time_s > 0; }
+  bool valid() { return update_time.count() > 0 && threads > 0; }
 
-  SensorControllerConfig &operator=(const SensorControllerConfig &other) {
+  ControllerConfig &operator=(const ControllerConfig &other) {
     dynamic = other.dynamic;
-    update_time_s = other.update_time_s;
+    update_time = other.update_time;
     threads = other.threads;
     return *this;
   }
 
-  friend ostream &operator<<(ostream &os, const SensorControllerConfig &c);
-  friend istream &operator>>(istream &is, SensorControllerConfig &c);
+  friend ostream &operator<<(ostream &os, const ControllerConfig &c);
+  friend istream &operator>>(istream &is, ControllerConfig &c);
 
 private:
   const string dynamic_prefix = "dynamic=";
-  const string update_prefix = "update=";
+  const string update_prefix = "refresh=";
   const string threads_prefix = "threads=";
 };
 
-ostream &operator<<(ostream &os, const fancon::SensorControllerConfig &c);
-istream &operator>>(istream &is, fancon::SensorControllerConfig &c);
+ostream &operator<<(ostream &os, const fancon::ControllerConfig &c);
+istream &operator>>(istream &is, fancon::ControllerConfig &c);
 
 class Point {
 public:

@@ -36,7 +36,9 @@ public:
    * it8620/1:fan2
    */
 
-  bool valid() const;
+  bool isFan() const { return (type & DeviceType::FAN_INTERFACE) == type; }
+  bool isSensor() const { return (type & DeviceType::SENSOR_INTERFACE) == type; }
+  bool valid(DeviceType type) const;
 
   const string getBasePath() const;
 
