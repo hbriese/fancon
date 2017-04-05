@@ -11,13 +11,13 @@
 #   SENSORS_LIBRARY, the library needed to use sensors
 #   SENSORS_FOUND, returns true if both the header and library is found
 
-set(SENSORS_INCLUDE_DIR)
-set(SENSORS_LIBRARY)
-set(SENSORS_FOUND false)
+find_path(SENSORS_INCLUDE_DIR
+        NAMES sensors.h
+        PATH_SUFFIXES sensors)
 
-find_path(SENSORS_INCLUDE_DIR NAMES sensors/sensors.h)
-find_library(SENSORS_LIBRARY NAMES libsensors sensors)
+find_library(SENSORS_LIBRARY
+        NAMES libsensors sensors)
 
-if (SENSORS_INCLUDE_DIR AND SENSORS_LIBRARY)
-    set(SENSORS_FOUND true)
-endif () # SENSORS_INCLUDE_DIR AND SENSORS_LIBRARY
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(Sensors DEFAULT_MSG
+        SENSORS_INCLUDE_DIR SENSORS_LIBRARY)

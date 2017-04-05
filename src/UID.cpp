@@ -2,9 +2,9 @@
 
 using namespace fancon;
 
+/// \breif Check that the UID is valid & the expected DeviceType matches
 bool UID::valid(DeviceType type_) const {
-  // Check for valid variables, and that the expected DeviceType matches
-  return !chipname.empty() && hw_id != -1 && !dev_name.empty() && (type & type_) == type;
+  return valid_ && (type & type_) == type;
 }
 
 const string UID::getBasePath() const {
@@ -26,15 +26,16 @@ DeviceType UID::getType() {
   const bool isNVIDIA = chipname == Util::nvidia_label;
 
   if (isNVIDIA)
-    type = (isSensor) ? DeviceType::SENSOR_NV : DeviceType::FAN_NV;
+    type = (isSensor) ? DeviceType::sensor_nv : DeviceType::fan_nv;
   else
-    type = (isSensor) ? DeviceType::SENSOR : DeviceType::FAN;
+    type = (isSensor) ? DeviceType::sensor : DeviceType::fan;
 
   return type;
 }
 
 ostream &fancon::operator<<(ostream &os, const UID &u) {
-  os << u.chipname << u.cn_esep << to_string(u.hw_id) << u.hw_id_esep << u.dev_name;
+  using namespace fancon::serialization_constants::uid;
+  os << u.chipname << cn_esep << to_string(u.hw_id) << hw_id_esep << u.dev_name;
   return os;
 }
 
@@ -43,21 +44,20 @@ istream &fancon::operator>>(istream &is, UID &u) {
   is >> in;
   std::remove_if(in.begin(), in.end(), [](auto &c) { return isspace(c); });
 
+  using namespace fancon::serialization_constants::uid;
   auto cnBeginIt = in.begin();
-  auto cnEndIt = find(cnBeginIt, in.end(), u.cn_esep);
+  auto cnEndIt = find(cnBeginIt, in.end(), cn_esep);
   auto hwIdBegIt = cnEndIt + 1;
-  auto hwIdEndIt = find(cnEndIt, in.end(), u.hw_id_esep);
+  auto hwIdEndIt = find(cnEndIt, in.end(), hw_id_esep);
   auto devnBegIt = hwIdEndIt + 1;
   auto devnEndIt = in.end();
 
-  if (cnEndIt == in.end() || hwIdEndIt == in.end() || devnBegIt == in.end()) {
+  // Fail if all UID is incomplete
+  if (Util::equalTo({cnEndIt, hwIdEndIt, devnBegIt}, in.end())) {
     if (!in.empty())
       LOG(llvl::error) << "Invalid UID: " << in;
 
-    // set invalid values
-    u.chipname = string();
-    u.hw_id = -1;
-    u.dev_name = string();
+    u.valid_ = false;
     return is;
   }
 

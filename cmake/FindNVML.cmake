@@ -13,16 +13,16 @@
 #   NVML_LIBRARY, the libraries needed to use NVML.
 #   NVML_FOUND, If false, do not try to use NVML.
 
-set(NVML_INCLUDE_DIR)
-set(NVML_LIBRARY)
-set(NVML_FOUND false)
+find_path(NVML_INCLUDE_DIR
+        NAMES nvml.h
+        DOC "Path to the NVML header (nvml.h)")
 
-find_path(NVML_INCLUDE_DIR NAMES nvml.h)
+find_library(NVML_LIBRARY
+        NAMES libnvidia-ml nvidia-ml
+        PATH_SUFFIXES nvidia nvidia/current
+        HINTS ${CMAKE_HOME_DIRECTORY}/include
+        DOC "Path to NVML static library (libnvidia-ml.so or nvidia-ml.so")
 
-set(NV_LIB_DIR "/usr/lib/${CMAKE_HOST_SYSTEM_PROCESSOR}-linux-gnu")
-find_library(NVML_LIBRARY NAMES nvidia-ml libnvidia-ml HINTS
-        ${NV_LIB_DIR}/nvidia ${NV_LIB_DIR}/nvidia/current ${CMAKE_HOME_DIRECTORY}/include)
-
-if (NVML_LIBRARY AND NVML_INCLUDE_DIR)
-    set(NVML_FOUND true)
-endif ()
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(NVML DEFAULT_MSG
+        NVML_INCLUDE_DIR NVML_LIBRARY)

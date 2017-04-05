@@ -22,17 +22,15 @@
 # http://www.nvnews.net/vbulletin/showpost.php?p=1756087&postcount=8
 # it has been fixed in drivers 177.82 and above
 
-set(NVCtrlLib_FOUND false)
-set(NVCtrlLib_INCLUDE_DIR)
-set(NVCtrlLib_LIBRARY)
+find_library(NVCtrlLib_LIBRARY
+        NAMES XNVCtrl
+        DOC "Path to NVCONTROL static library (libXNVCtrl.so)")
 
-# search for LibXNvCtrl.a
-# typically in nvidia-settings-1.0/src/LibXNvCtrl/LibXNvCtrl.a
-find_library(NVCtrlLib_LIBRARY XNVCtrl /usr/lib
-        DOC "Path to NVCONTROL static library (libXNVCtrl.a)")
-find_path(NVCtrlLib_INCLUDE_DIR NVCtrlLib.h /usr/include/NVCtrl
+find_path(NVCtrlLib_INCLUDE_DIR
+        NAMES NVCtrlLib.h NVCtrl.h
+        PATH_SUFFIXES NVCtrl
         DOC "Path to NVCONTROL headers (NVCtrlLib.h and NVCtrl.h)")
 
-if (NVCtrlLib_LIBRARY AND NVCtrlLib_INCLUDE_DIR)
-    set(NVCtrlLib_FOUND true)
-endif ()
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(NVCtrlLib DEFAULT_MSG
+        NVCtrlLib_INCLUDE_DIR NVCtrlLib_LIBRARY)

@@ -1,5 +1,5 @@
-#ifndef fancon_UID_HPP
-#define fancon_UID_HPP
+#ifndef FANCON_UID_HPP
+#define FANCON_UID_HPP
 
 #include <algorithm>    // search, find, remove_if
 #include <cctype>       // isspace
@@ -10,34 +10,32 @@
 
 using std::string;
 using std::search;
-using std::skipws;
 using std::find;
 using std::ostream;
 using std::istream;
 using std::to_string;
 
 namespace fancon {
+
+/// \note
+/// Format: [chip_name/chip_id:device_name_&_number]
 class UID {
 public:
-  UID(istream &is) {
+  UID(istream &is) : valid_(true) {
     is >> *this;
     type = getType();
   }
   UID(string chipname, int hwID, string dev_name)
-      : chipname(std::move(chipname)), hw_id(hwID), dev_name(std::move(dev_name)) { type = getType(); }
+      : chipname(std::move(chipname)), hw_id(hwID), dev_name(move(dev_name)), valid_(true) { type = getType(); }
 
   DeviceType type;
   string chipname;
   int hw_id;
   string dev_name;
+  bool valid_;
 
-  /* FORMAT: e.g.
-   * coretemp/0:temp1
-   * it8620/1:fan2
-   */
-
-  bool isFan() const { return (type & DeviceType::FAN_INTERFACE) == type; }
-  bool isSensor() const { return (type & DeviceType::SENSOR_INTERFACE) == type; }
+  bool isFan() const { return (type & DeviceType::fan_interface) == type; }
+  bool isSensor() const { return (type & DeviceType::sensor_interface) == type; }
   bool valid(DeviceType type) const;
 
   const string getBasePath() const;
@@ -48,14 +46,18 @@ public:
   bool operator==(const UID &other) const;
 
 private:
-  const char cn_esep = '/',
-      hw_id_esep = ':';
-
   DeviceType getType();
 };
 
 ostream &operator<<(ostream &os, const fancon::UID &u);
 istream &operator>>(istream &is, fancon::UID &u);
+
+namespace serialization_constants {
+namespace uid {
+const char cn_esep = '/',
+    hw_id_esep = ':';
+}
+}
 }
 
-#endif //fancon_UID_HPP
+#endif //FANCON_UID_HPP

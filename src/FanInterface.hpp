@@ -2,45 +2,110 @@
 #define FANCON_FANINTERFACE_HPP
 
 #include <chrono>
-#include <iterator>     // next, prev, distance
+#include <type_traits>  // is_same
 #include <thread>
+#include <tuple>
 #include <sstream>    // stringstream
-#include <functional>   // function
 #include "Util.hpp"
 #include "UID.hpp"
 #include "Config.hpp"
 
 using std::this_thread::sleep_for;
 using std::stringstream;
-using std::function;
 using fancon::UID;
-using fancon::FanConfig;
 using fancon::Util::read;
 using fancon::Util::write;
 using fancon::Util::getPath;
 
+using namespace fancon::fan;
+
 namespace chrono = std::chrono;
 
 namespace fancon {
-static const int speed_change_t = 3;    // seconds to allow for rpm changes when altering the pwm
-static const int pwm_max_absolute = 255;
+struct FanTestResult;
 
-//struct FanTestResult;   // TODO: test moving FanTestResult
-struct FanTestResult {
-  FanTestResult() { can_test = false; }
-  FanTestResult(int rpm_min, int rpm_max, int pwm_min, int pwm_max, int pwm_start, long stop_time, double slope)
-      : rpm_min(rpm_min), rpm_max(rpm_max), pwm_min(pwm_min), pwm_max(pwm_max), pwm_start(pwm_start),
-        stop_time(stop_time), slope(slope) {}
+using enable_mode_t = int;
 
-  int rpm_min,
-      rpm_max,
-      pwm_min,
-      pwm_max,
-      pwm_start;
+enum class FanState { unknown, stopped, full_speed };
+
+class FanInterface {
+public:
+  FanInterface(const UID &uid, const fan::Config &conf, bool dynamic,
+               enable_mode_t driverEnableMode, enable_mode_t manualEnableMode = 1);
+  virtual ~FanInterface() {}
+
+  vector<fan::Point> points;
+
+  bool tested = false;        // Characteristic variables written
+  rpm_t rpm_min, rpm_max;     // TODO: remove with testPWM
+  pwm_t pwm_min, pwm_start;   // ^^
+  milliseconds wait_time;
+
+  // TODO: Functions don't need to be public
+  virtual rpm_t readRPM() = 0;
+  virtual rpm_t readPWM() = 0;
+  virtual void writePWM(const pwm_t &pwm) = 0;
+  virtual bool writeEnableMode(const enable_mode_t &mode) = 0;
+  bool recoverControl(const string &deviceLabel);
+
+  void update(const temp_t temp);
+
+  FanTestResult test();
+  static void writeTestResult(const UID &uid, const FanTestResult &result, DeviceType devType);
+
+protected:
+  const enable_mode_t manual_enable_mode;
+  enable_mode_t driver_enable_mode;
+  const int hw_id;
+  const string hw_id_str;
+
   long stop_time;
-  double slope;
+  double slope;   // i.e. rpm-per-pwm
+  const bool dynamic;
 
-  bool can_test = true;
+  pwm_t calcPWM(const rpm_t &rpm);
+  void verifyPoints(const UID &fanUID);
+
+  pwm_t testPWM(const rpm_t &rpm);    // TODO: remove
+
+  rpm_t getMaxRPM(FanState &state, const milliseconds waitTime);
+  milliseconds getMaxSpeedChangeTime(FanState &state, const rpm_t &rpmMax);
+  pwm_t getMaxPWM(FanState &state, const milliseconds &waitTime, const rpm_t &rpmMax);
+  pwm_t getPWMStart(FanState &state, const milliseconds &waitTime);
+  tuple<pwm_t, rpm_t> getMinAttributes(FanState &state, const milliseconds &waitTime, const pwm_t &startPWM);
+};
+
+struct FanInterfacePaths {
+  FanInterfacePaths(const UID &uid);
+
+  constexpr static const char *pwm_prefix = "pwm", *rpm_prefix = "fan";
+
+  DeviceType type;
+
+  string pwm_min_pf, pwm_max_pf,
+      rpm_min_pf, rpm_max_pf,
+      pwm_start_pf, slope_pf,
+      wait_time_pf;
+  const string hw_id;
+
+  bool tested() const;
+  static int getDeviceID(const UID &uid) { return Util::lastNum(uid.dev_name); }
+};
+
+struct FanTestResult {
+  FanTestResult() : can_test(false) {}
+
+  FanTestResult(const rpm_t &rpmMin, const rpm_t &rpmMax, const pwm_t &pwmMin, const pwm_t &pwmMax,
+                const pwm_t &pwmStart, const double &slope, const milliseconds &waitTime)
+      : can_test(true), rpm_min(rpmMin), rpm_max(rpmMax), pwm_min(pwmMin), pwm_max(pwmMax),
+        pwm_start(pwmStart), slope(slope), wait_time(waitTime) {}
+
+  bool can_test;
+
+  rpm_t rpm_min, rpm_max;
+  pwm_t pwm_min{fancon::fan::pwm_min_abs}, pwm_max, pwm_start;
+  double slope;
+  milliseconds wait_time;
 
   bool testable() { return can_test; }
 
@@ -48,61 +113,6 @@ struct FanTestResult {
     return (rpm_min > 0) && (rpm_min < rpm_max) && (pwm_min > 0) && (pwm_max <= 255)
         && (pwm_min < pwm_max) && (pwm_start > 0) && (slope > 0);
   }
-};
-
-class FanInterface {
-public:
-  FanInterface(const UID &uid, const FanConfig &conf, bool dynamic, int driverEnableMode, int manualEnableMode = 1);
-
-  bool tested = false;   // characteristic variables written
-  int rpm_min, rpm_max,
-      pwm_min, pwm_start;
-  vector<fancon::Point> points;
-
-  virtual int readRPM() = 0;
-  virtual int readPWM() = 0;
-  virtual void writePWM(int pwm) = 0;
-  virtual void writeEnableMode(int mode) = 0;
-
-  void verifyPoints(const UID &fanUID);
-
-  int calcPWM(int rpm) { return (int) (((rpm - rpm_min) / slope) + pwm_min); }
-  virtual void update(int temp);
-
-  FanTestResult test();
-  static void writeTestResult(const UID &uid, const FanTestResult &result, DeviceType devType);
-
-protected:
-  int driver_enable_mode;
-  const int manual_enable_mode;
-  const int hw_id;
-  const string hw_id_str;
-
-  long stop_time;
-  double slope;   // i.e. rpm-per-pwm
-  bool dynamic;
-  bool stopped = false;
-
-  int getMaxRPM();
-  int getMaxPWM(const int rpm_max);
-  long getStopTime();
-  int getPWMStart();
-  std::pair<int, int> getPWMRPMMin(const int startPWM);
-};
-
-struct FanPaths {
-  FanPaths(const UID &uid, DeviceType devType = FAN);
-
-  DeviceType dev_type;
-
-  string pwm_p, rpm_p, enable_pf;
-  string pwm_min_pf, pwm_max_pf,
-      rpm_min_pf, rpm_max_pf,
-      pwm_start_pf, slope_pf,
-      stop_t_pf;
-  string hw_id;
-
-  bool tested() const;
 };
 }
 

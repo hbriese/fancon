@@ -16,28 +16,25 @@
 
 namespace fancon {
 namespace NV {
-#define GET_SYMBOL(_proc, _name)                     \
-    _proc = (decltype(_proc)) dlsym(handle, _name);  \
-    if (!_proc)                                      \
-        loaded = false;                              \
+#define GET_SYMBOL(_proc, _name)                               \
+    _proc = (decltype(_proc)) dlsym(handle, _name);            \
+    if (!_proc)                                                \
+        LOG(llvl::debug) << "Failed to load symbol " << _name; \
 
 struct DynamicLibrary {
-  DynamicLibrary(const char *file) {
-    handle = dlopen(file, RTLD_NOW);
-    if (!handle) {
+  DynamicLibrary(const char *file)
+      : handle(dlopen(file, RTLD_LAZY | RTLD_LOCAL)) {
+    if (!handle)
       LOG(llvl::debug) << "Failed to load " << file << ": " << dlerror() << "; see `fancon --help` for more info";
-      loaded = false;
-    }
   }
   ~DynamicLibrary() { dlclose(handle); }
 
   void *handle;
-  bool loaded = true;
 };
 
 struct LibX11 : public DynamicLibrary {
   LibX11() : DynamicLibrary("libX11.so") {
-    if (loaded) {
+    if (handle) {
       GET_SYMBOL(OpenDisplay, "XOpenDisplay");
       GET_SYMBOL(CloseDisplay, "XCloseDisplay");
       GET_SYMBOL(InitThreads, "XInitThreads");
@@ -52,7 +49,7 @@ struct LibX11 : public DynamicLibrary {
 
 struct LibXNvCtrl : public DynamicLibrary {
   LibXNvCtrl() : DynamicLibrary("libXNVCtrl.so") {
-    if (loaded) {
+    if (handle) {
       GET_SYMBOL(QueryExtension, "XNVCTRLQueryExtension");
       GET_SYMBOL(QueryVersion, "XNVCTRLQueryVersion");
       GET_SYMBOL(QueryTargetCount, "XNVCTRLQueryTargetCount");
@@ -83,15 +80,16 @@ struct DisplayWrapper {
   Display *operator*();
   Display *dp;
   bool open(string display, string xauthority);
-} extern dw;  // link to global DisplayWrapper in .cpp
+} extern dw;
 
+extern const bool support;
 bool supported();
-void enableFanControlCoolbit();    // doesn't work when confined
+void enableFanControlCoolbit();    // Doesn't work in snap confined
 
-int getNumGPUs(bool nvidiaControl);
+int getNumGPUs();
 vector<int> nvProcessBinaryData(const unsigned char *data, const int len);
-vector<UID> getFans(bool nvidiaControl);
-vector<UID> getSensors(bool nvidiaControl);
+vector<UID> getFans();
+vector<UID> getSensors();
 
 #ifdef FANCON_NVML_SUPPORT_EXPERIMENTAL
 vector<nvmlDevice_t> getDevices();
@@ -113,7 +111,15 @@ struct Data_R {
 struct Data_RW : Data_R {
   using Data_R::Data_R;
 
-  void write(const int hwID, int val) const;
+  template<typename T>
+  bool write(const int hwID, const T &value) const {
+    if (!xnvlib.SetTargetAttributeAndGetStatus(*dw, target, hwID, 0, attribute, value)) {
+      LOG(llvl::debug) << "NVIDIA fan " << hwID << ": failed writing " << title << " = " << value;
+      return false;
+    }
+
+    return true;
+  }
 };
 
 static const Data_R rpm("RPM", NV_CTRL_THERMAL_COOLER_SPEED);

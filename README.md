@@ -2,7 +2,7 @@
 
 [![License](http://img.shields.io/badge/license-APACHE2-blue.svg)]()
 
-fancon is a GNU/Linux fan control daemon and fan testing tool, allowing custom speed-temperature curves for fans, controllable by either PWM or RPM.
+fancon is a Linux fan control daemon and fan testing tool, allowing custom speed-temperature curves for fans, controllable by either PWM or RPM, or percentage.
   - High performance
   - Low memory usage
   - Support for system fans, and NVIDIA GPUs

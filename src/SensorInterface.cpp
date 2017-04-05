@@ -3,11 +3,11 @@
 using namespace fancon;
 
 void SensorInterface::refresh() {
-  int newTemp(read());
+  temp_t newTemp(read());
 
   if (newTemp != temp) {
     temp = newTemp;
-    update = true;  // declare after updating temp, to avoid a thread updating using the wrong temp
+    update = true;  // Declare after updating temp, to avoid a thread updating using the old temp
   } else
     update = false;
 }

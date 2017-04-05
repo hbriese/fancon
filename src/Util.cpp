@@ -3,7 +3,21 @@
 
 using namespace fancon;
 
-int Util::getLastNum(const string &str) {
+fancon::DeviceType fancon::operator|(fancon::DeviceType lhs, fancon::DeviceType rhs) {
+  return static_cast<fancon::DeviceType> (
+      static_cast<std::underlying_type<fancon::DeviceType>::type>(lhs) |
+          static_cast<std::underlying_type<fancon::DeviceType>::type>(rhs)
+  );
+}
+
+fancon::DeviceType fancon::operator&(fancon::DeviceType lhs, fancon::DeviceType rhs) {
+  return static_cast<fancon::DeviceType> (
+      static_cast<std::underlying_type<fancon::DeviceType>::type>(lhs) &
+          static_cast<std::underlying_type<fancon::DeviceType>::type>(rhs)
+  );
+}
+
+int Util::lastNum(const string &str) {
   auto endDigRevIt = std::find_if(str.rbegin(), str.rend(), [](const char &c) { return std::isdigit(c); });
   auto endIt = (endDigRevIt + 1).base();
 
@@ -15,7 +29,7 @@ int Util::getLastNum(const string &str) {
   });
 
   string numStr(begDigRevIt.base(), endIt + 1);
-  std::stringstream ss(numStr);
+  stringstream ss(numStr); // define numStr when passing
   int num{};
   ss >> num;
   return num;
@@ -25,6 +39,8 @@ bool Util::isNum(const string &str) {
   return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
 }
 
+/// \returns
+/// True if lock() has been called by a process that is currently running
 bool Util::locked() {
   if (!exists(pid_file))
     return false;
@@ -44,9 +60,9 @@ void Util::lock() {
 
 string Util::getDir(const string &hwID, DeviceType devType, const bool useSysFS) {
   string d;
-  if (devType == DeviceType::FAN)
+  if (devType == DeviceType::fan)
     d = string((useSysFS) ? hwmon_path : fancon_hwmon_path);
-  else if (devType == FAN_NV)
+  else if (devType == DeviceType::fan_nv)
     d = string(fancon_dir) + nvidia_label;
 
   return (d += hwID + '/');

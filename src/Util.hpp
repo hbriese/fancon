@@ -1,13 +1,13 @@
-#ifndef fancon_UTIL_HPP
-#define fancon_UTIL_HPP
+#ifndef FANCON_UTIL_HPP
+#define FANCON_UTIL_HPP
 
 #include <algorithm>    // all_of
 #include <chrono>
-#include <thread>
 #include <string>
-#include <sstream>
 #include <fstream>      // ifstream, ofstream
+#include <iterator>     // next, prev
 #include <utility>      // pair
+#include <tuple>
 #include <vector>
 #include <cstdlib>
 #include <csignal>
@@ -21,46 +21,46 @@ using std::ofstream;
 using std::string;
 using std::stringstream;
 using std::to_string;
-using std::this_thread::sleep_for;
 using std::chrono::seconds;
 using std::unique_ptr;
-using std::shared_ptr;
 using std::make_unique;
-using std::make_shared;
 using std::pair;
+using std::tuple;
 using std::vector;
-using boost::filesystem::create_directory;
+using std::next;
+using std::prev;
 using boost::filesystem::exists;
 
 namespace fancon {
-enum DaemonState { RUN, STOP = SIGTERM, RELOAD = SIGHUP };
-enum DeviceType {
-  FAN = (1u << 0), FAN_NV = (1u << 1), FAN_INTERFACE = FAN | FAN_NV,
-  SENSOR = (1u << 2), SENSOR_NV = (1u << 3), SENSOR_INTERFACE = SENSOR | SENSOR_NV
+enum class DeviceType : int {
+  fan = (1u << 0), fan_nv = (1u << 1), fan_interface = fan | fan_nv,
+  sensor = (1u << 2), sensor_nv = (1u << 3), sensor_interface = sensor | sensor_nv
 };
 
+fancon::DeviceType operator|(fancon::DeviceType lhs, fancon::DeviceType rhs);
+fancon::DeviceType operator&(fancon::DeviceType lhs, fancon::DeviceType rhs);
+
 namespace Util {
+constexpr const char *pid_file = "/var/run/fancon.pid";
 constexpr const char *conf_path = "/etc/fancon.conf";
 constexpr const char *fancon_dir = "/etc/fancon.d/";
 constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
 constexpr const char *fancon_hwmon_path = "/etc/fancon.d/hwmon";
 constexpr const char *temp_sensor_label = "temp";
 constexpr const char *nvidia_label = "nvidia";
-constexpr const char *pid_file = "/var/run/fancon.pid";
 
-int getLastNum(const string &str);
+int lastNum(const string &str);
 bool isNum(const string &str);
 
-/* locked: returns true if process that has invoked lock() is currently running  */
 bool locked();
 void lock();
 
 template<typename IT>
-bool notEqualTo(std::initializer_list<const IT> values, const IT to);
+bool equalTo(std::initializer_list<const IT> values, const IT value);
 
 string getDir(const string &hwID, DeviceType devType, const bool useSysFS = false);
 string getPath(const string &path_pf, const string &hwID,
-               DeviceType devType = DeviceType::FAN, const bool useSysFS = false);
+               DeviceType devType = DeviceType::fan, const bool useSysFS = false);
 
 string readLine(string path, int nFailed = 0);  // TODO: string -> string&
 
@@ -69,11 +69,8 @@ T read(const string &path, int nFailed = 0);
 
 template<typename T>
 T read(const string &path_pf, const string &hw_id,
-       DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
-  return read<T>(getPath(path_pf,
-                         hw_id,
-                         devType,
-                         useSysFS));
+       DeviceType devType = DeviceType::fan, bool useSysFS = false) {
+  return read<T>(getPath(path_pf, hw_id, devType, useSysFS));
 }
 
 template<typename T>
@@ -81,29 +78,29 @@ bool write(const string &path, T val, int nFailed = 0);
 
 template<typename T>
 bool write(const string &path_pf, const string &hwmon_id, T val,
-           DeviceType devType = DeviceType::FAN, bool useSysFS = false) {
-  return write<T>(getPath(path_pf,
-                          hwmon_id,
-                          devType,
-                          useSysFS), val);
+           DeviceType devType = DeviceType::fan, bool useSysFS = false) {
+  return write<T>(getPath(path_pf, hwmon_id, devType, useSysFS), val);
 }
 
 template<typename T>
 void moveAppend(vector<T> &src, vector<T> &dst);
+
+template<typename T>
+vector<pair<typename T::iterator, typename T::iterator>> distributeTasks(uint threads, T &tasksContainer);
 }
 }
 
-//----------------------
-// TEMPLATE DEFINITIONS
-//----------------------
+//----------------------//
+// TEMPLATE DEFINITIONS //
+//----------------------//
 
 template<typename IT>
-bool fancon::Util::notEqualTo(std::initializer_list<const IT> values, const IT to) {
-  for (auto it : values)
-    if (it == to)
-      return false;
+bool fancon::Util::equalTo(std::initializer_list<const IT> values, const IT value) {
+  for (const auto &it : values)
+    if (it == value)
+      return true;
 
-  return true;
+  return false;
 }
 
 template<typename T>
@@ -120,7 +117,7 @@ T fancon::Util::read(const string &path, int nFailed) {
       return read<T>(path, ++nFailed);
 
     const char *reason = (exist) ? "filesystem or permission error" : "doesn't exist";
-    LOG(llvl::error) << "Failed to read from: " << path << " - " << reason << "; user id " << getuid();
+    LOG(llvl::debug) << "Failed to read from: " << path << " - " << reason << "; user id " << getuid();
   }
 
   return ret;
@@ -154,4 +151,38 @@ void fancon::Util::moveAppend(vector<T> &src, vector<T> &dst) {
     dst = move(src);
 }
 
-#endif //fancon_UTIL_HPP
+/// \tparam T task container type
+/// \param threads Max number of threads to use
+/// \param tasksContainer Container holding tasks to be distributed among threads
+/// \return Pair (begin, end) iterators distributed to threads
+template<typename T>    // TODO: check iterator support
+vector<pair<typename T::iterator, typename T::iterator>> fancon::Util::distributeTasks(uint threads,
+                                                                                       T &tasksContainer) {
+  // Cannot have more threads than tasks
+  auto tasks = tasksContainer.size();
+  if (tasks < threads)
+    threads = static_cast<uint>(tasks);
+
+  vector<pair<typename T::iterator, typename T::iterator>> threadTasks;
+  threadTasks.reserve(tasks);
+
+  // Distribute base number of tasks for each thread
+  ulong baseTasks = tasks / threads;   // tasks per thread
+  auto tasksRem = tasks % threads;
+  vector<ulong> nThreadTasks(threads - tasksRem, baseTasks);
+
+  // Hand off remaining tasks
+  if (tasksRem)   // insert threads that have extra tasks
+    nThreadTasks.insert(nThreadTasks.end(), tasksRem, baseTasks + 1);
+
+  auto begIt = tasksContainer.begin();
+  for (const auto &nTasks : nThreadTasks) {
+    auto endIt = next(begIt, nTasks);
+    threadTasks.emplace_back(std::make_pair(begIt, endIt));
+    begIt = endIt;
+  }
+
+  return threadTasks;
+}
+
+#endif //FANCON_UTIL_HPP

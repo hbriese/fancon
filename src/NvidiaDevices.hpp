@@ -7,19 +7,25 @@
 #include "NvidiaUtil.hpp"
 
 namespace fancon {
+using percent_t = int;
+
 class FanNV : public FanInterface {
 public:
-  FanNV(const UID &fanUID, const FanConfig &conf = FanConfig(), bool dynamic = true);
+  FanNV(const UID &fanUID, const fan::Config &conf = fan::Config(), bool dynamic = true);
   ~FanNV() { writeEnableMode(driver_enable_mode); }
 
-  int readRPM() { return NV::rpm.read(hw_id); };
-  int readPWM() { return percentToPWM(NV::pwm_percent.read(hw_id)); }
-  void writePWM(int pwm) { NV::pwm_percent.write(hw_id, pwmToPercent(pwm)); }
-  void writeEnableMode(int mode) { NV::enable_mode.write(hw_id, mode); }
+  rpm_t readRPM() { return NV::rpm.read(hw_id); };
+  pwm_t readPWM() { return percentToPWM(NV::pwm_percent.read(hw_id)); }
+  void writePWM(const pwm_t &pwm) {
+    // Attempt to recover control of the device if the write fails
+    if (!NV::pwm_percent.write<pwm_t>(hw_id, pwmToPercent(pwm)))
+      FanInterface::recoverControl(string("NVIDIA fan ").append(hw_id_str));
+  }
+  bool writeEnableMode(const enable_mode_t &mode) { return NV::enable_mode.write<enable_mode_t>(hw_id, mode); }
 
 private:
-  static int pwmToPercent(int pwm);
-  static int percentToPWM(int percent);
+  static percent_t pwmToPercent(const pwm_t &pwm);
+  static pwm_t percentToPWM(const percent_t &percent);
 };
 
 struct SensorNV : public SensorInterface {
@@ -29,7 +35,7 @@ struct SensorNV : public SensorInterface {
 
   bool operator==(const UID &other) const { return hw_id == other.hw_id; }
 
-  int read() { return NV::temp.read(hw_id); };
+  temp_t read() { return NV::temp.read(hw_id); };
 };
 }
 

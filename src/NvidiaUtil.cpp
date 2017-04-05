@@ -9,10 +9,15 @@ namespace NV {
 NV::LibX11 xlib;
 NV::LibXNvCtrl xnvlib;
 NV::DisplayWrapper dw(nullptr);
+const bool support = supported();
 }
 }
 
 bool NV::DisplayWrapper::open(string da, string xa) {
+  // Return true if already open
+  if (dp)
+    return true;
+
   const char *denv = "DISPLAY", *xaenv = "XAUTHORITY";
   bool forcedDa = false;
 
@@ -66,7 +71,7 @@ Display *NV::DisplayWrapper::operator*() {
 }
 
 bool NV::supported() {
-  if (!Util::locked())
+  if (!Util::locked())    // TODO: review
     xlib.InitThreads();   // Run before first XOpenDisplay() from any process
 
   if (!dw.open({}, {})) {
@@ -90,7 +95,6 @@ bool NV::supported() {
   } else if ((major < 1) || (major == 1 && minor < 9))  // XNVCTRL must be at least v1.9
     LOG(llvl::warning) << "NV-CONTROL X version is not officially supported (too old!); please use v1.9 or higher";
 
-//  LOG(llvl::debug) << "NVIDIA fan control supported";
   return true;
 }
 
@@ -107,7 +111,7 @@ void NV::enableFanControlCoolbit() {
     return;
   }
 
-  int iv = Util::getLastNum(l);  // Initial value
+  int iv = Util::lastNum(l);  // Initial value
   int cv(iv);   // Current val
 
   const int nBits = 5;
@@ -136,9 +140,9 @@ void NV::enableFanControlCoolbit() {
   }
 }
 
-int NV::getNumGPUs(bool nvidiaControl) {
-  int nGPUs = 0;
-  if (!nvidiaControl)
+int NV::getNumGPUs() {
+  int nGPUs{0};
+  if (!NV::support)
     return nGPUs;
 
   // Number of GPUs
@@ -150,26 +154,26 @@ int NV::getNumGPUs(bool nvidiaControl) {
 
 vector<int> NV::nvProcessBinaryData(const unsigned char *data, const int len) {
   vector<int> v;
-  for (int i = 0; i < len; ++i) {
+  for (int i{0}; i < len; ++i) {
     int val = static_cast<int>(*(data + i));
     if (val == 0)       // Memory set to 0 when allocated
       break;
-    v.push_back(--val); // Return an index (start at 0), binary data start at 1
+    v.push_back(--val); // Return an index (start at 0), where as binary data start at 1
   }
 
   return v;
 }
 
-vector<UID> NV::getFans(bool nvidiaControl) {
+vector<UID> NV::getFans() {
   vector<UID> uids;
-  auto nGPUs = getNumGPUs(nvidiaControl);
+  auto nGPUs = getNumGPUs();
 
-  for (int i = 0; i < nGPUs; ++i) {
+  for (int i{0}; i < nGPUs; ++i) {
     vector<int> fanIDs, tSensorIDs;
 
     // GPU fans
     unsigned char *coolersBuf = nullptr;
-    int len = 0;    // Buffer size allocated by NVCTRL
+    int len{};    // Buffer size allocated by NVCTRL
     int ret = xnvlib.QueryTargetBinaryData(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
                                            NV_CTRL_BINARY_DATA_COOLERS_USED_BY_GPU, &coolersBuf, &len);
     if (!ret || coolersBuf == nullptr) {
@@ -206,14 +210,14 @@ vector<UID> NV::getFans(bool nvidiaControl) {
   return uids;
 }
 
-vector<UID> NV::getSensors(bool nvidiaControl) {
+vector<UID> NV::getSensors() {
   vector<UID> uids;
-  auto nGPUs = getNumGPUs(nvidiaControl);
+  auto nGPUs = getNumGPUs();
 
   for (auto i = 0; i < nGPUs; ++i) {
     vector<int> tSensorIDs;
 
-    int len = 0;
+    int len{};
     // GPU temperature sensors
     unsigned char *tSensors = nullptr;
     int ret = xnvlib.QueryTargetBinaryData(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
@@ -233,13 +237,13 @@ vector<UID> NV::getSensors(bool nvidiaControl) {
 
 #ifdef FANCON_NVML_SUPPORT_EXPERIMENTAL
 vector<nvmlDevice_t> NV::getDevices() {
-  uint nDevices = 0;
+  uint nDevices {};
   if (nvmlDeviceGetCount(&nDevices) != NVML_SUCCESS)
     LOG(llvl::error) << "Failed to query number of NVIDIA GPUs";
 
   vector<nvmlDevice_t> devices(nDevices);
 
-  for (uint i = 0; i < nDevices; ++i) {
+  for (uint i {0}; i < nDevices; ++i) {
     nvmlDevice_t dev;
     if (nvmlDeviceGetHandleByIndex(i, &dev) != NVML_SUCCESS)
       LOG(llvl::error) << "Failed to get NVIDIA device " << i << "; GPU count = " << nDevices;
@@ -254,9 +258,9 @@ vector<UID> NV::getFans() {
   vector<UID> uids;
   auto devices = getDevices();
 
-  for (uint i = 0, e = devices.size(); i < e; ++i) {
+  for (uint i {0}, e = devices.size(); i < e; ++i) {
     // Verify device fan is valid
-    uint speedPercent = 0;
+    uint speedPercent {};
     if (nvmlDeviceGetFanSpeed(devices[i], &speedPercent) != NVML_SUCCESS) {
       LOG(llvl::error) << "Failed to get GPU " << i << " fan";
       continue;
@@ -291,9 +295,9 @@ vector<UID> NV::getSensors() {
   vector<UID> uids;
   auto devices = getDevices();
 
-  for (uint i = 0, e = devices.size(); i < e; ++i) {
+  for (uint i {0}, e = devices.size(); i < e; ++i) {
     // GPU temperature sensors
-    uint temp = 0;
+    uint temp {};
     if (nvmlDeviceGetTemperature(devices[i], NVML_TEMPERATURE_GPU, &temp) != NVML_SUCCESS) {
       LOG(llvl::error) << "Failed to read GPU " << i << " temperature";
       continue;
@@ -316,8 +320,4 @@ int NV::Data_R::read(const int hwID) const {
   return val;
 }
 
-void NV::Data_RW::write(const int hwID, int val) const {
-  if (!xnvlib.SetTargetAttributeAndGetStatus(*dw, target, hwID, 0, attribute, val))
-    LOG(llvl::error) << "NVIDIA fan " << hwID << ": failed writing " << title << " = " << val;
-}
 #endif //FANCON_NVIDIA_SUPPORT

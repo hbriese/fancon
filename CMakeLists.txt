@@ -1,27 +1,29 @@
-cmake_minimum_required(VERSION 3.1)
-set(CMAKE_CXX_STANDARD 14)
+cmake_minimum_required(VERSION 3.3)
+set(CMAKE_CXX_STANDARD 14)  # TODO: C++17 support in CMake 3.8 (also cmake_minimum_required -> 3.8)
 project(fancon)
 set(PACKAGE_AUTHOR "Hayden Briese <haydenbriese@gmail.com>")
 
-## Additional cmake modules
+## Additional cmake modules provided in ./cmake/
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
+## Optimization flag - lvl 2
+set(OPTIMIZATION_FLAG "-O2")
+
 ## Debug flags
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+option(OPTIMIZE_DEBUG "Optimize debug build - useful for profiling" OFF)
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wpedantic -Werror")
+    if (OPTIMIZE_DEBUG)
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${OPTIMIZATION_FLAG}")
+    endif ()
 endif ()
 
 ## Release flags
 if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPTIMIZATION_FLAG}")
 endif ()
 
-### TODO: remove
-#if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")  ##  AND CMAKE_BUILD_TYPE STREQUAL "Release"
-#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
-#endif()
-
-## An option for statically linking libstdc++ for distributions which provide older versions
+## Option for statically linking libstdc++ for distributions which provide older versions
 option(STATIC_LIBSTDC++ "Statically link libstdc++ when building with g++" OFF)
 if (STATIC_LIBSTDC++) # AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
@@ -30,9 +32,9 @@ endif () # STATIC_LIBSTDC++
 
 include_directories(src)
 set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/Logging.hpp src/Logging.cpp
-        src/UID.cpp src/UID.hpp src/Controller.cpp src/Controller.hpp src/Config.cpp src/Config.hpp
+        src/UID.cpp src/UID.hpp src/Find.cpp src/Find.hpp src/Config.cpp src/Config.hpp
         src/Fan.cpp src/Fan.hpp src/FanInterface.cpp src/FanInterface.hpp src/SensorInterface.cpp src/SensorInterface.hpp
-        src/NvidiaDevices.cpp src/NvidiaDevices.hpp src/NvidiaUtil.cpp src/NvidiaUtil.hpp)
+        src/NvidiaDevices.cpp src/NvidiaDevices.hpp src/NvidiaUtil.cpp src/NvidiaUtil.hpp src/Controller.cpp src/Controller.hpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 ## Threads (pthread)
@@ -46,7 +48,7 @@ find_package(Boost REQUIRED COMPONENTS thread system filesystem log)
 include_directories(${Boost_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${Boost_LIBRARIES})
 
-## lm-sensors
+## Sensors (lm-sensors)
 find_package(Sensors REQUIRED)
 include_directories(${SENSORS_INCLUDE_DIR})
 set(LIBS ${LIBS} ${SENSORS_LIBRARY})
@@ -64,7 +66,7 @@ if (NVIDIA_SUPPORT)
         add_definitions("-DFANCON_NVIDIA_SUPPORT")
         message("NVIDIA support enabled")
     else ()
-        message("${NVIDIA_SUPPORT} but X11 and or NVCtrl headers weren't found!")
+        message("NVIDIA_SUPPORT=${NVIDIA_SUPPORT} but X11 and or NVCtrl headers weren't found!")
     endif ()
 endif () # NVIDIA_SUPPORT
 
@@ -76,6 +78,14 @@ if (NVML_SUPPORT)
     message("Experimental NVML support enabled")
     add_definitions("-DFANCON_NVML_SUPPORT_EXPERIMENTAL")
 endif () # NVML_SUPPORT
+
+# TCMalloc - for heap profiling; ONLY available for debug builds as TCMalloc currently does not release memory
+option(TCMALLOC "Build binary using TCMalloc for all dynamic memory allocation - ONLY available for debug builds" OFF)
+find_package(TCMalloc)
+if (TCMALLOC_FOUND AND ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    set(LIBS ${LIBS} ${TCMALLOC_LIBRARIES})
+    add_definitions("-DHEAP_PROFILE")
+endif () # TCMALLOC_FOUND AND ${CMAKE_BUILD_TYPE} STREQUAL "Debug"
 
 ## Link libraries
 target_link_libraries(${PROJECT_NAME} ${LIBS})

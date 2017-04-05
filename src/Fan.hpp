@@ -1,10 +1,9 @@
-#ifndef fancon_FAN_HPP
-#define fancon_FAN_HPP
+#ifndef FANCON_FAN_HPP
+#define FANCON_FAN_HPP
 
 #include <algorithm>    // lower_bound
 #include <array>
 #include <chrono>       // system_clock::now, duration
-#include <functional>
 #include <thread>       // this_thread::sleep
 #include <utility>      // pair, make_pair
 #include <boost/filesystem.hpp>
@@ -13,42 +12,33 @@
 #include "UID.hpp"
 #include "Config.hpp"
 
-using std::next;
-using std::prev;
-using std::stringstream;
-using std::function;
 using fancon::FanInterface;
 using fancon::Util::read;
 using fancon::Util::write;
 using fancon::UID;
-using fancon::FanConfig;
 
 namespace fancon {
 class Fan : public FanInterface {
 public:
-  Fan(const UID &fanUID, const FanConfig &conf = FanConfig(), bool dynamic = true);
+  Fan(const UID &fanUID, const fan::Config &conf = fan::Config(), bool dynamic = true);
   ~Fan() { writeEnableMode(driver_enable_mode); }
 
-  int readPWM() { return read<int>(pwm_p); }
-  void writePWM(int pwm) {
+  pwm_t readPWM() { return read<pwm_t>(p.pwm); }
+  void writePWM(const pwm_t &pwm) {
     // Attempt to recover control of the device if the write fails
-    if (!write(pwm_p, pwm))
-      if (!recoverControl(pwm))
-        LOG(llvl::warning) << "Lost control of: " << pwm_p;
+    if (!write(p.pwm, pwm))
+      FanInterface::recoverControl(p.pwm);
   }
-  int readRPM() { return read<int>(rpm_p); }
-  void writeEnableMode(int mode) { write(enable_pf, hw_id_str, mode, DeviceType::FAN, true); }
-  int readEnableMode() { return read<int>(enable_pf, hw_id_str, DeviceType::FAN, true); }
-
-  bool recoverControl(int pwm);
-  int testPWM(int rpm);    // TODO: remove
-
-  using FanInterface::writeTestResult;
+  rpm_t readRPM() { return read<rpm_t>(p.rpm); }
+  bool writeEnableMode(const enable_mode_t &mode) { return write(p.enable_pf, hw_id_str, mode, DeviceType::fan, true); }
+  rpm_t readEnableMode() { return read<enable_mode_t>(p.enable_pf, hw_id_str, DeviceType::fan, true); }
 
 private:
-  string pwm_p, rpm_p;
-  string enable_pf;
+  struct Paths {
+    Paths(const UID &uid, const string &hwID);
+    string pwm, rpm, enable_pf;
+  } const p;
 };
-}   // fancon
+}   // end fancon
 
-#endif //fancon_FAN_HPP
+#endif //FANCON_FAN_HPP

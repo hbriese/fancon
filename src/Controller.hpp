@@ -1,97 +1,66 @@
-#ifndef fancon_CONTROLLER_HPP
-#define fancon_CONTROLLER_HPP
+#ifndef FANCON_CONTROLLER_HPP
+#define FANCON_CONTROLLER_HPP
 
-#include <algorithm>    // search, find_if
-#include <ios>          // skipws
-#include <utility>      // move, pair
-#include <numeric>      // iota
-#include <memory>       // unique_ptr
-#include <sstream>      // stringstream, ostream
-#include <vector>
-#include <sensors/sensors.h>
-#include "Util.hpp"
-#include "UID.hpp"
-#include "Config.hpp"
-#include "Fan.hpp"
-#include "SensorInterface.hpp"
+#include <algorithm>    // find_if
+#include <csignal>
+#include <sstream>      // istringstream
+#include <chrono>
+#include <thread>
+#include "Find.hpp"
 
-#ifdef FANCON_NVIDIA_SUPPORT
-#include "NvidiaDevices.hpp"
-using fancon::NV::dw;   // DisplayWrapper
-#endif //FANCON_NVIDIA_SUPPORT
-
-using std::search;
-using std::skipws;
-using std::find_if;
 using std::istringstream;
+using std::find_if;
+using std::thread;
 using std::this_thread::sleep_for;
-using std::chrono::seconds;
-using std::chrono::milliseconds;
-using fancon::UID;
-using fancon::Fan;
-using fancon::ControllerConfig;
-using fancon::FanConfig;
-using fancon::SensorInterface;
-using fancon::Util::getLastNum;
+using std::this_thread::sleep_until;
 
 namespace fancon {
-struct SensorsWrapper;
-struct Daemon;
 struct MappedFan;
+
+using sensor_container_t = vector<unique_ptr<SensorInterface>>;
+using fan_container_t = vector<MappedFan>;
+
+enum class ControllerState {
+  run, stop = SIGTERM, reload = SIGHUP, defered_start
+} extern controller_state;
 
 class Controller {
 public:
-  Controller(uint nThreads = 0);
+  Controller(const string &configPath);
 
-  fancon::ControllerConfig conf;
+  controller::Config conf;
+  vector<thread> threads;
 
-  vector<UID> getFans();
-  vector<UID> getSensors();
+  chrono::time_point <chrono::steady_clock, milliseconds> main_wakeup, sensors_wakeup, fans_wakeup;
+//  chrono::time_point<chrono::steady_clock, milliseconds> start_timestamp;
 
-  static unique_ptr<SensorInterface> getSensor(const UID &uid);
-  static unique_ptr<FanInterface> getFan(const UID &uid, const FanConfig &fanConf = FanConfig(), bool dynamic = true);
+  sensor_container_t sensors;
+  fan_container_t fans;
 
-  void writeConf(const string &path);
+  ControllerState run();
+  void reload(const string &configPath);
 
-  unique_ptr<Daemon> loadDaemon(const string &configPath, DaemonState &daemonState);
+  static void signalHandler(int sig);
+
+  static bool validConfigLine(const string &line);
 
 private:
-  vector<UID> getUIDs(const char *devicePathPostfix);
-  bool skipLine(const string &line);
+  void readSensors(sensor_container_t::iterator &beg, sensor_container_t::iterator end);
+  void updateFans(fan_container_t::iterator &beg, fan_container_t::iterator &end);
 
-#ifdef FANCON_NVIDIA_SUPPORT
-  bool nvidia_control = false;
-#endif //FANCON_NVIDIA_SUPPORT
-};
+  void startThreads();
+  void updateWakeupTimes();
 
-struct SensorsWrapper {
-  SensorsWrapper();
-  ~SensorsWrapper() { sensors_cleanup(); }
-  vector<const sensors_chip_name *> chips;  // do *not* use smart ptr, due to sensors_cleanup()
-};
-
-struct Daemon {
-  Daemon(DaemonState &daemonState, const seconds updateTime)
-      : state((daemonState = DaemonState::RUN)), update_time(updateTime) {}
-
-  DaemonState &state;
-  chrono::seconds update_time;
-
-  vector<unique_ptr<SensorInterface>> sensors;
-  vector<unique_ptr<MappedFan>> fans;
-
-  void readSensors(vector<unique_ptr<SensorInterface>>::iterator &beg,
-                   vector<unique_ptr<SensorInterface>>::iterator &end);
-  void updateFans(vector<unique_ptr<MappedFan>>::iterator &beg,
-                  vector<unique_ptr<MappedFan>>::iterator &end);
+  void deferStart(chrono::time_point <chrono::steady_clock, milliseconds> &timePoint);
 };
 
 struct MappedFan {
-  MappedFan(unique_ptr<FanInterface> fan, const int &temp) : fan(move(fan)), temp(temp) {}
+  MappedFan(unique_ptr<FanInterface> fan, const SensorInterface &sensor)
+      : fan(move(fan)), sensor(sensor) {}
 
   unique_ptr<FanInterface> fan;
-  const int &temp;
+  const SensorInterface &sensor;
 };
 }
 
-#endif //fancon_CONTROLLER_HPP
+#endif //FANCON_CONTROLLER_HPP
