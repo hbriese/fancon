@@ -19,7 +19,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif ()
 
 ## Release flags
-if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPTIMIZATION_FLAG}")
 endif ()
 

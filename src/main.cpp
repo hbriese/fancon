@@ -377,11 +377,14 @@ int main(int argc, char *argv[]) {
       auto &com = c.get();
 
       // Command requirements must be met before running
-      if (com.lock && Util::locked())
-        LOG(llvl::warning) << "A fancon process is already running\n";
-      else if (com.require_root && getuid() != 0)
+      if (com.require_root && getuid() != 0)
         LOG(llvl::error) << "Please run with sudo, or as root for command: " << com.name << '\n';
-      else
+      else if (com.lock) {
+        if (!Util::locked())
+          Util::lock();
+        else
+          LOG(llvl::warning) << "A fancon process is already running\n";
+      } else
         com.func();
 
       break;
