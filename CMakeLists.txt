@@ -77,7 +77,7 @@ if (NVML_SUPPORT)
     set(LIBS ${LIBS} ${NVML_LIBRARY})
     add_definitions("-DFANCON_NVML_SUPPORT_EXPERIMENTAL")
     message("Experimental NVML support enabled")
-endif () # NVML_SUPPORT
+endif ()
 
 ## Google Perf Tools profiling
 option(PROFILE "Build debug release with support for CPU and heap profiling - REQUIRES Google Perf Tools" OFF)

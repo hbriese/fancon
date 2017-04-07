@@ -156,7 +156,7 @@ int NV::getNumGPUs() {
 vector<int> NV::nvProcessBinaryData(const unsigned char *data, const int len) {
   vector<int> v;
   for (int i{0}; i < len; ++i) {
-    int val = static_cast<int>(*(data + i));
+    auto val = static_cast<int>(*(data + i));
     if (val == 0)       // Memory set to 0 when allocated
       break;
     v.push_back(--val); // Return an index (start at 0), where as binary data start at 1

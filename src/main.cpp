@@ -270,6 +270,13 @@ void f::sendSignal(ControllerState state) {
     LOG(llvl::info) << "Cannot reload: fancond is not running";
 }
 
+bool f::Option::setIfValid(const string &str) {
+  istringstream ss(str);  // TODO: C++17 - use from_chars
+  ss >> val;
+
+  return (called = !ss.fail());
+}
+
 int main(int argc, char *argv[]) {
 #ifdef FANCON_PROFILE
   ProfilerStart("fancon_full");
@@ -343,11 +350,9 @@ int main(int argc, char *argv[]) {
         // Validate the next argument, and store value
         auto na = next(a);
 
-        if (na != args.end() && Util::isNum(*na)) {
-          o.val = static_cast<uint>(std::stoul(*na));
-          o.called = true;
-          ++a;  // Skip next arg (na) in current args loop
-        } else
+        if (na != args.end() && o.setIfValid(*na))
+          ++a;  // Skip arg after successful use
+        else
           LOG(llvl::error) << "Option '" << *a << "' requires a value (>= 0)\n";
 
       } else
@@ -375,7 +380,7 @@ int main(int argc, char *argv[]) {
   // Run called commands
   for (const auto &c : commands) {
     if (c.get().called) {
-      auto &com = c.get();
+      const auto &com = c.get();
 
       // Command requirements must be met before running
       if (com.lock && !Util::try_lock())

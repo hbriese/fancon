@@ -66,6 +66,8 @@ struct Option {
   uint val{};
 
   bool operator==(const string &other) { return other == short_name || other == name; }
+
+  bool setIfValid(const string &str);
 };
 } // namespace fancon
 
