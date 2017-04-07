@@ -71,7 +71,8 @@ Display *NV::DisplayWrapper::operator*() {
 }
 
 bool NV::supported() {
-  if (!Util::locked())    // TODO: review
+  // Run InitThreads for threadsafe XDisplay access if the fancon process is the first
+  if (!Util::locked())
     xlib.InitThreads();   // Run before first XOpenDisplay() from any process
 
   if (!dw.open({}, {})) {

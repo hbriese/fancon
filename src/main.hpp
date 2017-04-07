@@ -10,9 +10,10 @@
 #include "Find.hpp"
 #include "Controller.hpp"
 
-#ifdef HEAP_PROFILE
+#ifdef FANCON_PROFILE
+#include <gperftools/profiler.h>
 #include <gperftools/heap-profiler.h>
-#endif //HEAP_PROFILE
+#endif //FANCON_PROFILE
 
 using std::to_string;
 using std::setw;

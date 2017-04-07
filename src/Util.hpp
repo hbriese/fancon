@@ -54,6 +54,7 @@ bool isNum(const string &str);
 
 bool locked();
 void lock();
+bool try_lock();
 
 template<typename IT>
 bool equalTo(std::initializer_list<const IT> values, const IT value);
@@ -86,7 +87,7 @@ template<typename T>
 void moveAppend(vector<T> &src, vector<T> &dst);
 
 template<typename T>
-vector<pair<typename T::iterator, typename T::iterator>> distributeTasks(uint threads, T &tasksContainer);
+vector<vector<typename T::iterator>> distributeTasks(uint threads, T &tasksContainer);
 }
 }
 
@@ -106,7 +107,7 @@ bool fancon::Util::equalTo(std::initializer_list<const IT> values, const IT valu
 template<typename T>
 T fancon::Util::read(const string &path, int nFailed) {
   ifstream ifs(path);
-  T ret{};
+  T ret;
   ifs >> ret;
   ifs.close();
 
@@ -118,6 +119,7 @@ T fancon::Util::read(const string &path, int nFailed) {
 
     const char *reason = (exist) ? "filesystem or permission error" : "doesn't exist";
     LOG(llvl::debug) << "Failed to read from: " << path << " - " << reason << "; user id " << getuid();
+    return T{};
   }
 
   return ret;
@@ -154,16 +156,15 @@ void fancon::Util::moveAppend(vector<T> &src, vector<T> &dst) {
 /// \tparam T task container type
 /// \param threads Max number of threads to use
 /// \param tasksContainer Container holding tasks to be distributed among threads
-/// \return Pair (begin, end) iterators distributed to threads
+/// \return A list of iterators distributed to threads
 template<typename T>    // TODO: check iterator support
-vector<pair<typename T::iterator, typename T::iterator>> fancon::Util::distributeTasks(uint threads,
-                                                                                       T &tasksContainer) {
+vector<vector<typename T::iterator>> fancon::Util::distributeTasks(uint threads, T &tasksContainer) {
   // Cannot have more threads than tasks
   auto tasks = tasksContainer.size();
   if (tasks < threads)
     threads = static_cast<uint>(tasks);
 
-  vector<pair<typename T::iterator, typename T::iterator>> threadTasks;
+  vector<vector<typename T::iterator>> threadTasks;
   threadTasks.reserve(tasks);
 
   // Distribute base number of tasks for each thread
@@ -175,11 +176,18 @@ vector<pair<typename T::iterator, typename T::iterator>> fancon::Util::distribut
   if (tasksRem)   // insert threads that have extra tasks
     nThreadTasks.insert(nThreadTasks.end(), tasksRem, baseTasks + 1);
 
-  auto begIt = tasksContainer.begin();
+  auto it = tasksContainer.begin();
   for (const auto &nTasks : nThreadTasks) {
-    auto endIt = next(begIt, nTasks);
-    threadTasks.emplace_back(std::make_pair(begIt, endIt));
-    begIt = endIt;
+    vector<typename T::iterator> tasksVec;
+    tasksVec.reserve(nTasks);
+
+    auto end = next(it, nTasks);
+    while (it != end)
+      tasksVec.push_back(it++);
+
+    threadTasks.emplace_back(move(tasksVec));
+
+    it = end;
   }
 
   return threadTasks;

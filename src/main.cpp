@@ -271,9 +271,10 @@ void f::sendSignal(ControllerState state) {
 }
 
 int main(int argc, char *argv[]) {
-#ifdef HEAP_PROFILE
+#ifdef FANCON_PROFILE
+  ProfilerStart("fancon_full");
   HeapProfilerStart("fancon_full");
-#endif //HEAP_PROFILE
+#endif //FANCON_PROFILE
 
   vector<string> args;
   for (int i = 1; i < argc; ++i)
@@ -377,14 +378,11 @@ int main(int argc, char *argv[]) {
       auto &com = c.get();
 
       // Command requirements must be met before running
-      if (com.require_root && getuid() != 0)
+      if (com.lock && !Util::try_lock())
+        LOG(llvl::warning) << "A fancon process is already running\n";
+      else if (com.require_root && getuid() != 0)
         LOG(llvl::error) << "Please run with sudo, or as root for command: " << com.name << '\n';
-      else if (com.lock) {
-        if (!Util::locked())
-          Util::lock();
-        else
-          LOG(llvl::warning) << "A fancon process is already running\n";
-      } else
+      else
         com.func();
 
       break;
@@ -392,6 +390,7 @@ int main(int argc, char *argv[]) {
   }
 
 #ifdef HEAP_PROFILE
+  ProfilerStop();
   HeapProfilerDump("End of main");
   HeapProfilerStop();
 #endif //HEAP_PROFILE

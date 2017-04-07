@@ -87,18 +87,18 @@ ControllerState Controller::run() {
   // Start sensor & fan threads defered - to avoid data races
   controller_state = ControllerState::defered_start;
 
-  auto sensorThreadTasks = Util::distributeTasks(conf.max_threads, sensors);  // TODO: test diff when move into loop
-  for (auto &taskPair : sensorThreadTasks)
-    threads.emplace_back(thread([this, &taskPair] {
+  auto sensorThreadTasks2 = Util::distributeTasks(conf.max_threads, sensors);
+  for (auto &tasks : sensorThreadTasks2)
+    threads.emplace_back(thread([this, &tasks] {
       deferStart(sensors_wakeup);
-      readSensors(taskPair.first, taskPair.second);
+      readSensors(tasks);
     }));
 
-  auto fanThreadTasks = Util::distributeTasks(conf.max_threads, fans);
-  for (auto &taskPair : fanThreadTasks)
-    threads.emplace_back(thread([this, &taskPair] {
+  auto fanThreadTasks2 = Util::distributeTasks(conf.max_threads, fans);
+  for (auto &tasks : fanThreadTasks2)
+    threads.emplace_back(thread([this, &tasks] {
       deferStart(fans_wakeup);
-      updateFans(taskPair.first, taskPair.second);
+      updateFans(tasks);
     }));
 
   threads.shrink_to_fit();
@@ -149,32 +149,21 @@ bool Controller::validConfigLine(const string &line) {
     return *beg != '#';
 }
 
-void Controller::readSensors(sensor_container_t::iterator &beg, sensor_container_t::iterator end) {
+void Controller::readSensors(vector<sensor_container_t::iterator> &sensors) {
   while (controller_state == ControllerState::run) {
-//    auto pre = chrono::high_resolution_clock::now();
-    for (auto it = beg; it != end; ++it)
+    for (auto &it : sensors)
       (*it)->refresh();
 
-//    LOG(llvl::info) << "sensor";
-//    LOG(llvl::info) << "sensor took: " << chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - pre).count()
-//                    << " wakeup: " << (sensors_wakeup - start_timestamp).count();
     sleep_until(sensors_wakeup);
   }
 }
 
-void Controller::updateFans(fan_container_t::iterator &beg, fan_container_t::iterator &end) {
+void Controller::updateFans(vector<fan_container_t::iterator> &fans) {
   while (controller_state == ControllerState::run) {
-//    auto pre = chrono::high_resolution_clock::now();
-
     // Update fan speed if sensor's temperature has changed
-    for (auto it = beg; it != end; ++it)
+    for (auto &it : fans)
       if (it->sensor.update)
         it->fan->update(it->sensor.temp);
-
-//    LOG(llvl::info) << "fan";
-//    LOG(llvl::info) << "fan    took: "
-//                    << chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - pre).count();
-//                    << " wakeup: " << (fans_wakeup - start_timestamp).count();
 
     sleep_until(fans_wakeup);
   }
@@ -182,7 +171,6 @@ void Controller::updateFans(fan_container_t::iterator &beg, fan_container_t::ite
 
 void Controller::startThreads() {
   main_wakeup = chrono::time_point_cast<milliseconds>(chrono::steady_clock::now());
-//  start_timestamp = main_wakeup;
   controller_state = ControllerState::run;
   updateWakeupTimes();
 }

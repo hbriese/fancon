@@ -39,7 +39,7 @@ bool Util::isNum(const string &str) {
   return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
 }
 
-/// \returns
+/// \return
 /// True if lock() has been called by a process that is currently running
 bool Util::locked() {
   if (!exists(pid_file))
@@ -56,6 +56,15 @@ void Util::lock() {
     exit(EXIT_FAILURE);
   } else
     write(pid_file, getpid());
+}
+
+/// \return True if lock is acquired
+bool Util::try_lock() {
+  if (locked())
+    return false;
+
+  lock();
+  return true;
 }
 
 string Util::getDir(const string &hwID, DeviceType devType, const bool useSysFS) {

@@ -32,7 +32,6 @@ public:
   vector<thread> threads;
 
   chrono::time_point <chrono::steady_clock, milliseconds> main_wakeup, sensors_wakeup, fans_wakeup;
-//  chrono::time_point<chrono::steady_clock, milliseconds> start_timestamp;
 
   sensor_container_t sensors;
   fan_container_t fans;
@@ -45,8 +44,8 @@ public:
   static bool validConfigLine(const string &line);
 
 private:
-  void readSensors(sensor_container_t::iterator &beg, sensor_container_t::iterator end);
-  void updateFans(fan_container_t::iterator &beg, fan_container_t::iterator &end);
+  void readSensors(vector<sensor_container_t::iterator> &sensors);
+  void updateFans(vector<fan_container_t::iterator> &fans);
 
   void startThreads();
   void updateWakeupTimes();

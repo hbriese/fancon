@@ -23,12 +23,12 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPTIMIZATION_FLAG}")
 endif ()
 
-## Option for statically linking libstdc++ for distributions which provide older versions
-option(STATIC_LIBSTDC++ "Statically link libstdc++ when building with g++" OFF)
-if (STATIC_LIBSTDC++) # AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"
+## libstdc++ static linking
+option(STATIC_LIBSTDC++ "Statically link libstdc++" OFF)
+if (STATIC_LIBSTDC++)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
     message("Statically linking libstdc++")
-endif () # STATIC_LIBSTDC++
+endif ()
 
 include_directories(src)
 set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/Logging.hpp src/Logging.cpp
@@ -57,40 +57,42 @@ set(LIBS ${LIBS} ${SENSORS_LIBRARY})
 option(NVIDIA_SUPPORT "Build with NVIDIA GPU support" ON)
 if (NVIDIA_SUPPORT)
     find_package(X11)
-    find_package(NVCtrlLib)
+    find_package(NVCtrl)
 
     # ONLY X11 and XNVCtrl headers are required, libs are dynamically loaded
-    if (X11_INCLUDE_DIR AND NVCtrlLib_INCLUDE_DIR)
-        include_directories(${X11_INCLUDE_DIR} ${NVCtrlLib_INCLUDE_DIR})
+    if (X11_INCLUDE_DIR AND NVCTRL_INCLUDE_DIR)
+        include_directories(${X11_INCLUDE_DIR} ${NVCTRL_INCLUDE_DIR})
         set(LIBS ${LIBS} ${CMAKE_DL_LIBS})
         add_definitions("-DFANCON_NVIDIA_SUPPORT")
         message("NVIDIA support enabled")
     else ()
         message("NVIDIA_SUPPORT=${NVIDIA_SUPPORT} but X11 and or NVCtrl headers weren't found!")
     endif ()
-endif () # NVIDIA_SUPPORT
+endif ()
 
 ## NVML
 option(NVML_SUPPORT "Build with experimental NVML support" OFF)
 if (NVML_SUPPORT)
     find_package(NVML REQUIRED)
     set(LIBS ${LIBS} ${NVML_LIBRARY})
-    message("Experimental NVML support enabled")
     add_definitions("-DFANCON_NVML_SUPPORT_EXPERIMENTAL")
+    message("Experimental NVML support enabled")
 endif () # NVML_SUPPORT
 
-# TCMalloc - for heap profiling; ONLY available for debug builds as TCMalloc currently does not release memory
-option(TCMALLOC "Build binary using TCMalloc for all dynamic memory allocation - ONLY available for debug builds" OFF)
-find_package(TCMalloc)
-if (TCMALLOC_FOUND AND ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    set(LIBS ${LIBS} ${TCMALLOC_LIBRARIES})
-    add_definitions("-DHEAP_PROFILE")
-endif () # TCMALLOC_FOUND AND ${CMAKE_BUILD_TYPE} STREQUAL "Debug"
+## Google Perf Tools profiling
+option(PROFILE "Build debug release with support for CPU and heap profiling - REQUIRES Google Perf Tools" OFF)
+if (PROFILE AND ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    find_package(Profiler REQUIRED)
+    find_package(TCMalloc REQUIRED) # TCMalloc currently does not release memory
+    set(LIBS ${LIBS} ${PROFILER_LIBRARY} ${TCMALLOC_LIBRARIES})
+    add_definitions("-DFANCON_PROFILE")
+    message("Build with profiling")
+endif ()
 
 ## Link libraries
 target_link_libraries(${PROJECT_NAME} ${LIBS})
 
-## Run lint if debug build/
+## Run lint if debug build
 option(LINT "Run linter with debug build" OFF)
 if (${CMAKE_BUILD_TYPE} STREQUAL "Debug" AND LINT)
     set(LINT_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -std=c++${CMAKE_CXX_STANDARD}")
@@ -98,7 +100,7 @@ if (${CMAKE_BUILD_TYPE} STREQUAL "Debug" AND LINT)
     -*readability-braces-around-statements,-google-runtime-int")
     set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_CLANG_TIDY "clang-tidy"
             "-checks=${LINT_CHECKS} -- ${LINT_CXX_FLAGS}")
-endif () # ${CMAKE_BUILD_TYPE} STREQUAL "Debug" AND LINT
+endif ()
 
 ## Install
 install(TARGETS ${PROJECT_NAME}
