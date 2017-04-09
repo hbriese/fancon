@@ -1,22 +1,29 @@
 #include "Logging.hpp"
+#include <fstream>
+#include <sys/stat.h>
+
+using std::string;
 
 using namespace boost::log;
 namespace expr = boost::log::expressions;
 
 namespace {
-bool systemdListening(int fileNumber) {
+/// \return True if the file descriptor's device ID and inode number is being accessed by the systemd journal
+bool systemdAccessing(int fileDescriptor) {
+  // Get systemd journal file access list
   const char *jstreamEnv = getenv("JOURNAL_STREAM");
   if (!jstreamEnv)
     return false;
+  string js(jstreamEnv);
 
-  std::string jsEnv(jstreamEnv), stderrFN = std::to_string(fileNumber);
-  for (std::string::iterator it = jsEnv.begin(), endIt = jsEnv.end(), sep;
-       (sep = std::find(it, endIt, ':')) != endIt; it = std::next(sep)) {
-    if (std::string(it, sep) == stderrFN)
-      return true;
-  }
+  // Format of js: `device_id:inode_number`
+  struct stat s;
+  fstat(fileDescriptor, &s);
+  string fd = std::to_string(s.st_dev) + ':' + std::to_string(s.st_ino);
 
-  return false;
+  // Return true if fd is found in js
+  auto it = std::search(js.begin(), js.end(), fd.begin(), fd.end());
+  return it != js.end();
 }
 
 // TODO: replace with function returning a tuple
@@ -24,7 +31,7 @@ template<typename T>
 void setFormatter(boost::shared_ptr<boost::log::sinks::synchronous_sink<T>> sink, bool systemd) {
   if (!systemd)
     sink->set_formatter(
-        expr::format("%1% [%2%] <%3%> - %4%")
+        expr::format("%1% [%2%] <%3%> %4%")
             % expr::format_date_time<boost::posix_time::ptime>(aux::default_attribute_names::timestamp(), "%m/%d %H:%M")
             % getpid()
             % expr::attr<boost::log::trivial::severity_level>(aux::default_attribute_names::severity())
@@ -32,7 +39,7 @@ void setFormatter(boost::shared_ptr<boost::log::sinks::synchronous_sink<T>> sink
     );
   else
     sink->set_formatter(
-        expr::format("<%1%> - %2%")
+        expr::format("<%1%> %2%")
             % expr::attr<boost::log::trivial::severity_level>(aux::default_attribute_names::severity())
             % expr::smessage
     );
@@ -43,18 +50,19 @@ BOOST_LOG_GLOBAL_LOGGER_INIT(logger, logger_t) {
   logger_t lg;
   core::get()->add_global_attribute(aux::default_attribute_names::timestamp(), attributes::local_clock());
 
-  bool systemd = systemdListening(STDERR_FILENO);
+  bool systemd = systemdAccessing(STDERR_FILENO);
 
-  // Systemd-journal has it's own format attributes, so use a simpler formatter if outputting there
-  if (systemd || (isatty(STDERR_FILENO) > 0)) {
+  // Add cout & cerr sink if they are being by a TTY or systemd's journal
+  if (systemd || isatty(STDERR_FILENO)) {
     // llvl::info -> cout
     auto coutSink = add_console_log(std::cout, keywords::auto_flush = true,  // Unspecified format is "%Message%"
                                     keywords::filter = (trivial::severity == llvl::info));
     core::get()->add_sink(coutSink);
 
-    // non llvl::info -> cerr
+    // != llvl::info -> cerr
     auto cerrSink = add_console_log(std::cerr, keywords::auto_flush = true,
                                     keywords::filter = (trivial::severity != llvl::info));
+    // Systemd-journal has it's own format attributes, so use a simpler formatter when outputting there
     setFormatter(cerrSink, systemd);
     core::get()->add_sink(cerrSink);
   }

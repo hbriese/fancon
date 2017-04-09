@@ -2,6 +2,8 @@
 
 ### Bugs
 
+- Get xauth file & xdisplay from files in /etc/fancon.d/
+
 ### Features
 
 - Add support for AMD GPU fans

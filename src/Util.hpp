@@ -41,8 +41,8 @@ fancon::DeviceType operator|(fancon::DeviceType lhs, fancon::DeviceType rhs);
 fancon::DeviceType operator&(fancon::DeviceType lhs, fancon::DeviceType rhs);
 
 namespace Util {
-constexpr const char *pid_file = "/var/run/fancon.pid";
-constexpr const char *conf_path = "/etc/fancon.conf";
+constexpr const char *pid_path = "/var/run/fancon.pid";
+constexpr const char *config_path = "/etc/fancon.conf";
 constexpr const char *fancon_dir = "/etc/fancon.d/";
 constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
 constexpr const char *fancon_hwmon_path = "/etc/fancon.d/hwmon";

@@ -157,7 +157,7 @@ void FanInterface::verifyPoints(const UID &fanUID) {
 
   /// \return True if <= max or >= min and non-zero
   auto withinBounds =
-      [&invalidPoints, &ignoring](const fan::Point &p, const auto &val, const auto &min, const auto &max) {
+      [&](const fan::Point &p, const auto &val, const auto &min, const auto &max) {
         if (val > max || ((val < min) & (val != 0))) {
           ignoring << ' ' << p;
           return !(invalidPoints = true);
@@ -313,13 +313,21 @@ pwm_t FanInterface::getPWMStart(FanState &state, const milliseconds &waitTime) {
 //  state = FanState::stopped;
 
 //  assert(state == FanState::stopped);
+  // Find PWM at which fan starts
   pwm_t pwmStart = 0;
   while (readRPM() <= 0) {
     writePWM((pwmStart += 5));
     sleep_for(waitTime);
   }
 
-  if (readPWM() != pwmStart)  // pwm has changed since writing it to device
+  // Increase start PWM by an arbitrary amount to ensure start
+  const pwm_t arbInc = 10;
+  if ((pwmStart + arbInc) <= pwm_max_abs)
+    pwmStart += arbInc;
+  else
+    pwmStart = pwm_max_abs;
+
+  if (readPWM() != pwmStart)  // PWM has changed since writing it to device
     LOG(llvl::debug) << "PWM control is not exclusive - this may cause inaccurate testing results";
 
   state = FanState::unknown;

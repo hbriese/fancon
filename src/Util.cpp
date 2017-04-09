@@ -22,7 +22,7 @@ int Util::lastNum(const string &str) {
   auto endIt = (endDigRevIt + 1).base();
 
   bool numFound = false;
-  auto begDigRevIt = std::find_if(endDigRevIt, str.rend(), [&numFound](const char &c) {
+  auto begDigRevIt = std::find_if(endDigRevIt, str.rend(), [&](const char &c) {
     if (std::isdigit(c))
       numFound = true;
     return numFound && !std::isdigit(c);
@@ -42,10 +42,10 @@ bool Util::isNum(const string &str) {
 /// \return
 /// True if lock() has been called by a process that is currently running
 bool Util::locked() {
-  if (!exists(pid_file))
+  if (!exists(pid_path))
     return false;
 
-  auto pid = read < pid_t > (pid_file);
+  auto pid = read < pid_t > (pid_path);
   return exists(string("/proc/") + to_string(pid));
 //      && pid != getpid();
 }
@@ -55,7 +55,7 @@ void Util::lock() {
     LOG(llvl::error) << "A fancon process is already running, please close it to continue";
     exit(EXIT_FAILURE);
   } else
-    write(pid_file, getpid());
+    write(pid_path, getpid());
 }
 
 /// \return True if lock is acquired

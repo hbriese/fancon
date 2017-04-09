@@ -49,7 +49,7 @@ Controller::Controller(const string &configPath) {
 
     // Find sensors if it has already been defined
     auto sIt = find_if(sensors.begin(), sensors.end(),
-                       [&sensorUID](const unique_ptr<SensorInterface> &s) { return *s == sensorUID; });
+                       [&](const unique_ptr<SensorInterface> &s) { return *s == sensorUID; });
 
     // Add the sensor if it is missing, and update the sensor iterator
     if (sIt == sensors.end()) {
@@ -103,7 +103,7 @@ ControllerState Controller::run() {
 
   threads.shrink_to_fit();
 
-  LOG(llvl::debug) << "fancond started with " << threads.size() << " threads";
+  LOG(llvl::debug) << "Started with " << threads.size() << " threads";
 
   // Synchronize thread wake-up times
   startThreads();

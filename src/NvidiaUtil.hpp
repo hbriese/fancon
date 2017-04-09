@@ -84,7 +84,7 @@ struct DisplayWrapper {
 
 extern const bool support;
 bool supported();
-void enableFanControlCoolbit();    // Doesn't work in snap confined
+bool enableFanControlCoolbit();    // Doesn't work in snap confined
 
 int getNumGPUs();
 vector<int> nvProcessBinaryData(const unsigned char *data, const int len);

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.3)
-set(CMAKE_CXX_STANDARD 14)  # TODO: C++17 support in CMake 3.8 (also cmake_minimum_required -> 3.8)
+set(CMAKE_CXX_STANDARD 14)  # TODO: C++17 when gcc 7 & clang 4 debain testing release; cmake_minimum_required -> 3.8
 project(fancon)
 set(PACKAGE_AUTHOR "Hayden Briese <haydenbriese@gmail.com>")
 
@@ -81,7 +81,7 @@ endif ()
 
 ## Google Perf Tools profiling
 option(PROFILE "Build debug release with support for CPU and heap profiling - REQUIRES Google Perf Tools" OFF)
-if (PROFILE AND ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+if (PROFILE AND CMAKE_BUILD_TYPE STREQUAL "Debug")
     find_package(Profiler REQUIRED)
     find_package(TCMalloc REQUIRED) # TCMalloc currently does not release memory
     set(LIBS ${LIBS} ${PROFILER_LIBRARY} ${TCMALLOC_LIBRARIES})

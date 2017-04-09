@@ -2,21 +2,40 @@
 
 [![License](http://img.shields.io/badge/license-APACHE2-blue.svg)]()
 
-fancon is a Linux fan control daemon and fan testing tool, allowing custom speed-temperature curves for fans, controllable by either PWM or RPM, or percentage.
+A Linux fan control daemon and fan testing tool, allowing custom speed-temperature curves for fans, controllable by either PWM or RPM, or percentage.
   - High performance
   - Low memory usage
   - Support for system fans, and NVIDIA GPUs
 
-Low overhead and easy configuration are the main goals of fancon, this is achieved by:
-  - Use of C++ and optimized STL functions
+Low overhead and easy, meaningful configuration are the main goals of fancon, this is achieved by:
   - Extensive multi-threading support
-  - Standard text file configuration - at /etc/fancon.conf
-  - Fan characteristic testing - allowing more meaningful speed configuration such as through fan RPM, not just PWM control like similar tools
-  - Support for turing off fans (for example, if not under load) and correct handling of required fan PWM for re-starting
+  - Use of C++ and performance profiling
+  - Standard text file configuration - /etc/fancon.conf
+  - Fan characteristic testing - allowing more meaningful speed configuration such as through fan RPM or percentage, not just PWM like similar tools
+  - Speed percentage support (e.g. 65%) rather than cryptic fan-dependent PWM values (e.g. 142)
+  - Fans may be turned off (for example, when system is not under load) with a guaranteed start when they are required
 
 
 ### Installation
-##### Install fancon snap:
+##### Build from source:
+Tested with both gcc & clang
+
+```sh
+$ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers lm-sensors libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libsm-dev
+$ sudo apt-get install libxnvctrl-dev libx11-dev
+$ git clone https://github.com/HBriese/fancon.git && cd fancon
+$ mkdir build; cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j && sudo make install
+```
+
+| CMake Option     | Default | Description                                                                                 |
+|------------------|---------|---------------------------------------------------------------------------------------------|
+| NVIDIA_SUPPORT   | ON      | Support for NVIDIA GPUs                                                                     |
+| STATIC_LIBSTDC++ | OFF     | Statically link libstdc++ - useful for binary distribution                                  |
+| OPTIMIZE_DEBUG   | OFF     | Enable compiler optimizations on debug build                                                |
+| PROFILE          | OFF     | Support for Google Perf Tools CPU & heap profilers - for debug builds only, due to TCMalloc |
+| LINT             | OFF     | Run lint checker (Clang-Tidy)                                                               |
+
+##### Install from snap (currently not recommended):
 
 Snap [installation instructions](https://snapcraft.io/docs/core/install)
 
@@ -25,30 +44,12 @@ Snap [installation instructions](https://snapcraft.io/docs/core/install)
 $ sudo snap install fancon
 ```
 
-###### git master
-```sh
-$ sudo snap install fancon --candidate
-```
-
-##### Build from source:
-gcc may be substituted for clang
-
-```sh
-$ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers lm-sensors libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libsm-dev
-$ sudo apt-get install libxnvctrl-dev libx11-dev
-$ git clone https://github.com/HBriese/fancon.git && cd fancon
-$ mkdir build; cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make && sudo make install
-```
-CMake configure options:
-- '-DNVIDIA_SUPPORT=OFF' (Default ON) disable support for NVIDIA GPUs - libxnvctrl-dev & libx11-dev are no longer required
-- '-DSTATIC_LIBSTDC++=ON' Statically link libstdc++, useful for binary distribution to older systems/distributions
-
 ### Contributions
 
 Want to contribute?
 Pull requests, issues and feature requests are welcome.
 
-Contributing developers please see TODO.md, or [email me](mailto:haydenbriese@gmail.com?subject=fancon).
+Contributing developers please see TODO.md, or send an [email](mailto:haydenbriese@gmail.com?subject=fancon).
 
 The code is formatted to the [LLVM style](http://clang.llvm.org/docs/ClangFormatStyleOptions.html) using clang-format.
 
@@ -58,7 +59,7 @@ The code is formatted to the [LLVM style](http://clang.llvm.org/docs/ClangFormat
 Copyright 2017 Hayden Briese
 
 Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
+you may not use fancon except in compliance with the License.
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0

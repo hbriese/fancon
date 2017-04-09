@@ -9,8 +9,8 @@ void f::help() {
     << "Available commands (and options <default>):\n"
     << "-lf list-fans      Lists the UIDs of all fans\n"
     << "-ls list-sensors   List the UIDs of all temperature sensors\n"
-    << "-wc write-config   Appends missing fan UIDs to " << conf_path << '\n'
-    << "test               Tests the fan characteristic of all fans, required for usage of RPM in " << conf_path
+    << "-wc write-config   Appends missing fan UIDs to " << config_path << '\n'
+    << "test               Tests the fan characteristic of all fans, required for usage of RPM in " << config_path
     << '\n'
     << "  -r retries 4     Number of retries a test does before failure, increase if you think a failing fan can pass!\n"
     << "start              Starts the fancon daemon\n"
@@ -24,6 +24,44 @@ void f::help() {
     << "Logging: Logs are stored at " << fancon::log::log_path << " or in the systemd journal (if applicable)\n"
     << "NVIDIA Support: Install the following packages (libraries): "
     << "libx11-6 (libX11.so); libxnvctrl0 (libXNVCtrl.so)";
+}
+
+void f::suggestions(const char *fanconDir, const char *configPath) {
+  // Constants to modify console text font
+  const char *bold = "\033[1m", *red = "\033[31m", *resetFont = "\033[0m";
+
+  const bool suggestTest = !exists(fanconDir),
+      suggestConfig = !exists(configPath);
+
+  if (suggestTest || suggestConfig) {
+    std::ostringstream messages;
+    int maxSize{};
+
+    if (suggestTest) {
+      constexpr const char *m =
+          "Run `sudo fancon test` to be able to configure fan profiles using RPM, or RPM percentage";
+      constexpr const auto mSize = static_cast<int>(strlength(m));
+//      constexpr const auto mSize = static_cast<int>(std::char_traits<char>::length(m)); // TODO: C++17
+      if (mSize > maxSize)
+        maxSize = mSize;
+
+      messages << bold << red << m << '\n';
+    }
+
+    if (suggestConfig) {
+      const string m =
+          string("Edit ") + configPath + " to configure fan profiles, referencing `sudo fancon list-sensors`";
+      const auto mSize = static_cast<int>(m.size());
+      if (mSize > maxSize)
+        maxSize = mSize;
+
+      messages << resetFont << red << m << '\n';
+    }
+
+    LOG(llvl::info) << bold << setw(maxSize) << std::setfill('-') << left << '-' << '\n'
+                    << resetFont << messages.str() << resetFont
+                    << bold << setw(maxSize) << std::setfill('-') << left << '-' << '\n' << resetFont;
+  }
 }
 
 void f::listFans() {
@@ -83,7 +121,7 @@ void f::listSensors() {
 }
 
 void f::testFans(uint testRetries, bool singleThreaded) {
-  appendConfig(conf_path);
+  appendConfig(config_path);
 
   auto fanUIDs = Find::getFanUIDs();
   if (fanUIDs.empty()) {
@@ -245,7 +283,7 @@ void f::start(const bool fork_) {
     exitParent(pid);
 
     // refresh pid file to reflect forks
-    write<pid_t>(Util::pid_file, getpid());
+    write<pid_t>(Util::pid_path, getpid());
   }
 
   // Set file mode
@@ -255,9 +293,11 @@ void f::start(const bool fork_) {
   if (chdir("/") < 0)
     LOG(llvl::warning) << "Failed to set working directory";
 
-  Controller controller(conf_path);
-  while (controller.run() == ControllerState::reload)
-    controller.reload(conf_path);
+  Controller controller(config_path);
+  while (controller.run() == ControllerState::reload) {
+    controller.reload(config_path);
+    LOG(llvl::info) << "Reloading...";
+  }
 
   return;
 }
@@ -265,7 +305,7 @@ void f::start(const bool fork_) {
 void f::sendSignal(ControllerState state) {
   // use kill() to send signal to the process
   if (Util::locked())
-    kill(read<pid_t>(Util::pid_file), static_cast<int>(state));
+    kill(read<pid_t>(Util::pid_path), static_cast<int>(state));
   else if (state == ControllerState::reload)
     LOG(llvl::info) << "Cannot reload: fancond is not running";
 }
@@ -279,26 +319,13 @@ bool f::Option::setIfValid(const string &str) {
 
 int main(int argc, char *argv[]) {
 #ifdef FANCON_PROFILE
-  ProfilerStart("fancon_full");
-  HeapProfilerStart("fancon_full");
+  ProfilerStart("fancon_profiler");
+  HeapProfilerStart("fancon_heap_profiler");
 #endif //FANCON_PROFILE
 
   vector<string> args;
   for (int i = 1; i < argc; ++i)
     args.push_back(string(argv[i]));
-
-  if (!exists(Util::fancon_dir) || !exists(conf_path)) {
-    create_directory(Util::fancon_dir);
-    const char *bold = "\033[1m", *red = "\033[31m", *resetFont = "\033[0m";
-    const string message =
-        "First use: run 'sudo fancon test && sudo fancon -lf -ls', then configure fan profiles in /etc/fancon.conf";
-    LOG(llvl::info)
-      << bold << setw(static_cast<int>(message.size())) << std::setfill('-') << left << '-' << '\n'
-      << red << message << resetFont << '\n'
-      << bold << setw(static_cast<int>(message.size())) << left << '-' << resetFont << "\n\n";
-
-    // TODO: Offer to run `test`
-  }
 
   // Options and commands
   f::Option verbose("verbose", "v"), quiet("quiet", "q"),
@@ -310,7 +337,7 @@ int main(int argc, char *argv[]) {
   f::Command help("help", "", &f::help, false, false, args.empty()),
       list_fans("list-fans", "lf", &f::listFans),
       list_sensors("list-sensors", "ls", &f::listSensors),
-      write_config("write-config", "wc", [] { f::appendConfig(conf_path); }),
+      write_config("write-config", "wc", [] { f::appendConfig(config_path); }),
       test("test", "", [&retries, &threads] {
     f::testFans((retries.called && retries.val > 0) ? retries.val : 4,
                 (threads.called && threads.val == 1));
@@ -334,14 +361,14 @@ int main(int argc, char *argv[]) {
     std::transform(a->begin(), a->end(), a->begin(), ::tolower);
 
     // Search commands
-    auto cIt_tc = find_if(commands.begin(), commands.end(), [&a](auto &c) { return c.get() == *a; });
+    auto cIt_tc = find_if(commands.begin(), commands.end(), [&](auto &c) { return c.get() == *a; });
     if (cIt_tc != commands.end()) {
       cIt_tc->get().called = true;
       continue;
     }
 
     // Search options
-    auto oIt = find_if(options.begin(), options.end(), [&a](auto &o) { return o.get() == *a; });
+    auto oIt = find_if(options.begin(), options.end(), [&](auto &o) { return o.get() == *a; });
     if (oIt != options.end()) {
       auto &o = oIt->get();
 
@@ -377,6 +404,9 @@ int main(int argc, char *argv[]) {
     logLevel = llvl::error;
   fancon::log::setLevel(logLevel);
 
+  // Suggest usage
+  f::suggestions(Util::fancon_dir, config_path);
+
   // Run called commands
   for (const auto &c : commands) {
     if (c.get().called) {
@@ -394,11 +424,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
-#ifdef HEAP_PROFILE
-  ProfilerStop();
-  HeapProfilerDump("End of main");
+#ifdef FANCON_PROFILE
   HeapProfilerStop();
-#endif //HEAP_PROFILE
+  ProfilerStop();
+#endif //FANCON_PROFILE
 
   return 0;
 }

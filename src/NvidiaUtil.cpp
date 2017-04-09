@@ -55,9 +55,9 @@ bool NV::DisplayWrapper::open(string da, string xa) {
   if (!(dp = xlib.OpenDisplay(da.c_str()))) {
     stringstream err;
     if (forcedDa)   // da.empty() == true   // TODO: review check - guessed da may be correct
-      err << "Set \"display=\" in " << Util::conf_path << " to your display (echo $" << denv << ')';
+      err << "Set \"display=\" in " << Util::config_path << " to your display (echo $" << denv << ')';
     if (!getenv(xaenv))
-      err << "Set \"xauthority=\" in " << Util::conf_path << " to your .Xauthority file (echo $" << xaenv << ')';
+      err << "Set \"xauthority=\" in " << Util::config_path << " to your .Xauthority file (echo $" << xaenv << ')';
 
     return false;
   }
@@ -96,49 +96,62 @@ bool NV::supported() {
   } else if ((major < 1) || (major == 1 && minor < 9))  // XNVCTRL must be at least v1.9
     LOG(llvl::warning) << "NV-CONTROL X version is not officially supported (too old!); please use v1.9 or higher";
 
+  // Check coolbits value, actual change required restart - ONLY if run in a terminal, so user knows to restart
+  if (isatty(STDERR_FILENO) && enableFanControlCoolbit()) {
+    LOG(llvl::warning) << "RESTART system (or X11) to use NVIDIA fan control - fan control coolbits value enabled";
+    return false;
+  }
+
   return true;
 }
 
-void NV::enableFanControlCoolbit() {
+/// \return True if the system's coolbit value has been changed
+bool NV::enableFanControlCoolbit() {
   // TODO: find and set Coolbits value without 'nvidia-xconfig' - for when not available (e.g. in snap confinement)
-  string command("sudo nvidia-xconfig -t | grep Coolbits");
-  redi::pstream ips(command);
+  redi::pstream ips("sudo nvidia-xconfig -t | grep Coolbits");
   string l;
   std::getline(ips, l);
 
   // Exit early with message if nvidia-xconfig isn't found
   if (l.empty()) {
-    LOG(llvl::info) << "nvidia-xconfig could not be found, either install it, or set coolbits value manually";
-    return;
+    LOG(llvl::info) << "nvidia-xconfig could not be found, either install it, or set the coolbits value manually";
+    return false;
   }
 
-  int iv = Util::lastNum(l);  // Initial value
-  int cv(iv);   // Current val
+  int initv = Util::lastNum(l),
+      curv = initv;
 
   const int nBits = 5;
   const int fcBit = 2;    // 4
-  int cbV[nBits] = {1, 2, 4, 8, 16};  // pow(2, bit)
-  int cbS[nBits]{0};
+  int cbVal[nBits] = {1, 2, 4, 8, 16};  // bit^2
+  bool cbSet[nBits]{0};
 
+  // Determine set coolbit values
   for (auto i = nBits - 1; i >= 0; --i)
-    if ((cbS[i] = (cv / cbV[i]) >= 1))
-      cv -= cbV[i];
+    if ((cbSet[i] = (curv / cbVal[i]) >= 1))
+      curv -= cbVal[i];
 
-  int nv = iv;
-  if (cv > 0) {
+  // Value malformed if there are remaining 'bits'
+  auto newv = initv;
+  if (curv > 0) {
     LOG(llvl::error) << "Invalid coolbits value, fixing with fan control bit set";
-    nv -= cv;
+    newv -= curv;
   }
 
-  if (!cbS[fcBit])
-    nv += cbV[fcBit];
+  // Increment coolbits value if manual fan control coolbit not set
+  if (!cbSet[fcBit])
+    newv += cbVal[fcBit];
 
-  if (nv != iv) {
-    command = string("sudo nvidia-xconfig --cool-bits=") + to_string(nv) + " > /dev/null";
+  // Write new value if changes to the initial value have been made
+  bool ret;
+  if ((ret = newv != initv)) {
+    auto command = string("sudo nvidia-xconfig --cool-bits=") + to_string(newv) + " > /dev/null";
     if (system(command.c_str()) != 0)
-      LOG(llvl::error) << "Failed to write coolbits value, nvidia fan test may fail!";
+      LOG(llvl::error) << "Failed to write coolbits value, nvidia fan control may fail!";
     LOG(llvl::info) << "Reboot, or restart your display server to enable NVIDIA fan control";
   }
+
+  return ret;
 }
 
 int NV::getNumGPUs() {

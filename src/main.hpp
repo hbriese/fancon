@@ -25,7 +25,7 @@ using fancon::Find;
 using fancon::Controller;
 using fancon::ControllerState;
 using fancon::FanTestResult;
-using fancon::Util::conf_path;
+using fancon::Util::config_path;
 
 namespace Util = fancon::Util;
 
@@ -33,6 +33,8 @@ int main(int argc, char *argv[]);
 
 namespace fancon {
 void help();
+void suggestions(const char *fanconDir, const char *configPath);
+constexpr size_t strlength(const char *s) { return (*s == 0) ? 0 : strlength(s + 1) + 1; } // TODO: C++17 - remove
 
 void listFans();
 void listSensors();
