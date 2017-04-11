@@ -216,8 +216,8 @@ void f::appendConfig(const string &path) {
   ofstream ofs(path, std::ios_base::app);
 
   auto writeTop = [](ostream &os) {
-    os << "# Update is the seconds between speed changes\n"
-       << "# Dynamic interpolates between points, e.g. [30:20%] [40:30%], @ 35°C, RPM is 25%\n"
+    os << "# Interval is the seconds between fan speed changes\n"
+       << "# Dynamic enables interpolation between points, e.g. [30:20%] [40:30%], @ 35°C, RPM is 25%\n"
        << controller::Config() << "\n\n"
        << "# Missing <Fan UID>'s are appended with 'fancon write-config' or manually with 'fancon list-fans'\n"
        << "# <Sensor UID>'s can be enumerated with 'fancon list-sensors'\n"
@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
   // Options and commands
   f::Option verbose("verbose", "v"), quiet("quiet", "q"),
       threads("threads", "t", true), fork("fork", "f"), retries("retries", "r", true);
-  f::Option debug("debug", "d");    /// <\deprecated Use verbose
+  f::Option debug("debug", "d");    /// <\deprecated Use verbose  TODO: remove 07/2017
   vector<reference_wrapper<f::Option>> options
       {verbose, debug, quiet, threads, fork, retries};
 
@@ -392,7 +392,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Set log level
-  if (debug.called) {   // DEPRECATED - TODO: remove 07/2017
+  if (debug.called) {
     verbose.called = true;
     LOG(llvl::warning) << "'-debug' option is deprecated, and WILL BE REMOVED. Use '-verbose'";
   }

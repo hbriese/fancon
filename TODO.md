@@ -1,5 +1,7 @@
 ##TODO
 
+- Arch package
+
 ### Bugs
 
 - Get xauth file & xdisplay from files in /etc/fancon.d/

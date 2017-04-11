@@ -41,6 +41,7 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
   InputValue dynamicVal(in, dynamic_prefix, [](const char &ch) { return !std::isalpha(ch); });
   InputValue updateVal(in, update_prefix, [](const char &ch) { return !std::isdigit(ch); });
   InputValue threadsVal(in, threads_prefix, [](const char &ch) { return !std::isdigit(ch); });
+  InputValue updateValDeprecated(in, update_prefix_deprecated, [](const char &ch) { return !std::isdigit(ch); });
 
   // Fail if no values are found
   if (!dynamicVal.found && !updateVal.found && !threadsVal.found) {
@@ -57,10 +58,17 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
     c.dynamic = (dynamicStr != "false" || dynamicStr != "0");
   }
 
-  if (updateVal.found) {
+  if (updateVal.found || updateValDeprecated.found) {
     // chrono::duration doesn't define operator>>
     decltype(c.update_interval.count()) update_interval{0};
-    updateVal.setIfValid(update_interval);
+
+    if (updateVal.found)
+      updateVal.setIfValid(update_interval);
+    else {
+      updateValDeprecated.setIfValid(update_interval);
+      LOG(llvl::warning) << update_prefix_deprecated << " in " << Util::config_path
+                         << " is deprecated, and WILL BE REMOVED. Use " << update_prefix;
+    }
 
     if (update_interval > 0)
       c.update_interval = seconds(update_interval);

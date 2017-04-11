@@ -27,7 +27,7 @@ $ sudo dpkg -i ./fancon_0.10.1_amd64.deb
 
 ###### Fedora
 ```sh
-$ wget https://github.com/HBriese/fancon/releases/download/0.10.1/fancon-0.10.1-2.x86_64.rpm
+$ wget https://github.com/hbriese/fancon/releases/download/0.10.1/fancon-0.10.1-2.x86_64.rpm
 $ sudo yum –nogpgcheck install ./fancon-0.10.1-2.x86_64.rpm
 ```
 

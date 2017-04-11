@@ -137,8 +137,9 @@ namespace serialization_constants {   // TODO: Review name
 namespace controller_config {
 const string
     dynamic_prefix = "dynamic=",
-    update_prefix = "update=",
+    update_prefix = "interval=",
     threads_prefix = "threads=";
+const string update_prefix_deprecated = "update=";  /// <\deprecated Use update_prefix  // TODO: remove 08/17
 }
 
 namespace point {
