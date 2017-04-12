@@ -11,16 +11,18 @@
 - Add support for AMD GPU fans
 - Add options: new/exclude fan testing using regular expression option
 - CLI fan point configuration graph
-- Add 'precise' option for more accurate RPM control
-- Time change per rpm (use stop_time?)
-- Add display & xauth options to config file
+- qt configuration
 - Check UID chip name against chip
 - Better fail checking - exists(pwmX, rpmX, (?) pwmX_enable)
-- Remove fan when control has been lost
+- Remove fan when control has been lost (maybe??)
+- Add 'precise' option for more accurate RPM control
+- Auto-config option - copy current controller configuration
+- Remove '[' and ']' requirement from fan point
+- Check for NVIDIA hardware, and recommend libs for nvidia support
 
 ### Performance 
 
-- Test between "sed 's/^.*: //'" and "awk '{print $4}'"
+- Optimize X11 auth & display search
 - Better fan update search (starting from last used iterator) - requires storing last iterator
 
 ### Refactoring

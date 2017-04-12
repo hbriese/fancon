@@ -111,7 +111,7 @@ T fancon::Util::read(const string &path, int nFailed) {
   ifs >> ret;
   ifs.close();
 
-  if (ifs.fail()) {
+  if (!ifs) {
     auto exist = exists(path);
     // Retry 3 times if file exists
     if (exist && nFailed <= 3)
@@ -131,7 +131,7 @@ bool fancon::Util::write(const string &path, T val, int nFailed) {
   ofs << val;
   ofs.close();
 
-  if (ofs.fail()) {
+  if (!ofs) {
     if (nFailed <= 3)   // retry 3 times
       return write<T>(path, move(val), ++nFailed);
 

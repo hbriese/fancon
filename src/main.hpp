@@ -32,6 +32,8 @@ namespace Util = fancon::Util;
 int main(int argc, char *argv[]);
 
 namespace fancon {
+constexpr const __mode_t default_umask{002};    /// <\var 664 (rw-rw-r--) files; 775 (rwxrwxr-x) directories
+
 void help();
 void suggestions(const char *fanconDir, const char *configPath);
 constexpr size_t strlength(const char *s) { return (*s == 0) ? 0 : strlength(s + 1) + 1; } // TODO: C++17 - remove

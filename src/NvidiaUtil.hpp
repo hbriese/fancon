@@ -16,30 +16,17 @@
 
 namespace fancon {
 namespace NV {
-#define GET_SYMBOL(_proc, _name)                               \
-    _proc = (decltype(_proc)) dlsym(handle, _name);            \
-    if (!_proc)                                                \
-        LOG(llvl::debug) << "Failed to load symbol " << _name; \
-
-struct DynamicLibrary {
-  DynamicLibrary(const char *file)
-      : handle(dlopen(file, RTLD_LAZY | RTLD_LOCAL)) {
-    if (!handle)
-      LOG(llvl::debug) << "Failed to load " << file << ": " << dlerror() << "; see `fancon --help` for more info";
-  }
+class DynamicLibrary {
+public:
+  DynamicLibrary(const char *file);
   ~DynamicLibrary() { dlclose(handle); }
 
+protected:
   void *handle;
 };
 
 struct LibX11 : public DynamicLibrary {
-  LibX11() : DynamicLibrary("libX11.so") {
-    if (handle) {
-      GET_SYMBOL(OpenDisplay, "XOpenDisplay");
-      GET_SYMBOL(CloseDisplay, "XCloseDisplay");
-      GET_SYMBOL(InitThreads, "XInitThreads");
-    }
-  }
+  LibX11();
 
   // Function names exclude the 'X' prefix
   decltype(XOpenDisplay)    (*OpenDisplay);
@@ -48,17 +35,7 @@ struct LibX11 : public DynamicLibrary {
 } extern xlib;
 
 struct LibXNvCtrl : public DynamicLibrary {
-  LibXNvCtrl() : DynamicLibrary("libXNVCtrl.so") {
-    if (handle) {
-      GET_SYMBOL(QueryExtension, "XNVCTRLQueryExtension");
-      GET_SYMBOL(QueryVersion, "XNVCTRLQueryVersion");
-      GET_SYMBOL(QueryTargetCount, "XNVCTRLQueryTargetCount");
-      GET_SYMBOL(QueryTargetBinaryData, "XNVCTRLQueryTargetBinaryData");
-      GET_SYMBOL(QueryTargetStringAttribute, "XNVCTRLQueryTargetStringAttribute");
-      GET_SYMBOL(QueryTargetAttribute, "XNVCTRLQueryTargetAttribute");
-      GET_SYMBOL(SetTargetAttributeAndGetStatus, "XNVCTRLSetTargetAttributeAndGetStatus");
-    }
-  }
+  LibXNvCtrl();
 
   // Function names exclude the "XNVCTRL" prefix
   decltype(XNVCTRLQueryExtension)                   (*QueryExtension);
@@ -69,17 +46,18 @@ struct LibXNvCtrl : public DynamicLibrary {
   decltype(XNVCTRLQueryTargetAttribute)             (*QueryTargetAttribute);
   decltype(XNVCTRLSetTargetAttributeAndGetStatus)   (*SetTargetAttributeAndGetStatus);
 } extern xnvlib;
-#undef GET_SYMBOL
 
 struct DisplayWrapper {
-  DisplayWrapper(Display *dsp) { dp = dsp; }
+  DisplayWrapper();
   ~DisplayWrapper() {
     if (dp)
       xlib.CloseDisplay(dp);
   }
+
   Display *operator*();
-  Display *dp;
-  bool open(string display, string xauthority);
+  inline bool connected() { return dp != nullptr; }
+
+  Display *dp = nullptr;
 } extern dw;
 
 extern const bool support;

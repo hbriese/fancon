@@ -3,19 +3,20 @@
 namespace f = fancon;
 
 void f::help() {
+  using fancon::serialization_constants::controller_config::threads_prefix;
+
   LOG(llvl::info)
     << "Usage:\n"
     << "  fancon <command> [options]\n\n"
     << "Available commands (and options <default>):\n"
-    << "-lf list-fans      Lists the UIDs of all fans\n"
-    << "-ls list-sensors   List the UIDs of all temperature sensors\n"
-    << "-wc write-config   Appends missing fan UIDs to " << config_path << '\n'
-    << "test               Tests the fan characteristic of all fans, required for usage of RPM in " << config_path
-    << '\n'
-    << "  -r retries 4     Number of retries a test does before failure, increase if you think a failing fan can pass!\n"
+    << "list-fans     -lf  Lists the UIDs of all fans\n"
+    << "list-sensors  -ls  List the UIDs of all sensors\n"
+    << "write-config  -wc  Appends missing fan UIDs to " << config_path << '\n'
+    << "test               Tests the characteristic of all fans (REQUIRED for RPM / percentage configuration)\n"
+    << "  -r retries 4     Retry attempts for a failing test, increase if you think a failing fan can pass!\n"
     << "start              Starts the fancon daemon\n"
     << "  -f fork          Forks off the parent process\n"
-    << "  -t threads       Ignores \"threads=\" in /etc/fancon.conf and sets maximum number of threads to run\n"
+    << "  -t threads       Override \"" << threads_prefix << "\" in " << config_path << '\n'
     << "stop               Stops the fancon daemon\n"
     << "reload             Reloads the fancon daemon\n\n"
     << "Global options:\n"
@@ -59,7 +60,7 @@ void f::suggestions(const char *fanconDir, const char *configPath) {
     }
 
     LOG(llvl::info) << bold << setw(maxSize) << std::setfill('-') << left << '-' << '\n'
-                    << resetFont << messages.str() << resetFont
+                    << resetFont << messages.rdbuf() << resetFont
                     << bold << setw(maxSize) << std::setfill('-') << left << '-' << '\n' << resetFont;
   }
 }
@@ -85,8 +86,8 @@ void f::listFans() {
     if (p.tested()) {
       sst.str("");
       // Read stored data about device without instantiating it
-      sst << read<int>(p.rpm_min_pf, hwID, uid.type) << " - " << read<int>(p.rpm_max_pf, hwID, uid.type);
-      ss << setw(scw) << left << sst.str() << read<int>(p.pwm_min_pf, hwID, uid.type) << " (or 0)";
+      sst << read<rpm_t>(p.rpm_min_pf, hwID, uid.type) << " - " << read<rpm_t>(p.rpm_max_pf, hwID, uid.type);
+      ss << setw(scw) << left << sst.str() << read<pwm_t>(p.pwm_min_pf, hwID, uid.type) << " (or 0)";
     } else
       untested = true;
 
@@ -121,6 +122,7 @@ void f::listSensors() {
 }
 
 void f::testFans(uint testRetries, bool singleThreaded) {
+  umask(default_umask);
   appendConfig(config_path);
 
   auto fanUIDs = Find::getFanUIDs();
@@ -179,6 +181,7 @@ void f::testFan(const UID &uid, unique_ptr<FanInterface> &&fan, uint retries) {
 
 /// \bug ifstream failbit, or badbit is set during read, consequently reporting a fail to the user
 void f::appendConfig(const string &path) {
+  umask(default_umask);
   std::ifstream ifs(path);
 
   auto allUIDs = Find::getFanUIDs();
@@ -222,18 +225,19 @@ void f::appendConfig(const string &path) {
        << "# Missing <Fan UID>'s are appended with 'fancon write-config' or manually with 'fancon list-fans'\n"
        << "# <Sensor UID>'s can be enumerated with 'fancon list-sensors'\n"
        << "# <Fan Config>'s are comprised of one or more points\n"
-       << "# Point syntax: [TEMP (f) :RPM (%) ;PWM] - 'f' & '%' are optional"
-       << '\n'
+       << "# Point syntax: [TEMP (f) :RPM (%) ;PWM] - 'f' & '%' are optional\n"
+       << "#\n"
        << "# Example:\n"
        << "# it8728/2:fan1 coretemp/0:temp2   [0:0%] [86f:10%] [45:30%] [55:1000] [65:1200] [90:100%]\n"
        << "# [0:0%]    (or [0;0])    -> fan stopped below 30°C\n"
        << "# [86f:10%] (or [30:10%]) -> 10% of max fan speed @ 30°C (86 fahrenheit)\n"
        << "# [65:1200] (or [65;180]) -> 1200 RPM @ 65°C -- where 1200 RPM is reached at 180 PWM\n"
-       << "# [90:100%] (or [90;255]) -> max fan speed @ 90°C\n\n"
+       << "# [90:100%] (or [90;255]) -> max fan speed @ 90°C\n"
+       << "#\n"
        << "# 'fancon test' MUST be run before use of RPM for speed control. PWM control can still be used without\n"
        << "# Append 'f' for temperature in fahrenheit e.g. [86f:10%]\n"
        << "#        '%' for percentage of max RPM control - 1% being the slowest speed whilst still spinning\n\n"
-       << "# <Fan UID>     <Sensor UID>    <[temperature :speed (RPM) ;PWM (0-255)]>\n";
+       << "# <Fan UID>     <Sensor UID>     <Fan Config>\n";
   };
 
   if (!pExists) {
@@ -247,7 +251,7 @@ void f::appendConfig(const string &path) {
       ofs << *it << '\n';
 
   ofs.close();
-  if (ofs.fail())
+  if (!ofs)
     LOG(llvl::error) << "Failed to write config: " << path;
 }
 
@@ -267,10 +271,10 @@ void f::start(const bool fork_) {
     };
     exitParent(pid);
 
-    // redirect standard file descriptors to /dev/null
-    stdin = freopen("/dev/null", "r", stdin);
-    stdout = freopen("/dev/null", "w+", stdout);
-    stderr = freopen("/dev/null", "w+", stderr);
+    // Redirect standard file descriptors to /dev/null
+    stdin = fopen("/dev/null", "r");
+    stdout = fopen("/dev/null", "r+");
+    stderr = fopen("/dev/null", "r+");
 
     // Create a new session for the child
     if ((pid = setsid()) < 0) {
@@ -286,8 +290,7 @@ void f::start(const bool fork_) {
     write<pid_t>(Util::pid_path, getpid());
   }
 
-  // Set file mode
-  umask(0);
+  umask(f::default_umask);
 
   // Change working directory
   if (chdir("/") < 0)

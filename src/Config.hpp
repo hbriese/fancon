@@ -43,7 +43,7 @@ public:
     std::istringstream iss(string(beg, end));
     T val;
     iss >> val;
-    if (!iss.fail())
+    if (iss)
       value = val;
   }
 

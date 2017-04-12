@@ -8,65 +8,102 @@ namespace fancon {
 namespace NV {
 NV::LibX11 xlib;
 NV::LibXNvCtrl xnvlib;
-NV::DisplayWrapper dw(nullptr);
+NV::DisplayWrapper dw;
 const bool support = supported();
 }
 }
 
-bool NV::DisplayWrapper::open(string da, string xa) {
-  // Return true if already open
+#define GET_SYMBOL(_proc, _name)                               \
+    _proc = (decltype(_proc)) dlsym(handle, _name);            \
+    if (!_proc)                                                \
+        LOG(llvl::debug) << "Failed to load symbol " << _name; \
+
+NV::DynamicLibrary::DynamicLibrary(const char *file) : handle(dlopen(file, RTLD_LAZY | RTLD_LOCAL)) {
+  if (!handle)
+    LOG(llvl::debug) << "Failed to load " << file << ": " << dlerror() << "; see `fancon --help` for more info";
+}
+
+NV::LibX11::LibX11() : DynamicLibrary("libX11.so") {
+  if (handle) {
+    GET_SYMBOL(OpenDisplay, "XOpenDisplay");
+    GET_SYMBOL(CloseDisplay, "XCloseDisplay");
+    GET_SYMBOL(InitThreads, "XInitThreads");
+  }
+}
+
+NV::LibXNvCtrl::LibXNvCtrl() : DynamicLibrary("libXNVCtrl.so") {
+  if (handle) {
+    GET_SYMBOL(QueryExtension, "XNVCTRLQueryExtension");
+    GET_SYMBOL(QueryVersion, "XNVCTRLQueryVersion");
+    GET_SYMBOL(QueryTargetCount, "XNVCTRLQueryTargetCount");
+    GET_SYMBOL(QueryTargetBinaryData, "XNVCTRLQueryTargetBinaryData");
+    GET_SYMBOL(QueryTargetStringAttribute, "XNVCTRLQueryTargetStringAttribute");
+    GET_SYMBOL(QueryTargetAttribute, "XNVCTRLQueryTargetAttribute");
+    GET_SYMBOL(SetTargetAttributeAndGetStatus, "XNVCTRLSetTargetAttributeAndGetStatus");
+  }
+}
+
+#undef GET_SYMBOL
+
+NV::DisplayWrapper::DisplayWrapper() {
   if (dp)
-    return true;
+    return;
 
-  const char *denv = "DISPLAY", *xaenv = "XAUTHORITY";
-  bool forcedDa = false;
+  constexpr const char *dspEnv = "DISPLAY", *xauthEnv = "XAUTHORITY";
+  constexpr const char *xauthOverridePath = "/etc/fancon.d/xauthority", *dspOverridePath = "/etc/fancon.d/display";
 
-  // Set da and xa to environmental variables if they are set
+  string dsp;
+  bool foundXauth = getenv(xauthEnv) != nullptr;
+  auto setXAuth = [&](const char *path) {
+    assert(!foundXauth && "Xauth ENV being overwritten");
+    foundXauth = true;
+    setenv(xauthEnv, path, 1);
+  };
+
+  // Set dsp & xauth from environmental variables, or from files in xauthOverridePath or dspOverridePath
   char *res;
-  if (da.empty() && (res = getenv(denv)))
-    da = string(res);
-  if (xa.empty() && (res = getenv(xaenv)))
-    xa = string(res);
+  if ((res = getenv(dspEnv)))
+    dsp = string(res);
+  else if (exists(dspOverridePath))
+    dsp = Util::read<string>(dspOverridePath);
 
-  if ((da.empty()) || (xa.empty())) {
-    // Attempt to find the da and xa used by startx | xinit
+  if (!foundXauth && exists(xauthOverridePath))
+    setXAuth(xauthOverridePath);
+
+  // If not found, attempt to find xauth, and or display from running X11 server
+  if (dsp.empty() || !foundXauth) {
     redi::ipstream ips("echo \"$(ps wwaux 2>/dev/null | grep -wv PID | grep -v grep)\" "
                            "| grep '/X.* :[0-9][0-9]* .*-auth' | egrep -v 'startx|xinit' "
                            "| sed -e 's,^.*/X.* \\(:[0-9][0-9]*\\) .* -auth \\([^ ][^ ]*\\).*$,\\1\\,\\2,' | sort -u");
     string pair;
     ips >> pair;
 
-    // set missing da/xa to that found
+    // Set missing dsp/xa to that found
     auto sepIt = find(pair.begin(), pair.end(), ',');
     if (sepIt != pair.end()) {
+      if (dsp.empty())
+        dsp = string(pair.begin(), sepIt);
 
-      if (da.empty()) {
-        da = string(pair.begin(), sepIt);
-      }
-      if (xa.empty()) {
-        xa = string(sepIt + 1, pair.end());
-        setenv(xaenv, xa.c_str(), 1);   // $XAUTHORITY is queried directly by XOpenDisplay
-      }
-    } else if ((forcedDa = da.empty()))    // If no da is found, then guess
-      da = ":0";
+      if (!foundXauth)
+        setXAuth(string(next(sepIt), pair.end()).c_str());
+    }
   }
 
-  // Open display and log errors
-  if (!(dp = xlib.OpenDisplay(da.c_str()))) {
-    stringstream err;
-    if (forcedDa)   // da.empty() == true   // TODO: review check - guessed da may be correct
-      err << "Set \"display=\" in " << Util::config_path << " to your display (echo $" << denv << ')';
-    if (!getenv(xaenv))
-      err << "Set \"xauthority=\" in " << Util::config_path << " to your .Xauthority file (echo $" << xaenv << ')';
+  // Open display with dsp or guess at display if not set
+  dp = xlib.OpenDisplay((!dsp.empty() ? dsp.c_str() : ":0"));
 
-    return false;
+  // Suggest providing info to override paths
+  if (!dp) {
+    if (dsp.empty())
+      LOG(llvl::error) << "Write display number (found by `echo $" << dspEnv << "`) to " << dspOverridePath;
+    if (!foundXauth)
+      LOG(llvl::error) << "Symbolically link, or copy, your .Xauthority file (found by `echo $" << xauthEnv << "`) to "
+                       << xauthOverridePath;
   }
-
-  return true;
 }
 
 Display *NV::DisplayWrapper::operator*() {
-  assert(dp != nullptr);
+  assert(connected());
   return dp;
 }
 
@@ -75,7 +112,7 @@ bool NV::supported() {
   if (!Util::locked())
     xlib.InitThreads();   // Run before first XOpenDisplay() from any process
 
-  if (!dw.open({}, {})) {
+  if (!dw.connected()) {
     LOG(llvl::debug) << "X11 display cannot be opened";
     return false;
   }

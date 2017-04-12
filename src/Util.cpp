@@ -87,7 +87,7 @@ string Util::readLine(string path, int nFailed) {
   std::getline(ifs, line);
   ifs.close();
 
-  if (ifs.fail()) {
+  if (!ifs) {
     auto exist = exists(path);
     // Retry read 3 times if file exists, before failing
     if (exist && nFailed <= 3)
