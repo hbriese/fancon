@@ -35,11 +35,16 @@ public:
   virtual ~FanInterface() {}
 
   vector<fan::Point> points;
+  decltype(points)::iterator
+  prev_it;
 
   bool tested = false;        // Characteristic variables written
   rpm_t rpm_min, rpm_max;     // TODO: remove with testPWM
   pwm_t pwm_min, pwm_start;   // ^^
   milliseconds wait_time;
+
+  const enable_mode_t manual_enable_mode;
+  enable_mode_t driver_enable_mode;
 
   // TODO: Functions don't need to be public
   virtual rpm_t readRPM() = 0;
@@ -54,8 +59,6 @@ public:
   static void writeTestResult(const UID &uid, const FanTestResult &result, DeviceType devType);
 
 protected:
-  const enable_mode_t manual_enable_mode;
-  enable_mode_t driver_enable_mode;
   const int hw_id;
   const string hw_id_str;
 

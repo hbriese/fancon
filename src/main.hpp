@@ -41,9 +41,10 @@ constexpr size_t strlength(const char *s) { return (*s == 0) ? 0 : strlength(s +
 void listFans();
 void listSensors();
 
+void appendConfig(const string &configPath);
+
 void testFans(uint testRetries, bool singleThreaded);
 void testFan(const UID &uid, unique_ptr<FanInterface> &&fan, uint retries);
-void appendConfig(const string &configPath);
 
 void start(const bool fork);
 void sendSignal(ControllerState state);

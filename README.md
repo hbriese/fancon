@@ -18,31 +18,30 @@ Low overhead and easy, meaningful configuration are the main goals of fancon, th
 
 ### Installation
 
+Download latest appropriate release from github.com/hbriese/fancon/releases
+
 ###### Debian/Ubuntu
 
 ```sh
-$ wget https://github.com/hbriese/fancon/releases/download/0.10.1/fancon_0.10.1_amd64.deb
-$ sudo dpkg -i ./fancon_0.10.1_amd64.deb
+$ sudo dpkg -i ./fancon*.deb
 ```
 
 ###### Fedora
 ```sh
-$ wget https://github.com/hbriese/fancon/releases/download/0.10.1/fancon-0.10.1-2.x86_64.rpm
-$ sudo yum –nogpgcheck install ./fancon-0.10.1-2.x86_64.rpm
+$ sudo yum –nogpgcheck install ./fancon*.rpm
 ```
 
 ##### Build from source:
 Tested with both gcc & clang
 
 ```sh
-$ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers lm-sensors libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libsm-dev
-$ sudo apt-get install libxnvctrl-dev libx11-dev
-$ git clone https://github.com/HBriese/fancon.git && cd fancon
+$ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers lm-sensors libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev
+$ git clone https://github.com/hbriese/fancon.git && cd fancon
 $ mkdir build; cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j && sudo make install
 ```
 
 | CMake Option     | Default | Description                                                                                 |
-|------------------|---------|---------------------------------------------------------------------------------------------|
+|:-----------------|:-------:| :-------------------------------------------------------------------------------------------|
 | NVIDIA_SUPPORT   | ON      | Support for NVIDIA GPUs                                                                     |
 | STATIC_LIBSTDC++ | OFF     | Statically link libstdc++ - useful for binary distribution                                  |
 | OPTIMIZE_DEBUG   | OFF     | Enable compiler optimizations on debug build                                                |

@@ -60,7 +60,7 @@ void f::suggestions(const char *fanconDir, const char *configPath) {
     }
 
     LOG(llvl::info) << bold << setw(maxSize) << std::setfill('-') << left << '-' << '\n'
-                    << resetFont << messages.rdbuf() << resetFont
+                    << resetFont << messages.str() << resetFont
                     << bold << setw(maxSize) << std::setfill('-') << left << '-' << '\n' << resetFont;
   }
 }
@@ -121,6 +121,84 @@ void f::listSensors() {
   LOG(llvl::info) << ss.rdbuf();
 }
 
+void f::appendConfig(const string &path) {
+  umask(default_umask);
+  std::ifstream ifs(path);
+
+  auto allUIDs = Find::getFanUIDs();
+  vector<decltype(allUIDs)::iterator> existingUIDs;
+
+  bool pExists = exists(path);
+  bool controllerConfigFound = false;
+
+  // Read fan UIDs from config
+  if (pExists) {
+    LOG(llvl::info) << "Config exists, adding absent fans";
+
+    for (string line; std::getline(ifs, line) && !ifs.eof();) {
+      if (!Controller::validConfigLine(line))
+        continue;
+
+      istringstream liss(line);
+      if (!controllerConfigFound) {
+        if (controller::Config(liss).valid()) {
+          controllerConfigFound = true;
+          continue;
+        } else
+          liss.seekg(0, std::ios::beg);
+      }
+
+      // Add UID to list
+      UID fanUID(liss);
+      auto it = find(allUIDs.begin(), allUIDs.end(), fanUID);
+      if (fanUID.valid(DeviceType::fan_interface) && it != allUIDs.end())
+        existingUIDs.emplace_back(move(it));
+    }
+  }
+
+  // Append missing info to the config
+  ofstream ofs(path, std::ios_base::app);
+
+  auto writeTop = [](ostream &os) {
+    os << "# Interval is the seconds between fan speed changes\n"
+       << "# Dynamic enables interpolation between points, e.g. 30:20% 40:30%, @ 35°C, RPM is 25%\n"
+       << controller::Config() << "\n\n"
+       << "# Missing <Fan UID>'s are appended with 'fancon write-config' or manually with 'fancon list-fans'\n"
+       << "# <Sensor UID>s can be enumerated with 'fancon list-sensors'\n"
+       << "# <Fan Config>s are comprised of one or more points\n"
+       << "#\n"
+       << "# Note. 'fancon test' MUST be run for RPM & percentage speed control\n"
+       << "# Point syntax: Temperature(f):RPM(%);PWM\n"
+       << "#               REQUIRED: Temperature, and RPM or PWM\n"
+       << "#               OPTIONAL: 'f' for temperature in fahrenheit\n"
+       << "#                         '%' for percentage of max RPM control - 1% being the slowest spinning speed\n"
+       << "#\n"
+       << "# Example:\n"
+       << "# it8728/2:fan1 coretemp/0:temp2   0:0% 25:10% 113f:30% 55:50% 65:1000 80:1400 190:100%\n"
+       << "# 0:0%     (or 32f;0)  -> fan stopped below 25°C\n"
+       << "# 25:10%   (or 77f:5%) -> fan starts -- 10% of max speed @ 25°C (77 fahrenheit)\n"
+       << "# 113f:30% (or 45:10%) -> 30% @ 30°C (113 fahrenheit)\n"
+       << "# 65:1000  (or 65;180) -> 1000 RPM @ 65°C -- where 1000 RPM is reached at 180 PWM\n"
+       << "# 90:100%  (or 90;255) -> 100% (max) @ 90°C\n"
+       << "#\n"
+       << "# <Fan UID>     <Sensor UID>     <Fan Config>\n";
+  };
+
+  if (!pExists) {
+    LOG(llvl::info) << "Writing new config: " << path;
+    writeTop(ofs);
+  }
+
+  // Append UIDs not found in config (existingUIDs)
+  for (auto it = allUIDs.begin(); it != allUIDs.end(); ++it)
+    if (find(existingUIDs.begin(), existingUIDs.end(), it) == existingUIDs.end())    // Not currently configured
+      ofs << *it << '\n';
+
+  ofs.close();
+  if (!ofs)
+    LOG(llvl::error) << "Failed to write config: " << path;
+}
+
 void f::testFans(uint testRetries, bool singleThreaded) {
   umask(default_umask);
   appendConfig(config_path);
@@ -177,82 +255,6 @@ void f::testFan(const UID &uid, unique_ptr<FanInterface> &&fan, uint retries) {
     ss << uid << ((res.testable()) ? " results are invalid, consider running with more --retries (default is 4)"
                                    : " cannot be tested, driver unresponsive");
   LOG(llvl::info) << ss.rdbuf();
-}
-
-/// \bug ifstream failbit, or badbit is set during read, consequently reporting a fail to the user
-void f::appendConfig(const string &path) {
-  umask(default_umask);
-  std::ifstream ifs(path);
-
-  auto allUIDs = Find::getFanUIDs();
-  vector<decltype(allUIDs.begin())> existingUIDs;
-
-  bool pExists = exists(path);
-  bool controllerConfigFound = false;
-
-  // Read fan UIDs from config
-  if (pExists) {
-    LOG(llvl::info) << "Config exists, adding absent fans";
-
-    for (string line; std::getline(ifs, line) && !ifs.eof();) {
-      if (!Controller::validConfigLine(line))
-        continue;
-
-      istringstream liss(line);
-      if (!controllerConfigFound) {
-        if (controller::Config(liss).valid()) {
-          controllerConfigFound = true;
-          continue;
-        } else
-          liss.seekg(0, std::ios::beg);
-      }
-
-      // Add UID to list
-      UID fanUID(liss);
-      auto it = find(allUIDs.begin(), allUIDs.end(), fanUID);
-      if (fanUID.valid(DeviceType::fan_interface) && it != allUIDs.end())
-        existingUIDs.emplace_back(move(it));
-    }
-  }
-
-  // Append missing info to the config
-  ofstream ofs(path, std::ios_base::app);
-
-  auto writeTop = [](ostream &os) {
-    os << "# Interval is the seconds between fan speed changes\n"
-       << "# Dynamic enables interpolation between points, e.g. [30:20%] [40:30%], @ 35°C, RPM is 25%\n"
-       << controller::Config() << "\n\n"
-       << "# Missing <Fan UID>'s are appended with 'fancon write-config' or manually with 'fancon list-fans'\n"
-       << "# <Sensor UID>'s can be enumerated with 'fancon list-sensors'\n"
-       << "# <Fan Config>'s are comprised of one or more points\n"
-       << "# Point syntax: [TEMP (f) :RPM (%) ;PWM] - 'f' & '%' are optional\n"
-       << "#\n"
-       << "# Example:\n"
-       << "# it8728/2:fan1 coretemp/0:temp2   [0:0%] [86f:10%] [45:30%] [55:1000] [65:1200] [90:100%]\n"
-       << "# [0:0%]    (or [0;0])    -> fan stopped below 30°C\n"
-       << "# [86f:10%] (or [30:10%]) -> 10% of max fan speed @ 30°C (86 fahrenheit)\n"
-       << "# [65:1200] (or [65;180]) -> 1200 RPM @ 65°C -- where 1200 RPM is reached at 180 PWM\n"
-       << "# [90:100%] (or [90;255]) -> max fan speed @ 90°C\n"
-       << "#\n"
-       << "# 'fancon test' MUST be run before use of RPM for speed control. PWM control can still be used without\n"
-       << "# Append 'f' for temperature in fahrenheit e.g. [86f:10%]\n"
-       << "#        '%' for percentage of max RPM control - 1% being the slowest speed whilst still spinning\n\n"
-       << "# <Fan UID>     <Sensor UID>     <Fan Config>\n";
-  };
-
-  if (!pExists) {
-    LOG(llvl::info) << "Writing new config: " << path;
-    writeTop(ofs);
-  }
-
-  // Append UIDs not found in config (existingUIDs)
-  for (auto it = allUIDs.begin(); it != allUIDs.end(); ++it)
-    if (find(existingUIDs.begin(), existingUIDs.end(), it) == existingUIDs.end())    // Not currently configured
-      ofs << *it << '\n';
-
-  ofs.close();
-  if (!ofs)
-    LOG(llvl::error) << "Failed to write config: " << path;
 }
 
 void f::start(const bool fork_) {
@@ -416,9 +418,10 @@ int main(int argc, char *argv[]) {
       const auto &com = c.get();
 
       // Command requirements must be met before running
-      if (com.lock && !Util::try_lock())
+      if (com.lock && !Util::try_lock()) {
         LOG(llvl::warning) << "A fancon process is already running\n";
-      else if (com.require_root && getuid() != 0)
+        exit(EXIT_FAILURE); // Exiting failing so init system does not restart
+      } else if (com.require_root && getuid() != 0)
         LOG(llvl::error) << "Please run with sudo, or as root for command: " << com.name << '\n';
       else
         com.func();

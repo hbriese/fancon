@@ -4,7 +4,7 @@
 using namespace fancon;
 
 namespace fancon {
-ControllerState controller_state;
+ControllerState controller_state{ControllerState::stop};
 }
 
 /// \param configPath Path to a file containing the ControllerConfig and user fan configurations
@@ -85,38 +85,26 @@ ControllerState Controller::run() {
     sigaction(s, &act, nullptr);
 
   // Start sensor & fan threads defered - to avoid data races
-  controller_state = ControllerState::defered_start;
+  vector<thread> threads;
 
-  auto sensorThreadTasks2 = Util::distributeTasks(conf.max_threads, sensors);
-  for (auto &tasks : sensorThreadTasks2)
-    threads.emplace_back(thread([this, &tasks] {
-      deferStart(sensors_wakeup);
-      readSensors(tasks);
-    }));
+  auto sensorTasks = Util::distributeTasks(conf.max_threads, sensors);
+  for (auto &tasks : sensorTasks)
+    threads.emplace_back(thread(&Controller::updateSensors, this, std::ref(tasks)));
 
-  auto fanThreadTasks2 = Util::distributeTasks(conf.max_threads, fans);
-  for (auto &tasks : fanThreadTasks2)
-    threads.emplace_back(thread([this, &tasks] {
-      deferStart(fans_wakeup);
-      updateFans(tasks);
-    }));
+  auto fanTasks = Util::distributeTasks(conf.max_threads, fans);
+  for (auto &tasks : fanTasks)
+    threads.emplace_back(thread(&Controller::updateFans, this, std::ref(tasks)));
 
   threads.shrink_to_fit();
 
-  LOG(llvl::debug) << "Started with " << threads.size() << " threads";
+  LOG(llvl::debug) << "Started with " << (threads.size() + 1) << " threads";
 
   // Synchronize thread wake-up times
-  startThreads();
-  while (controller_state == ControllerState::run) {
-    updateWakeupTimes();
-    sleep_until(main_wakeup);
-  }
+  syncWakeups();
 
   for (auto &t : threads)
     if (t.joinable())
       t.join();
-    else
-      LOG(llvl::debug) << "Unable to join thread ID: " << t.get_id();
 
   return controller_state;
 }
@@ -126,6 +114,43 @@ void Controller::reload(const string &configPath) {
   *this = Controller(configPath);
 }
 
+void Controller::updateSensors(vector<sensor_container_t::iterator> &sensors) {
+  deferStart(sensors_wakeup);
+
+  while (controller_state == ControllerState::run) {
+    for (auto &it : sensors)
+      (*it)->refresh();
+
+    sleep_until(sensors_wakeup);
+  }
+}
+
+void Controller::updateFans(vector<fan_container_t::iterator> &fans) {
+  deferStart(fans_wakeup);
+
+  while (controller_state == ControllerState::run) {
+    // Update fan speed if sensor's temperature has changed
+    for (auto &it : fans)
+      if (it->sensor.update)
+        it->fan->update(it->sensor.temp);
+
+    sleep_until(fans_wakeup);
+  }
+}
+
+void Controller::syncWakeups() {
+  // Start threads
+  main_wakeup = chrono::time_point_cast<milliseconds>(chrono::steady_clock::now());
+  updateWakeups();
+  controller_state = ControllerState::run;
+
+  while (controller_state == ControllerState::run) {
+    updateWakeups();
+    sleep_until(main_wakeup);
+  }
+}
+
+/// \brief Sets controller_state if appropriate signals are recieved
 void Controller::signalHandler(int sig) {
   switch (sig) {
   case SIGTERM:
@@ -149,42 +174,16 @@ bool Controller::validConfigLine(const string &line) {
     return *beg != '#';
 }
 
-void Controller::readSensors(vector<sensor_container_t::iterator> &sensors) {
-  while (controller_state == ControllerState::run) {
-    for (auto &it : sensors)
-      (*it)->refresh();
+/// \brief Lock while start is defered, then sleep until the given time point
+void Controller::deferStart(chrono::time_point <chrono::steady_clock, milliseconds> &timePoint) {
+  while (controller_state != ControllerState::run)
+    sleep_for(milliseconds(10));
 
-    sleep_until(sensors_wakeup);
-  }
+  sleep_until(timePoint);
 }
 
-void Controller::updateFans(vector<fan_container_t::iterator> &fans) {
-  while (controller_state == ControllerState::run) {
-    // Update fan speed if sensor's temperature has changed
-    for (auto &it : fans)
-      if (it->sensor.update)
-        it->fan->update(it->sensor.temp);
-
-    sleep_until(fans_wakeup);
-  }
-}
-
-void Controller::startThreads() {
-  main_wakeup = chrono::time_point_cast<milliseconds>(chrono::steady_clock::now());
-  controller_state = ControllerState::run;
-  updateWakeupTimes();
-}
-
-void Controller::updateWakeupTimes() {
+void Controller::updateWakeups() {
   main_wakeup += conf.update_interval;
   sensors_wakeup = main_wakeup + milliseconds(20);
   fans_wakeup = sensors_wakeup + milliseconds(100);
-}
-
-/// \brief Lock while start is defered, then sleep until the given time point
-void Controller::deferStart(chrono::time_point <chrono::steady_clock, milliseconds> &timePoint) {
-  while (controller_state == ControllerState::defered_start)
-    sleep_for(milliseconds(1));
-
-  sleep_until(timePoint);
 }

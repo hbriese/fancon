@@ -4,99 +4,96 @@ using fancon::InputValue;
 namespace controller = fancon::controller;
 namespace fan = fancon::fan;
 
-InputValue::InputValue(string &input, const string &sep, std::function<bool(const char &ch)> predicate) {
-  beg = search(input.begin(), input.end(), sep.begin(), sep.end());
-  if (beg != input.end())
-    beg = next(beg, sep.size());
+// TODO: review beg != end
+InputValue::InputValue(string &input, string::iterator &&begin, std::function<bool(const char &ch)> predicate)
+    : beg(begin), end(std::find_if_not(beg, input.end(), predicate)), found(beg != input.end() && beg != end) {}
 
-  finishConstruction(input, move(predicate));
+InputValue::InputValue(string &input, const string &sep, std::function<bool(const char &ch)> predicate)
+    : InputValue(input, afterSeperator(input.begin(), input.end(), sep), move(predicate)) {}
+
+InputValue::InputValue(string &input, const char &sep, std::function<bool(const char &ch)> predicate)
+    : InputValue(input, afterSeperator(input.begin(), input.end(), sep), move(predicate)) {}
+
+string::iterator
+InputValue::afterSeperator(const string::iterator &&beg, const string::iterator &&end, const char &sep) {
+  auto ret = find(beg, end, sep);
+  if (ret != end)
+    ++ret;
+
+  return ret;
 }
 
-InputValue::InputValue(string &input, const char &sep, std::function<bool(const char &ch)> predicate) {
-  beg = find(input.begin(), input.end(), sep);
-  if (beg != input.end())
-    ++beg;
+string::iterator
+InputValue::afterSeperator(const string::iterator &&beg, const string::iterator &&end, const string &sep) {
+  auto ret = search(beg, end, sep.begin(), sep.end());
+  if (ret != end)
+    std::advance(ret, sep.size());
 
-  finishConstruction(input, move(predicate));
-}
-
-void InputValue::finishConstruction(string &input, std::function<bool(const char &ch)> predicate) {
-  end = find_if(beg, input.end(), predicate);
-  found = (beg != input.end() && beg != end);
+  return ret;
 }
 
 ostream &controller::operator<<(ostream &os, const controller::Config &c) {
   using namespace fancon::serialization_constants::controller_config;
-  os << update_prefix << c.update_interval.count() << ' ' << threads_prefix << c.max_threads
-     << ' ' << dynamic_prefix << ((c.dynamic) ? "true" : "false");
+  os << interval_prefix << c.update_interval.count() << ' '
+     << threads_prefix << c.max_threads << ' '
+     << dynamic_prefix << ((c.dynamic) ? "true" : "false");
+
   return os;
 }
 
 istream &controller::operator>>(istream &is, controller::Config &c) {
-  // Read whole line from istream
-  std::istreambuf_iterator<char> eos;
-  string in(std::istreambuf_iterator<char>(is), eos);
+  string in;
+  std::getline(is, in);
 
   using namespace fancon::serialization_constants::controller_config;
-  InputValue dynamicVal(in, dynamic_prefix, [](const char &ch) { return !std::isalpha(ch); });
-  InputValue updateVal(in, update_prefix, [](const char &ch) { return !std::isdigit(ch); });
-  InputValue threadsVal(in, threads_prefix, [](const char &ch) { return !std::isdigit(ch); });
-  InputValue updateValDeprecated(in, update_prefix_deprecated, [](const char &ch) { return !std::isdigit(ch); });
+  InputValue dynamic(in, dynamic_prefix, ::isalpha);
+  InputValue interval(in, interval_prefix, ::isdigit);
+  InputValue threads(in, threads_prefix, ::isdigit);
+  InputValue update(in, update_prefix_deprecated, ::isdigit);  /// <\deprecated Use interval
 
   // Fail if no values are found
-  if (!dynamicVal.found && !updateVal.found && !threadsVal.found) {
+  if (!dynamic.found && !interval.found && !threads.found && !update.found) {
     // Set invalid values - see valid()
     c.update_interval = seconds(0);
     c.max_threads = 0;
     return is;
   }
 
-  if (dynamicVal.found) {
+  if (dynamic.found) {
     // Convert string to bool
     string dynamicStr;
-    dynamicVal.setIfValid(dynamicStr);
+    dynamic.setIfValid(dynamicStr);
     c.dynamic = (dynamicStr != "false" || dynamicStr != "0");
   }
 
-  if (updateVal.found || updateValDeprecated.found) {
+  if (interval.found || update.found) {
     // chrono::duration doesn't define operator>>
     decltype(c.update_interval.count()) update_interval{0};
 
-    if (updateVal.found)
-      updateVal.setIfValid(update_interval);
+    if (interval.found)
+      interval.setIfValid(update_interval);
     else {
-      updateValDeprecated.setIfValid(update_interval);
+      update.setIfValid(update_interval);
       LOG(llvl::warning) << update_prefix_deprecated << " in " << Util::config_path
-                         << " is deprecated, and WILL BE REMOVED. Use " << update_prefix;
+                         << " is deprecated, and WILL BE REMOVED. Use " << interval_prefix;
     }
 
     if (update_interval > 0)
       c.update_interval = seconds(update_interval);
   }
 
-  if (threadsVal.found)
-    threadsVal.setIfValid(c.max_threads);
+  if (threads.found)
+    threads.setIfValid(c.max_threads);
 
   return is;
 }
 
-fan::Point &fan::Point::operator=(const fan::Point &other) {
-  temp = other.temp;
-  rpm = other.rpm;
-  pwm = other.pwm;
-
-  return *this;
-}
-
 ostream &fan::operator<<(ostream &os, const fan::Point &p) {
   using namespace fancon::serialization_constants::point;
-  string rpmOut, pwmOut;
-  if (p.validRPM())
-    rpmOut += rpm_separator + to_string(p.rpm);
-  if (p.validPWM())
-    pwmOut += pwm_separator + to_string(p.pwm);
+  os << p.temp
+     << (p.validRPM() ? string() + rpm_separator + to_string(p.rpm) : "")
+     << (p.validPWM() ? string() + pwm_separator + to_string(p.pwm) : "");
 
-  os << temp_separator << p.temp << rpmOut << pwmOut << end_separator;
   return os;
 }
 
@@ -106,28 +103,33 @@ istream &fan::operator>>(istream &is, fan::Point &p) {
   is >> std::skipws >> in;
   if (in.empty())
     return is;
-//  std::remove_if(in.begin(), in.end(), [](auto &c) { return isspace(c); });
 
-  auto notDigit = [](const char &c) { return !std::isdigit(c); };
-  InputValue tempVal(in, temp_separator, notDigit);
-  InputValue pwmVal(in, pwm_separator, notDigit);
-  InputValue rpmVal(in, rpm_separator, notDigit);
+  InputValue pwm(in, pwm_separator, ::isdigit);
+  InputValue rpm(in, rpm_separator, ::isdigit);
+
+  // Temp must be before (first of) PWM & RPM
+  auto &&tempEnd = std::prev((rpm.found && rpm.beg < pwm.beg) ? rpm.beg : pwm.beg);
+  InputValue temp(in, find_if(in.begin(), tempEnd, ::isdigit), ::isdigit);
 
   // Must contain temp, and either a rpm or pwm value
-  if (!tempVal.found || (!rpmVal.found & !pwmVal.found)) {
+  if (!temp.found || (!rpm.found & !pwm.found)) {
     LOG(llvl::error) << "Invalid fan config: " << in;
     return is;
   }
 
-  if (tempVal.found)
-    tempVal.setIfValid(p.temp);
+  // Set values if they are found & valid
+  if (temp.found) {
+    temp.setIfValid(p.temp);
+    if (temp.end != in.end() && std::tolower(*temp.end) == fahrenheit)
+      p.temp = static_cast<temp_t>((p.temp - 32) / 1.8);
+  }
 
-  if (pwmVal.found)
-    pwmVal.setIfValid(p.pwm);
-  else if (rpmVal.found) {
-    rpmVal.setIfValid(p.rpm);
-    if (rpmVal.end != in.end())
-      p.is_rpm_percent = (std::tolower(*rpmVal.end) == percent);
+  if (pwm.found)
+    pwm.setIfValid(p.pwm);
+  else if (rpm.found) {
+    rpm.setIfValid(p.rpm);
+    if (rpm.end != in.end())
+      p.is_rpm_percent = (std::tolower(*rpm.end) == percent);
   }
 
   return is;

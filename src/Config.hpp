@@ -29,11 +29,12 @@ using temp_t = int;
 
 class InputValue {
 public:
+  InputValue(string &input, string::iterator &&begin, std::function<bool(const char &ch)> predicate);
   InputValue(string &input, const string &sep, std::function<bool(const char &ch)> predicate);
   InputValue(string &input, const char &sep, std::function<bool(const char &ch)> predicate);
 
-  string::iterator beg, end;
-  bool found;
+  const string::iterator beg, end;
+  const bool found;
 
   template<typename T>
   void setIfValid(T &value) {
@@ -48,7 +49,8 @@ public:
   }
 
 private:
-  void finishConstruction(string &input, std::function<bool(const char &ch)> predicate);
+  string::iterator afterSeperator(const string::iterator &&beg, const string::iterator &&end, const char &sep);
+  string::iterator afterSeperator(const string::iterator &&beg, const string::iterator &&end, const string &sep);
 };
 
 namespace controller {
@@ -96,8 +98,6 @@ public:
   Point(temp_t temp = 0, rpm_t rpm = (rpm_min_abs - 1), pwm_t pwm = (pwm_min_abs - 1), bool isRpmPercent = false)
       : temp(temp), rpm(rpm), pwm(pwm), is_rpm_percent(isRpmPercent) {}
 
-  Point &operator=(const Point &other);
-
   temp_t temp;
   rpm_t rpm;    // TODO: C++17: replace with std::variant (tagged union)
   pwm_t pwm;
@@ -137,17 +137,15 @@ namespace serialization_constants {   // TODO: Review name
 namespace controller_config {
 const string
     dynamic_prefix = "dynamic=",
-    update_prefix = "interval=",
+    interval_prefix = "interval=",
     threads_prefix = "threads=";
-const string update_prefix_deprecated = "update=";  /// <\deprecated Use update_prefix  // TODO: remove 08/17
+const string update_prefix_deprecated = "update=";  /// <\deprecated Use interval_prefix  // TODO: remove 08/17
 }
 
 namespace point {
 constexpr const char
-    temp_separator = '[',    // TODO: Rename, and refactor
     rpm_separator = ':',
     pwm_separator = ';',
-    end_separator = ']',
     fahrenheit = 'f',
     percent = '%';
 }

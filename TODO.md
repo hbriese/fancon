@@ -4,7 +4,7 @@
 
 ### Bugs
 
-- Get xauth file & xdisplay from files in /etc/fancon.d/
+- Fan PWM writes fail once after reload
 
 ### Features
 
@@ -17,8 +17,8 @@
 - Remove fan when control has been lost (maybe??)
 - Add 'precise' option for more accurate RPM control
 - Auto-config option - copy current controller configuration
-- Remove '[' and ']' requirement from fan point
 - Check for NVIDIA hardware, and recommend libs for nvidia support
+- Update interval as a float
 
 ### Performance 
 
@@ -36,5 +36,5 @@
 
 ## Watch
 
-- NVML API - several functions missing before it can be used to replace XNVCtrl
-- CMake 3.8 release
+- NVML: docs.nvidia.com/deploy/nvml-api/change-log.html#change-log for XNVCtrl functionality
+- C++17: GCC 7 & Clang 4

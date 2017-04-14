@@ -94,7 +94,7 @@ target_link_libraries(${PROJECT_NAME} ${LIBS})
 
 ## Run lint if debug build
 option(LINT "Run linter with debug build" OFF)
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug" AND LINT)
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND LINT)
     set(LINT_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -std=c++${CMAKE_CXX_STANDARD}")
     set(LINT_CHECKS "*,-clang-diagnostic-unused-command-line-argument,\
     -*readability-braces-around-statements,-google-runtime-int")

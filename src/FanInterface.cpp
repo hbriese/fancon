@@ -25,6 +25,7 @@ FanInterface::FanInterface(const UID &uid, const fan::Config &c, bool dynamic,
   // Removed invalid points & sort by temperature
   verifyPoints(uid);
   std::sort(points.begin(), points.end(), [](const Point &lhs, const Point &rhs) { return lhs.temp < rhs.temp; });
+  prev_it = points.begin();
   points.shrink_to_fit();
 }
 
@@ -41,14 +42,20 @@ bool FanInterface::recoverControl(const string &deviceLabel) {
 }
 
 void FanInterface::update(const temp_t temp) {
-  // lower_bound: first element that is greater-or-equal; can return end
-  auto it = std::lower_bound(points.begin(), points.end(), temp,
-                             [](const Point &p1, const Point &p2) { return p1.temp < p2.temp; });
+  auto comparePoints = [](const Point &p1, const Point &p2) { return p1.temp < p2.temp; };
+  decltype(points)::iterator
+  it;
 
-  // Find the element that is less-or-equal (unless last point) - previous element
-  bool previouslyEnd = (it == points.end());
-  if (previouslyEnd || (it->temp != temp && it != points.begin()))
-    it = prev(it);
+  // Narrow search space by comparing to the previous iterator
+  if (temp < prev_it->temp)
+    it = std::upper_bound(points.begin(), prev_it, temp, comparePoints);
+  else
+    it = std::upper_bound(prev_it, points.end(), temp, comparePoints);
+
+  // std::upper_bound returns element greater-than
+  // Therefore the previous element is less-or-equal (unless last point)
+  if (it != points.begin())
+    std::advance(it, -1);
 
   pwm_t newPwm{it->pwm};
   decltype(it) nextIt;
@@ -57,7 +64,7 @@ void FanInterface::update(const temp_t temp) {
     // Start fan if stopped, or calculate dynamic
     if (readRPM() == 0)
       newPwm = pwm_start;
-    else if (dynamic && (!previouslyEnd && (nextIt = next(it)) != points.end())) // Can't be highest element
+    else if (dynamic && (nextIt = next(it)) != points.end()) // Can't be highest element
       newPwm += ((nextIt->pwm - newPwm) / (nextIt->temp - it->temp));
   }
 

@@ -21,7 +21,7 @@ using sensor_container_t = vector<unique_ptr<SensorInterface>>;
 using fan_container_t = vector<MappedFan>;
 
 enum class ControllerState {
-  run, stop = SIGTERM, reload = SIGHUP, defered_start
+  run, stop = SIGTERM, reload = SIGHUP
 } extern controller_state;
 
 class Controller {
@@ -29,7 +29,6 @@ public:
   Controller(const string &configPath);
 
   controller::Config conf;
-  vector<thread> threads;
 
   chrono::time_point <chrono::steady_clock, milliseconds> main_wakeup, sensors_wakeup, fans_wakeup;
 
@@ -39,18 +38,17 @@ public:
   ControllerState run();
   void reload(const string &configPath);
 
-  static void signalHandler(int sig);
+  void updateSensors(vector<sensor_container_t::iterator> &sensors);
+  void updateFans(vector<fan_container_t::iterator> &fans);
 
+  void syncWakeups();
+
+  static void signalHandler(int sig);
   static bool validConfigLine(const string &line);
 
 private:
-  void readSensors(vector<sensor_container_t::iterator> &sensors);
-  void updateFans(vector<fan_container_t::iterator> &fans);
-
-  void startThreads();
-  void updateWakeupTimes();
-
   void deferStart(chrono::time_point <chrono::steady_clock, milliseconds> &timePoint);
+  void updateWakeups();
 };
 
 struct MappedFan {
