@@ -1,7 +1,7 @@
 #include <boost/filesystem/operations.hpp>
 #include "Util.hpp"
 
-using namespace fancon;
+namespace Util = fancon::Util;
 
 fancon::DeviceType fancon::operator|(fancon::DeviceType lhs, fancon::DeviceType rhs) {
   return static_cast<fancon::DeviceType> (
@@ -45,7 +45,7 @@ bool Util::locked() {
   if (!exists(pid_path))
     return false;
 
-  auto pid = read < pid_t > (pid_path);
+  const auto pid = read < pid_t > (pid_path);
   return exists(string("/proc/") + to_string(pid));
 //      && pid != getpid();
 }

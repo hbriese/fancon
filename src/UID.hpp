@@ -16,7 +16,6 @@ using std::istream;
 using std::to_string;
 
 namespace fancon {
-
 /// \note
 /// Format: [chip_name/chip_id:device_name_&_number]
 class UID {

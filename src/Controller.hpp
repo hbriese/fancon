@@ -6,7 +6,7 @@
 #include <sstream>      // istringstream
 #include <chrono>
 #include <thread>
-#include "Find.hpp"
+#include "Devices.hpp"
 
 using std::istringstream;
 using std::find_if;

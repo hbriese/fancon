@@ -7,7 +7,7 @@
 #include <boost/filesystem.hpp>
 #include <sys/stat.h>
 #include "Util.hpp"
-#include "Find.hpp"
+#include "Devices.hpp"
 #include "Controller.hpp"
 
 #ifdef FANCON_PROFILE
@@ -20,10 +20,10 @@ using std::setw;
 using std::left;
 using std::reference_wrapper;
 using std::function;
-using boost::filesystem::create_directory;
-using fancon::Find;
+using boost::filesystem::create_directory;  // TODO C++17: std::create_directory
 using fancon::Controller;
 using fancon::ControllerState;
+using fancon::Devices;
 using fancon::FanTestResult;
 using fancon::Util::config_path;
 

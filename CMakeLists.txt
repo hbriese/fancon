@@ -32,7 +32,7 @@ endif ()
 
 include_directories(src)
 set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/Logging.hpp src/Logging.cpp
-        src/UID.cpp src/UID.hpp src/Find.cpp src/Find.hpp src/Config.cpp src/Config.hpp
+        src/UID.cpp src/UID.hpp src/Devices.cpp src/Devices.hpp src/Config.cpp src/Config.hpp
         src/Fan.cpp src/Fan.hpp src/FanInterface.cpp src/FanInterface.hpp src/SensorInterface.cpp src/SensorInterface.hpp
         src/NvidiaDevices.cpp src/NvidiaDevices.hpp src/NvidiaUtil.cpp src/NvidiaUtil.hpp src/Controller.cpp src/Controller.hpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})

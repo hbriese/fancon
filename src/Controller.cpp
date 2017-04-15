@@ -53,12 +53,12 @@ Controller::Controller(const string &configPath) {
 
     // Add the sensor if it is missing, and update the sensor iterator
     if (sIt == sensors.end()) {
-      sensors.emplace_back(Find::getSensor(sensorUID));
+      sensors.emplace_back(Devices::getSensor(sensorUID));
       sIt = prev(sensors.end());
     }
 
     // Add fan only if there are configured points
-    auto fan = Find::getFan(fanUID, fanConf, conf.dynamic);
+    auto fan = Devices::getFan(fanUID, fanConf, conf.dynamic);
     if (!fan->points.empty())
       fans.emplace_back(MappedFan(move(fan), *(*sIt)));
     else
@@ -168,13 +168,13 @@ bool Controller::validConfigLine(const string &line) {
   // Skip spaces, tabs & whitespace
   auto beg = find_if(line.begin(), line.end(), [](const char &c) { return !std::isspace(c); });
 
-  if (beg == line.end())
-    return false;
-  else
+  if (beg != line.end())
     return *beg != '#';
+
+  return false;
 }
 
-/// \brief Lock while start is defered, then sleep until the given time point
+/// \brief Lock while controller_state isn't run, then sleep until the given time point
 void Controller::deferStart(chrono::time_point <chrono::steady_clock, milliseconds> &timePoint) {
   while (controller_state != ControllerState::run)
     sleep_for(milliseconds(10));

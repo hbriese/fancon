@@ -66,7 +66,7 @@ void f::suggestions(const char *fanconDir, const char *configPath) {
 }
 
 void f::listFans() {
-  auto uids = Find::getFanUIDs();
+  auto uids = Devices::getFanUIDs();
   stringstream ss;
 
   int fcw = 20, scw = 15;
@@ -101,7 +101,7 @@ void f::listFans() {
 }
 
 void f::listSensors() {
-  auto uids = Find::getSensorUIDs();
+  auto uids = Devices::getSensorUIDs();
   stringstream ss;
 
   ss << ((!uids.empty()) ? "<Sensor UID>" : "No sensors were detected, try running `sudo sensors-detect` first");
@@ -125,7 +125,7 @@ void f::appendConfig(const string &path) {
   umask(default_umask);
   std::ifstream ifs(path);
 
-  auto allUIDs = Find::getFanUIDs();
+  auto allUIDs = Devices::getFanUIDs();
   vector<decltype(allUIDs)::iterator> existingUIDs;
 
   bool pExists = exists(path);
@@ -203,7 +203,7 @@ void f::testFans(uint testRetries, bool singleThreaded) {
   umask(default_umask);
   appendConfig(config_path);
 
-  auto fanUIDs = Find::getFanUIDs();
+  auto fanUIDs = Devices::getFanUIDs();
   if (fanUIDs.empty()) {
     LOG(llvl::warning) << "No fans were detected, try running 'sudo sensors-detect' first";
     return;
@@ -219,7 +219,7 @@ void f::testFans(uint testRetries, bool singleThreaded) {
     if (!exists(dir))
       create_directory(dir);
 
-    threads.emplace_back(thread(&f::testFan, std::ref(*it), Find::getFan(*it), testRetries));
+    threads.emplace_back(thread(&f::testFan, std::ref(*it), Devices::getFan(*it), testRetries));
 
     if (singleThreaded) {
       threads.back().join();
@@ -334,8 +334,8 @@ int main(int argc, char *argv[]) {
 
   // Options and commands
   f::Option verbose("verbose", "v"), quiet("quiet", "q"),
-      threads("threads", "t", true), fork("fork", "f"), retries("retries", "r", true);
-  f::Option debug("debug", "d");    /// <\deprecated Use verbose  TODO: remove 07/2017
+      threads("threads", "t", true), fork("fork", "f"), retries("retries", "r", true),
+      debug("debug", "d");    /// <\deprecated Use verbose  TODO: remove 07/2017
   vector<reference_wrapper<f::Option>> options
       {verbose, debug, quiet, threads, fork, retries};
 

@@ -29,7 +29,7 @@ struct SensorsWrapper {
 }
 
 namespace fancon {
-class Find {
+class Devices {
 public:
   static unique_ptr<FanInterface> getFan(const UID &uid, const Config &fanConf = Config(), bool dynamic = true);
   static vector<UID> getFanUIDs();

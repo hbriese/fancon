@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <csignal>
 #include <sys/types.h>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem.hpp>   // TODO C++17: <filesystem>
 #include "Logging.hpp"
 
 using std::move;
@@ -29,7 +29,7 @@ using std::tuple;
 using std::vector;
 using std::next;
 using std::prev;
-using boost::filesystem::exists;
+using boost::filesystem::exists;  // TODO C++17: std::exists
 
 namespace fancon {
 enum class DeviceType : int {

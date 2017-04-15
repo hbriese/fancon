@@ -1,8 +1,8 @@
-#include "Find.hpp"
+#include "Devices.hpp"
 
-using fancon::Find;
+using fancon::Devices;
 
-unique_ptr<FanInterface> Find::getFan(const UID &uid, const Config &fanConf, bool dynamic) {
+unique_ptr<FanInterface> Devices::getFan(const UID &uid, const Config &fanConf, bool dynamic) {
   assert(uid.isFan());
 
   if (uid.type == DeviceType::fan)
@@ -11,7 +11,7 @@ unique_ptr<FanInterface> Find::getFan(const UID &uid, const Config &fanConf, boo
     return make_unique<FanNV>(uid, fanConf, dynamic);
 }
 
-vector<UID> Find::getFanUIDs() {
+vector<UID> Devices::getFanUIDs() {
   auto fans = getHWMonUIDs(FanInterfacePaths::rpm_prefix);
 
 #ifdef FANCON_NVIDIA_SUPPORT
@@ -24,7 +24,7 @@ vector<UID> Find::getFanUIDs() {
   return fans;
 }
 
-unique_ptr<SensorInterface> Find::getSensor(const UID &uid) {
+unique_ptr<SensorInterface> Devices::getSensor(const UID &uid) {
   assert(uid.isSensor());
 
   if (uid.type == DeviceType::sensor)
@@ -33,7 +33,7 @@ unique_ptr<SensorInterface> Find::getSensor(const UID &uid) {
     return make_unique<SensorNV>(uid);
 }
 
-vector<UID> Find::getSensorUIDs() {
+vector<UID> Devices::getSensorUIDs() {
   auto sensors = getHWMonUIDs(Util::temp_sensor_label);
 
 #ifdef FANCON_NVIDIA_SUPPORT
@@ -46,7 +46,7 @@ vector<UID> Find::getSensorUIDs() {
   return sensors;
 }
 
-vector<UID> Find::getHWMonUIDs(const char *devicePathSuffix) {
+vector<UID> Devices::getHWMonUIDs(const char *devicePathSuffix) {
   vector<UID> uids;
 
   SensorsWrapper sensors;
