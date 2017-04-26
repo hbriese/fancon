@@ -22,8 +22,8 @@ FanInterface::FanInterface(const UID &uid, const fan::Config &c, bool dynamic,
     stop_time = ((temp = read<decltype(temp)>(p.wait_time_pf, hw_id_str, uid.type)) > 0) ? temp : 3000;
   }
 
-  // Removed invalid points & sort by temperature
-  verifyPoints(uid);
+  // Validate points, sort by temperature and shrink
+  validatePoints(uid);
   std::sort(points.begin(), points.end(), [](const Point &lhs, const Point &rhs) { return lhs.temp < rhs.temp; });
   prev_it = points.begin();
   points.shrink_to_fit();
@@ -95,7 +95,7 @@ FanTestResult FanInterface::test() {
   auto pwmStart = getPWMStart(state, waitTime);
 
   // Set pwm as max, then lower until it stops
-//  auto [pwmMin, rpmMin] = getMinAttributes(state, waitTime, pwmStart);   TODO: C++17
+//  auto [pwmMin, rpmMin] = getMinAttributes(state, waitTime, pwmStart);   TODO C++17
   pwm_t pwmMin;
   rpm_t rpmMin;
   std::tie(pwmMin, rpmMin) = getMinAttributes(state, waitTime, pwmStart);
@@ -158,7 +158,7 @@ pwm_t FanInterface::calcPWM(const rpm_t &rpm) {
   return cpwm;
 }
 
-void FanInterface::verifyPoints(const UID &fanUID) {
+void FanInterface::validatePoints(const UID &fanUID) {
   bool invalidPoints = false, untestedPoints = false;
   stringstream ignoring;
 

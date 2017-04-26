@@ -30,7 +30,7 @@ public:
 
   controller::Config conf;
 
-  chrono::time_point <chrono::steady_clock, milliseconds> main_wakeup, sensors_wakeup, fans_wakeup;
+  chrono::time_point <chrono::steady_clock, milliseconds> sensors_wakeup, fans_wakeup;
 
   sensor_container_t sensors;
   fan_container_t fans;
@@ -41,14 +41,13 @@ public:
   void updateSensors(vector<sensor_container_t::iterator> &sensors);
   void updateFans(vector<fan_container_t::iterator> &fans);
 
-  void syncWakeups();
+  void scheduler();
 
   static void signalHandler(int sig);
   static bool validConfigLine(const string &line);
 
 private:
   void deferStart(chrono::time_point <chrono::steady_clock, milliseconds> &timePoint);
-  void updateWakeups();
 };
 
 struct MappedFan {

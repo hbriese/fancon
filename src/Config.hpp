@@ -119,6 +119,7 @@ istream &operator>>(istream &is, Point &p);
 class Config {
 public:
   Config() {}
+  Config(vector<Point> &&points) : points(points) {}
   Config(istream &is) { is >> *this; }
 
   vector<Point> points;

@@ -76,7 +76,7 @@ vector<UID> getSensors();
 #endif //FANCON_NVML_SUPPORT_EXPERIMENTAL
 
 struct Data_R {
-  Data_R(const char *title, const uint attribute, const int target = NV_CTRL_TARGET_TYPE_COOLER)
+  Data_R(const char *title, const uint attribute, const int &&target = NV_CTRL_TARGET_TYPE_COOLER)
       : title(title), target(target), attribute(attribute) {}
 
   const string title;

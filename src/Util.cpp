@@ -46,8 +46,7 @@ bool Util::locked() {
     return false;
 
   const auto pid = read < pid_t > (pid_path);
-  return exists(string("/proc/") + to_string(pid));
-//      && pid != getpid();
+  return exists(string("/proc/") + to_string(pid)) && pid != getpid();
 }
 
 void Util::lock() {

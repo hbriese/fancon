@@ -5,11 +5,12 @@
 ### Bugs
 
 - Fan PWM writes fail once after reload
+- Sensor thread may take > 100ms to update - causing old data to be used by associated fan
 
 ### Features
 
 - Add support for AMD GPU fans
-- Add options: new/exclude fan testing using regular expression option
+- Targeted fans option
 - CLI fan point configuration graph
 - qt configuration
 - Check UID chip name against chip
@@ -19,11 +20,13 @@
 - Auto-config option - copy current controller configuration
 - Check for NVIDIA hardware, and recommend libs for nvidia support
 - Update interval as a float
+- C++17: template Option & custom config path (with tuple of options & std::apply)
 
 ### Performance 
 
 - Optimize X11 auth & display search
-- Better fan update search (starting from last used iterator) - requires storing last iterator
+- Test between linear & binary search for points (of varies total sizes)
+- C++17: replace appropriate `const string &`s with `string_view`
 
 ### Refactoring
 

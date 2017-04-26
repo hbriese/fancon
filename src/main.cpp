@@ -8,17 +8,16 @@ void f::help() {
   LOG(llvl::info)
     << "Usage:\n"
     << "  fancon <command> [options]\n\n"
-    << "Available commands (and options <default>):\n"
     << "list-fans     -lf  Lists the UIDs of all fans\n"
     << "list-sensors  -ls  List the UIDs of all sensors\n"
     << "write-config  -wc  Appends missing fan UIDs to " << config_path << '\n'
-    << "test               Tests the characteristic of all fans (REQUIRED for RPM / percentage configuration)\n"
-    << "  -r retries 4     Retry attempts for a failing test, increase if you think a failing fan can pass!\n"
+    << "test               Tests the characteristic of all fans - REQUIRED for RPM / percentage configuration\n"
+    << "  -r retries       Retry attempts for a failing test - increase for failing tests (default: 4)\n"
     << "start              Starts the fancon daemon\n"
     << "  -f fork          Forks off the parent process\n"
     << "  -t threads       Override \"" << threads_prefix << "\" in " << config_path << '\n'
     << "stop               Stops the fancon daemon\n"
-    << "reload             Reloads the fancon daemon\n\n"
+    << "reload        -re  Reloads the fancon daemon\n\n"
     << "Global options:\n"
     << "  -v verbose       Output all messages\n"
     << "  -q quiet         Output only error or fatal messages\n\n"
@@ -27,7 +26,7 @@ void f::help() {
     << "libx11-6 (libX11.so); libxnvctrl0 (libXNVCtrl.so)";
 }
 
-void f::suggestions(const char *fanconDir, const char *configPath) {
+void f::suggestUsage(const char *fanconDir, const char *configPath) {
   // Constants to modify console text font
   const char *bold = "\033[1m", *red = "\033[31m", *resetFont = "\033[0m";
 
@@ -349,7 +348,7 @@ int main(int argc, char *argv[]) {
   }, true),
       start("start", "", [&fork] { f::start(fork.called); }, true),
       stop("stop", "", [] { f::sendSignal(ControllerState::stop); }),
-      reload("reload", "", [] { f::sendSignal(ControllerState::reload); });
+      reload("reload", "re", [] { f::sendSignal(ControllerState::reload); });
   vector<reference_wrapper<f::Command>> commands = {
       help, list_fans, list_fans, list_sensors, write_config, test, start, stop, reload
   };
@@ -410,7 +409,7 @@ int main(int argc, char *argv[]) {
   fancon::log::setLevel(logLevel);
 
   // Suggest usage
-  f::suggestions(Util::fancon_dir, config_path);
+  f::suggestUsage(Util::fancon_dir, config_path);
 
   // Run called commands
   for (const auto &c : commands) {

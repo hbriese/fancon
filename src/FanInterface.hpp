@@ -67,7 +67,7 @@ protected:
   const bool dynamic;
 
   pwm_t calcPWM(const rpm_t &rpm);
-  void verifyPoints(const UID &fanUID);
+  void validatePoints(const UID &fanUID);
 
   pwm_t testPWM(const rpm_t &rpm);    // TODO: remove
 

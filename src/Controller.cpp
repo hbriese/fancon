@@ -42,14 +42,13 @@ Controller::Controller(const string &configPath) {
     if (!fanUID.valid(DeviceType::fan_interface) || !sensorUID.valid(DeviceType::sensor_interface) || !fanConf.valid())
       continue;
 
-    // TODO: test fan and add PWM values where there are RPMs <<
-//        for (auto &p : fanConf.points)
-//            if (!p.validPWM())
-//                p.pwm = f.testPWM(p.rpm);
-
     // Find sensors if it has already been defined
     auto sIt = find_if(sensors.begin(), sensors.end(),
                        [&](const unique_ptr<SensorInterface> &s) { return *s == sensorUID; });
+
+    // Check for appropriate support
+    if (fanUID.type == DeviceType::fan_nv && !NV::support)
+      continue;
 
     // Add the sensor if it is missing, and update the sensor iterator
     if (sIt == sensors.end()) {
@@ -100,7 +99,7 @@ ControllerState Controller::run() {
   LOG(llvl::debug) << "Started with " << (threads.size() + 1) << " threads";
 
   // Synchronize thread wake-up times
-  syncWakeups();
+  scheduler();
 
   for (auto &t : threads)
     if (t.joinable())
@@ -138,15 +137,25 @@ void Controller::updateFans(vector<fan_container_t::iterator> &fans) {
   }
 }
 
-void Controller::syncWakeups() {
-  // Start threads
-  main_wakeup = chrono::time_point_cast<milliseconds>(chrono::steady_clock::now());
-  updateWakeups();
-  controller_state = ControllerState::run;
+/// \warning Scheduling is done without locks, and assumes that sensor updates will take 100ms or less
+void Controller::scheduler() {
+  auto schedulerWakeup = chrono::time_point_cast<milliseconds>(chrono::steady_clock::now());
 
+  auto update = [this, &schedulerWakeup](const milliseconds &interval) {
+    schedulerWakeup += interval;
+    sensors_wakeup = schedulerWakeup + milliseconds(20);
+    fans_wakeup = sensors_wakeup + milliseconds(100); // 100ms could be an issue at ~10 sensors/thread under high load
+  };
+
+  // Wake deferred threads almost immediately
+  update(milliseconds(1));
+  controller_state = ControllerState::run;
+  sleep_until(schedulerWakeup);
+
+  // Wake threads once every update_interval
   while (controller_state == ControllerState::run) {
-    updateWakeups();
-    sleep_until(main_wakeup);
+    update(conf.update_interval);
+    sleep_until(schedulerWakeup);
   }
 }
 
@@ -180,10 +189,4 @@ void Controller::deferStart(chrono::time_point <chrono::steady_clock, millisecon
     sleep_for(milliseconds(10));
 
   sleep_until(timePoint);
-}
-
-void Controller::updateWakeups() {
-  main_wakeup += conf.update_interval;
-  sensors_wakeup = main_wakeup + milliseconds(20);
-  fans_wakeup = sensors_wakeup + milliseconds(100);
 }

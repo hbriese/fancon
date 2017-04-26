@@ -137,7 +137,7 @@ istream &fan::operator>>(istream &is, fan::Point &p) {
 
 ostream &fan::operator<<(ostream &os, const fan::Config &c) {
   for (const auto &p : c.points)
-    os << p;
+    os << p << ' ';
 
   return os;
 }

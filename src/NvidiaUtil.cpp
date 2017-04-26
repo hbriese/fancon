@@ -108,9 +108,9 @@ Display *NV::DisplayWrapper::operator*() {
 }
 
 bool NV::supported() {
-  // Run InitThreads for threadsafe XDisplay access if the fancon process is the first
+  // Run InitThreads for threadsafe XDisplay access if it's the first fancon process
   if (!Util::locked())
-    xlib.InitThreads();   // Run before first XOpenDisplay() from any process
+    xlib.InitThreads();
 
   if (!dw.connected()) {
     LOG(llvl::debug) << "X11 display cannot be opened";
@@ -118,16 +118,14 @@ bool NV::supported() {
   }
 
   int eventBase, errorBase;
-  auto ret = xnvlib.QueryExtension(*dw, &eventBase, &errorBase);
-  if (!ret) {
+  if (!(xnvlib.QueryExtension(*dw, &eventBase, &errorBase))) {
     LOG(llvl::debug) << "NVIDIA fan control not supported";   // NV-CONTROL X does not exist!
     return false;
   } else if (errorBase)
     LOG(llvl::warning) << "NV-CONTROL X return error base: " << errorBase;
 
   int major = 0, minor = 0;
-  ret = xnvlib.QueryVersion(*dw, &major, &minor);
-  if (!ret) {
+  if (!(xnvlib.QueryVersion(*dw, &major, &minor))) {
     LOG(llvl::error) << "Failed to query NV-CONTROL X version";
     return false;
   } else if ((major < 1) || (major == 1 && minor < 9))  // XNVCTRL must be at least v1.9
@@ -196,7 +194,7 @@ int NV::getNumGPUs() {
   if (!NV::support)
     return nGPUs;
 
-  // Number of GPUs
+  // Query number of GPUs
   if (!xnvlib.QueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_GPU, &nGPUs))
     LOG(llvl::error) << "Failed to query number of NVIDIA GPUs";
 
