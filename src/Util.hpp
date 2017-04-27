@@ -132,7 +132,7 @@ bool fancon::Util::write(const string &path, T val, int nFailed) {
   ofs.close();
 
   if (!ofs) {
-    if (nFailed <= 3)   // retry 3 times
+    if (nFailed <= 3)   // Retry 3 times
       return write<T>(path, move(val), ++nFailed);
 
     LOG(llvl::debug) << "Failed to write '" << val << "' to: " << path
@@ -168,12 +168,12 @@ vector<vector<typename T::iterator>> fancon::Util::distributeTasks(uint threads,
   threadTasks.reserve(tasks);
 
   // Distribute base number of tasks for each thread
-  ulong baseTasks = tasks / threads;   // tasks per thread
+  ulong baseTasks = tasks / threads;   // Tasks per thread
   auto tasksRem = tasks % threads;
   vector<ulong> nThreadTasks(threads - tasksRem, baseTasks);
 
   // Hand off remaining tasks
-  if (tasksRem)   // insert threads that have extra tasks
+  if (tasksRem)   // Insert threads that have extra tasks
     nThreadTasks.insert(nThreadTasks.end(), tasksRem, baseTasks + 1);
 
   auto it = tasksContainer.begin();

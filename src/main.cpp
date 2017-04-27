@@ -13,10 +13,10 @@ void f::help() {
     << "write-config  -wc  Appends missing fan UIDs to " << config_path << '\n'
     << "test               Tests the characteristic of all fans - REQUIRED for RPM / percentage configuration\n"
     << "  -r retries       Retry attempts for a failing test - increase for failing tests (default: 4)\n"
-    << "start              Starts the fancon daemon\n"
+    << "start         -s   Starts the fancon daemon\n"
     << "  -f fork          Forks off the parent process\n"
     << "  -t threads       Override \"" << threads_prefix << "\" in " << config_path << '\n'
-    << "stop               Stops the fancon daemon\n"
+    << "stop          -S   Stops the fancon daemon\n"
     << "reload        -re  Reloads the fancon daemon\n\n"
     << "Global options:\n"
     << "  -v verbose       Output all messages\n"
@@ -38,8 +38,8 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
     int maxSize{};
 
     if (suggestTest) {
-      constexpr const char *m =
-          "Run `sudo fancon test` to be able to configure fan profiles using RPM, or RPM percentage";
+      constexpr const char
+          *m = "Run `sudo fancon test` to be able to configure fan profiles using RPM, or RPM percentage";
       constexpr const auto mSize = static_cast<int>(strlength(m));
 //      constexpr const auto mSize = static_cast<int>(std::char_traits<char>::length(m)); // TODO: C++17
       if (mSize > maxSize)
@@ -49,8 +49,8 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
     }
 
     if (suggestConfig) {
-      const string m =
-          string("Edit ") + configPath + " to configure fan profiles, referencing `sudo fancon list-sensors`";
+      const string
+          m = string("Edit ") + configPath + " to configure fan profiles, referencing `sudo fancon list-sensors`";
       const auto mSize = static_cast<int>(m.size());
       if (mSize > maxSize)
         maxSize = mSize;
@@ -328,8 +328,14 @@ int main(int argc, char *argv[]) {
 #endif //FANCON_PROFILE
 
   vector<string> args;
-  for (int i = 1; i < argc; ++i)
-    args.push_back(string(argv[i]));
+  for (auto i = 1; i < argc; ++i) {
+    // Skip all preceding '-'
+    auto *argp = argv[i];
+    while (*argp == '-')
+      ++argp;
+
+    args.emplace_back(string(argp));
+  }
 
   // Options and commands
   f::Option verbose("verbose", "v"), quiet("quiet", "q"),
@@ -346,8 +352,8 @@ int main(int argc, char *argv[]) {
     f::testFans((retries.called && retries.val > 0) ? retries.val : 4,
                 (threads.called && threads.val == 1));
   }, true),
-      start("start", "", [&fork] { f::start(fork.called); }, true),
-      stop("stop", "", [] { f::sendSignal(ControllerState::stop); }),
+      start("start", "s", [&fork] { f::start(fork.called); }, true),
+      stop("stop", "S", [] { f::sendSignal(ControllerState::stop); }),
       reload("reload", "re", [] { f::sendSignal(ControllerState::reload); });
   vector<reference_wrapper<f::Command>> commands = {
       help, list_fans, list_fans, list_sensors, write_config, test, start, stop, reload
@@ -357,12 +363,6 @@ int main(int argc, char *argv[]) {
   for (auto a = args.begin(), end = args.end(); a != end; ++a) {
     if (a->empty())
       continue;
-
-    // Remove all preceding '-'
-    a->erase(a->begin(), find_if(a->begin(), a->end(), [](const char &c) { return c != '-'; }));
-
-    // Convert to lower case
-    std::transform(a->begin(), a->end(), a->begin(), ::tolower);
 
     // Search commands
     auto cIt_tc = find_if(commands.begin(), commands.end(), [&](auto &c) { return c.get() == *a; });

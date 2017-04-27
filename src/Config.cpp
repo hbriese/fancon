@@ -3,6 +3,8 @@
 using fancon::InputValue;
 namespace controller = fancon::controller;
 namespace fan = fancon::fan;
+namespace scc = fancon::serialization_constants::controller_config;
+namespace scp = fancon::serialization_constants::point;
 
 // TODO: review beg != end
 InputValue::InputValue(string &input, string::iterator &&begin, std::function<bool(const char &ch)> predicate)
@@ -34,9 +36,9 @@ InputValue::afterSeperator(const string::iterator &&beg, const string::iterator 
 
 ostream &controller::operator<<(ostream &os, const controller::Config &c) {
   using namespace fancon::serialization_constants::controller_config;
-  os << interval_prefix << c.update_interval.count() << ' '
-     << threads_prefix << c.max_threads << ' '
-     << dynamic_prefix << ((c.dynamic) ? "true" : "false");
+  os << scc::interval_prefix << c.update_interval.count() << ' '
+     << scc::threads_prefix << c.max_threads << ' '
+     << scc::dynamic_prefix << ((c.dynamic) ? "true" : "false");
 
   return os;
 }
@@ -45,11 +47,10 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
   string in;
   std::getline(is, in);
 
-  using namespace fancon::serialization_constants::controller_config;
-  InputValue dynamic(in, dynamic_prefix, ::isalpha);
-  InputValue interval(in, interval_prefix, ::isdigit);
-  InputValue threads(in, threads_prefix, ::isdigit);
-  InputValue update(in, update_prefix_deprecated, ::isdigit);  /// <\deprecated Use interval
+  InputValue dynamic(in, scc::dynamic_prefix, ::isalpha);
+  InputValue interval(in, scc::interval_prefix, ::isdigit);
+  InputValue threads(in, scc::threads_prefix, ::isdigit);
+  InputValue update(in, scc::update_prefix_deprecated, ::isdigit);  /// <\deprecated Use interval
 
   // Fail if no values are found
   if (!dynamic.found && !interval.found && !threads.found && !update.found) {
@@ -74,8 +75,8 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
       interval.setIfValid(update_interval);
     else {
       update.setIfValid(update_interval);
-      LOG(llvl::warning) << update_prefix_deprecated << " in " << Util::config_path
-                         << " is deprecated, and WILL BE REMOVED. Use " << interval_prefix;
+      LOG(llvl::warning) << scc::update_prefix_deprecated << " in " << Util::config_path
+                         << " is deprecated, and WILL BE REMOVED. Use " << scc::interval_prefix;
     }
 
     if (update_interval > 0)
@@ -89,23 +90,21 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
 }
 
 ostream &fan::operator<<(ostream &os, const fan::Point &p) {
-  using namespace fancon::serialization_constants::point;
   os << p.temp
-     << (p.validRPM() ? string() + rpm_separator + to_string(p.rpm) : "")
-     << (p.validPWM() ? string() + pwm_separator + to_string(p.pwm) : "");
+     << ((p.validRPM()) ? scp::rpm_separator + to_string(p.rpm) : "")
+     << ((p.validPWM()) ? scp::pwm_separator + to_string(p.pwm) : "");
 
   return os;
 }
 
 istream &fan::operator>>(istream &is, fan::Point &p) {
-  using namespace fancon::serialization_constants::point;
   string in;
   is >> std::skipws >> in;
   if (in.empty())
     return is;
 
-  InputValue pwm(in, pwm_separator, ::isdigit);
-  InputValue rpm(in, rpm_separator, ::isdigit);
+  InputValue pwm(in, scp::pwm_separator, ::isdigit);
+  InputValue rpm(in, scp::rpm_separator, ::isdigit);
 
   // Temp must be before (first of) PWM & RPM
   auto &&tempEnd = std::prev((rpm.found && rpm.beg < pwm.beg) ? rpm.beg : pwm.beg);
@@ -120,7 +119,7 @@ istream &fan::operator>>(istream &is, fan::Point &p) {
   // Set values if they are found & valid
   if (temp.found) {
     temp.setIfValid(p.temp);
-    if (temp.end != in.end() && std::tolower(*temp.end) == fahrenheit)
+    if (temp.end != in.end() && std::tolower(*temp.end) == scp::fahrenheit)   // Convert from fahrenheit to celsius
       p.temp = static_cast<temp_t>((p.temp - 32) / 1.8);
   }
 
@@ -129,7 +128,7 @@ istream &fan::operator>>(istream &is, fan::Point &p) {
   else if (rpm.found) {
     rpm.setIfValid(p.rpm);
     if (rpm.end != in.end())
-      p.is_rpm_percent = (std::tolower(*rpm.end) == percent);
+      p.is_rpm_percent = (std::tolower(*rpm.end) == scp::percent);
   }
 
   return is;

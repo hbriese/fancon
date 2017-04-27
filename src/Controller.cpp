@@ -34,27 +34,26 @@ Controller::Controller(const string &configPath) {
         liss.seekg(0, std::ios::beg);
     }
 
+    // Deserialize, and check for valid fan (with appropriate support), sensor and config
     UID fanUID(liss);
-    UID sensorUID(liss);
-    fan::Config fanConf(liss);
+    if (!fanUID.valid(DeviceType::fan_interface) || ((fanUID.type == DeviceType::fan_nv) & !NV::support))
+      continue;
 
-    // UIDs, and config must be valid
-    if (!fanUID.valid(DeviceType::fan_interface) || !sensorUID.valid(DeviceType::sensor_interface) || !fanConf.valid())
+    UID sensorUID(liss);
+    if (!sensorUID.valid(DeviceType::sensor_interface))
+      continue;
+
+    fan::Config fanConf(liss);
+    if (!fanConf.valid())
       continue;
 
     // Find sensors if it has already been defined
     auto sIt = find_if(sensors.begin(), sensors.end(),
                        [&](const unique_ptr<SensorInterface> &s) { return *s == sensorUID; });
 
-    // Check for appropriate support
-    if (fanUID.type == DeviceType::fan_nv && !NV::support)
-      continue;
-
     // Add the sensor if it is missing, and update the sensor iterator
-    if (sIt == sensors.end()) {
-      sensors.emplace_back(Devices::getSensor(sensorUID));
-      sIt = prev(sensors.end());
-    }
+    if (sIt == sensors.end())
+      sIt = sensors.emplace(sensors.end(), Devices::getSensor(sensorUID));
 
     // Add fan only if there are configured points
     auto fan = Devices::getFan(fanUID, fanConf, conf.dynamic);
@@ -83,22 +82,24 @@ ControllerState Controller::run() {
   for (auto &s : {SIGTERM, SIGINT, SIGABRT, SIGHUP})
     sigaction(s, &act, nullptr);
 
-  // Start sensor & fan threads defered - to avoid data races
+  // Run sensor & fan threads
   vector<thread> threads;
+  {
+    auto sensorTasks = Util::distributeTasks(conf.max_threads, sensors);
+    auto fanTasks = Util::distributeTasks(conf.max_threads, fans);
+    threads.reserve(sensorTasks.size() + fanTasks.size());
 
-  auto sensorTasks = Util::distributeTasks(conf.max_threads, sensors);
-  for (auto &tasks : sensorTasks)
-    threads.emplace_back(thread(&Controller::updateSensors, this, std::ref(tasks)));
+    for (auto &t : sensorTasks)
+      threads.emplace_back(thread(&Controller::updateSensors, this, move(t)));
 
-  auto fanTasks = Util::distributeTasks(conf.max_threads, fans);
-  for (auto &tasks : fanTasks)
-    threads.emplace_back(thread(&Controller::updateFans, this, std::ref(tasks)));
-
+    for (auto &t : fanTasks)
+      threads.emplace_back(thread(&Controller::updateFans, this, move(t)));
+  }
   threads.shrink_to_fit();
 
   LOG(llvl::debug) << "Started with " << (threads.size() + 1) << " threads";
 
-  // Synchronize thread wake-up times
+  // Synchronize thread wake-up times in main thread
   scheduler();
 
   for (auto &t : threads)
@@ -113,7 +114,7 @@ void Controller::reload(const string &configPath) {
   *this = Controller(configPath);
 }
 
-void Controller::updateSensors(vector<sensor_container_t::iterator> &sensors) {
+void Controller::updateSensors(vector<sensor_container_t::iterator> sensors) {
   deferStart(sensors_wakeup);
 
   while (controller_state == ControllerState::run) {
@@ -124,7 +125,7 @@ void Controller::updateSensors(vector<sensor_container_t::iterator> &sensors) {
   }
 }
 
-void Controller::updateFans(vector<fan_container_t::iterator> &fans) {
+void Controller::updateFans(vector<fan_container_t::iterator> fans) {
   deferStart(fans_wakeup);
 
   while (controller_state == ControllerState::run) {

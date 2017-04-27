@@ -21,12 +21,14 @@
 - Check for NVIDIA hardware, and recommend libs for nvidia support
 - Update interval as a float
 - C++17: template Option & custom config path (with tuple of options & std::apply)
+- Remove sensor or fan failing to update (maybe??)
 
 ### Performance 
 
 - Optimize X11 auth & display search
 - Test between linear & binary search for points (of varies total sizes)
 - C++17: replace appropriate `const string &`s with `string_view`
+- Sort sensors by number of uses by fans for better locality
 
 ### Refactoring
 

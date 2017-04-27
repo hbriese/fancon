@@ -38,8 +38,8 @@ public:
   ControllerState run();
   void reload(const string &configPath);
 
-  void updateSensors(vector<sensor_container_t::iterator> &sensors);
-  void updateFans(vector<fan_container_t::iterator> &fans);
+  void updateSensors(vector<sensor_container_t::iterator> sensors);
+  void updateFans(vector<fan_container_t::iterator> fans);
 
   void scheduler();
 
