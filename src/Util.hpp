@@ -1,19 +1,19 @@
 #ifndef FANCON_UTIL_HPP
 #define FANCON_UTIL_HPP
 
-#include <algorithm>    // all_of
-#include <chrono>
-#include <string>
-#include <fstream>      // ifstream, ofstream
-#include <iterator>     // next, prev
-#include <utility>      // pair
-#include <tuple>
-#include <vector>
-#include <cstdlib>
-#include <csignal>
-#include <sys/types.h>
-#include <boost/filesystem.hpp>   // TODO C++17: <filesystem>
 #include "Logging.hpp"
+#include <algorithm>            // all_of
+#include <boost/filesystem.hpp> // TODO C++17: <filesystem>
+#include <chrono>
+#include <csignal>
+#include <cstdlib>
+#include <fstream>  // ifstream, ofstream
+#include <iterator> // next, prev
+#include <string>
+#include <sys/types.h>
+#include <tuple>
+#include <utility> // pair
+#include <vector>
 
 using std::move;
 using std::ifstream;
@@ -29,12 +29,16 @@ using std::tuple;
 using std::vector;
 using std::next;
 using std::prev;
-using boost::filesystem::exists;  // TODO C++17: std::exists
+using boost::filesystem::exists; // TODO C++17: std::exists
 
 namespace fancon {
 enum class DeviceType : int {
-  fan = (1u << 0), fan_nv = (1u << 1), fan_interface = fan | fan_nv,
-  sensor = (1u << 2), sensor_nv = (1u << 3), sensor_interface = sensor | sensor_nv
+  fan = (1u << 0),
+  fan_nv = (1u << 1),
+  fan_interface = fan | fan_nv,
+  sensor = (1u << 2),
+  sensor_nv = (1u << 3),
+  sensor_interface = sensor | sensor_nv
 };
 
 fancon::DeviceType operator|(fancon::DeviceType lhs, fancon::DeviceType rhs);
@@ -56,38 +60,36 @@ bool locked();
 void lock();
 bool try_lock();
 
-template<typename IT>
+template <typename IT>
 bool equalTo(std::initializer_list<const IT> values, const IT value);
 
-string getDir(const string &hwID, DeviceType devType, const bool useSysFS = false);
+string getDir(const string &hwID, DeviceType devType, const bool sysFS = false);
 string getPath(const string &path_pf, const string &hwID,
-               DeviceType devType = DeviceType::fan, const bool useSysFS = false);
+               DeviceType devType = DeviceType::fan, const bool sysFS = false);
 
-string readLine(string path, int nFailed = 0);  // TODO: string -> string&
+string readLine(string path, int nFailed = 0); // TODO: string -> string&
 
-template<typename T>
-T read(const string &path, int nFailed = 0);
+template <typename T> T read(const string &path, int nFailed = 0);
 
-template<typename T>
+template <typename T>
 T read(const string &path_pf, const string &hw_id,
-       DeviceType devType = DeviceType::fan, bool useSysFS = false) {
-  return read<T>(getPath(path_pf, hw_id, devType, useSysFS));
+       DeviceType devType = DeviceType::fan, bool sysFS = false) {
+  return read<T>(getPath(path_pf, hw_id, devType, sysFS));
 }
 
-template<typename T>
-bool write(const string &path, T val, int nFailed = 0);
+template <typename T> bool write(const string &path, T val, int nFailed = 0);
 
-template<typename T>
+template <typename T>
 bool write(const string &path_pf, const string &hwmon_id, T val,
-           DeviceType devType = DeviceType::fan, bool useSysFS = false) {
-  return write<T>(getPath(path_pf, hwmon_id, devType, useSysFS), val);
+           DeviceType devType = DeviceType::fan, bool sysFS = false) {
+  return write<T>(getPath(path_pf, hwmon_id, devType, sysFS), val);
 }
 
-template<typename T>
-void moveAppend(vector<T> &src, vector<T> &dst);
+template <typename T> void moveAppend(vector<T> &src, vector<T> &dst);
 
-template<typename T>
-vector<vector<typename T::iterator>> distributeTasks(uint threads, T &tasksContainer);
+template <typename T>
+vector<vector<typename T::iterator>> distributeTasks(uint threads,
+                                                     T &tasksContainer);
 }
 }
 
@@ -95,8 +97,9 @@ vector<vector<typename T::iterator>> distributeTasks(uint threads, T &tasksConta
 // TEMPLATE DEFINITIONS //
 //----------------------//
 
-template<typename IT>
-bool fancon::Util::equalTo(std::initializer_list<const IT> values, const IT value) {
+template <typename IT>
+bool fancon::Util::equalTo(std::initializer_list<const IT> values,
+                           const IT value) {
   for (const auto &it : values)
     if (it == value)
       return true;
@@ -104,11 +107,17 @@ bool fancon::Util::equalTo(std::initializer_list<const IT> values, const IT valu
   return false;
 }
 
-template<typename T>
-T fancon::Util::read(const string &path, int nFailed) {
+template <typename T> T fancon::Util::read(const string &path, int nFailed) {
   ifstream ifs(path);
   T ret;
   ifs >> ret;
+
+  // TODO C++17: test performance of std::from_chars vs >>
+  //  auto len = ifs.seekg(ifs.end).tellg();
+  //  vector<char> buf(len);
+  //  ifs.seekg(ifs.beg).read(buf.data(), len);
+  //  auto res = std::from_chars(buf.data(), buf.data() + len, ret);
+
   ifs.close();
 
   if (!ifs) {
@@ -117,33 +126,36 @@ T fancon::Util::read(const string &path, int nFailed) {
     if (exist && nFailed <= 3)
       return read<T>(path, ++nFailed);
 
-    const char *reason = (exist) ? "filesystem or permission error" : "doesn't exist";
-    LOG(llvl::debug) << "Failed to read from: " << path << " - " << reason << "; user id " << getuid();
+    const char *reason =
+        (exist) ? "filesystem or permission error" : "doesn't exist";
+    LOG(llvl::debug) << "Failed to read from: " << path << " - " << reason
+                     << "; user id " << getuid();
     return T{};
   }
 
   return ret;
 }
 
-template<typename T>
+template <typename T>
 bool fancon::Util::write(const string &path, T val, int nFailed) {
   ofstream ofs(path);
   ofs << val;
   ofs.close();
 
   if (!ofs) {
-    if (nFailed <= 3)   // Retry 3 times
+    if (nFailed <= 3) // Retry 3 times
       return write<T>(path, move(val), ++nFailed);
 
     LOG(llvl::debug) << "Failed to write '" << val << "' to: " << path
-                     << " - filesystem of permission error; user id " << getuid();
+                     << " - filesystem of permission error; user id "
+                     << getuid();
     return false;
   }
 
   return true;
 }
 
-template<typename T>
+template <typename T>
 void fancon::Util::moveAppend(vector<T> &src, vector<T> &dst) {
   if (!dst.empty()) {
     dst.reserve(dst.size() + src.size());
@@ -155,10 +167,12 @@ void fancon::Util::moveAppend(vector<T> &src, vector<T> &dst) {
 
 /// \tparam T task container type
 /// \param threads Max number of threads to use
-/// \param tasksContainer Container holding tasks to be distributed among threads
+/// \param tasksContainer Container holding tasks to be distributed among
+/// threads
 /// \return A list of iterators distributed to threads
-template<typename T>    // TODO: check iterator support
-vector<vector<typename T::iterator>> fancon::Util::distributeTasks(uint threads, T &tasksContainer) {
+template <typename T> // TODO: check iterator support
+vector<vector<typename T::iterator>>
+fancon::Util::distributeTasks(uint threads, T &tasksContainer) {
   // Cannot have more threads than tasks
   auto tasks = tasksContainer.size();
   if (tasks < threads)
@@ -168,12 +182,12 @@ vector<vector<typename T::iterator>> fancon::Util::distributeTasks(uint threads,
   threadTasks.reserve(tasks);
 
   // Distribute base number of tasks for each thread
-  ulong baseTasks = tasks / threads;   // Tasks per thread
+  ulong baseTasks = tasks / threads; // Tasks per thread
   auto tasksRem = tasks % threads;
   vector<ulong> nThreadTasks(threads - tasksRem, baseTasks);
 
   // Hand off remaining tasks
-  if (tasksRem)   // Insert threads that have extra tasks
+  if (tasksRem) // Insert threads that have extra tasks
     nThreadTasks.insert(nThreadTasks.end(), tasksRem, baseTasks + 1);
 
   auto it = tasksContainer.begin();
@@ -193,4 +207,4 @@ vector<vector<typename T::iterator>> fancon::Util::distributeTasks(uint threads,
   return threadTasks;
 }
 
-#endif //FANCON_UTIL_HPP
+#endif // FANCON_UTIL_HPP

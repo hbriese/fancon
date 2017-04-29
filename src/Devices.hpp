@@ -1,15 +1,15 @@
 #ifndef FANCON_FIND_HPP
 #define FANCON_FIND_HPP
 
-#include <memory>       // unique_ptr
-#include <vector>
-#include <sensors/sensors.h>
-#include "Util.hpp"
-#include "UID.hpp"
 #include "Config.hpp"
 #include "Fan.hpp"
-#include "SensorInterface.hpp"
 #include "NvidiaDevices.hpp"
+#include "SensorInterface.hpp"
+#include "UID.hpp"
+#include "Util.hpp"
+#include <memory> // unique_ptr
+#include <sensors/sensors.h>
+#include <vector>
 
 using fancon::Util::lastNum;
 using fancon::UID;
@@ -21,17 +21,19 @@ using fancon::Sensor;
 using fancon::SensorNV;
 
 namespace {
+/// \brief Wrapper for safely handling libsensor chips
 struct SensorsWrapper {
   SensorsWrapper();
   ~SensorsWrapper() { sensors_cleanup(); }
-  vector<const sensors_chip_name *> chips;  // Do *not* free, use sensors_cleanup()
+  vector<const sensors_chip_name *> chips; 
 };
 }
 
 namespace fancon {
 class Devices {
 public:
-  static unique_ptr<FanInterface> getFan(const UID &uid, const Config &fanConf = Config(), bool dynamic = true);
+  static unique_ptr<FanInterface>
+  getFan(const UID &uid, const Config &fanConf = Config(), bool dynamic = true);
   static vector<UID> getFanUIDs();
 
   static unique_ptr<SensorInterface> getSensor(const UID &uid);
@@ -42,4 +44,4 @@ private:
 };
 }
 
-#endif //FANCON_FIND_HPP
+#endif // FANCON_FIND_HPP

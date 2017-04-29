@@ -15,14 +15,15 @@ const string UID::getBasePath() const {
 
 bool UID::operator==(const UID &other) const {
   return (this->chipname == other.chipname) &&
-      (this->dev_name == other.dev_name) &&
-      (this->hw_id == other.hw_id);
+         (this->dev_name == other.dev_name) && (this->hw_id == other.hw_id);
 }
 
 DeviceType UID::getType() {
   DeviceType type;
   const string sDevName(Util::temp_sensor_label);
-  const bool isSensor = search(dev_name.begin(), dev_name.end(), sDevName.begin(), sDevName.end()) != dev_name.end();
+  const bool isSensor =
+      search(dev_name.begin(), dev_name.end(), sDevName.begin(),
+             sDevName.end()) != dev_name.end();
   const bool isNVIDIA = chipname == Util::nvidia_label;
 
   if (isNVIDIA)

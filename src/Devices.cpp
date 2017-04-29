@@ -2,7 +2,8 @@
 
 using fancon::Devices;
 
-unique_ptr<FanInterface> Devices::getFan(const UID &uid, const Config &fanConf, bool dynamic) {
+unique_ptr<FanInterface> Devices::getFan(const UID &uid, const Config &fanConf,
+                                         bool dynamic) {
   assert(uid.isFan());
 
   if (uid.type == DeviceType::fan)
@@ -18,7 +19,7 @@ vector<UID> Devices::getFanUIDs() {
   auto nvFans = NV::getFans();
   if (!nvFans.empty())
     Util::moveAppend(nvFans, fans);
-#endif //FANCON_NVIDIA_SUPPORT
+#endif // FANCON_NVIDIA_SUPPORT
 
   fans.shrink_to_fit();
   return fans;
@@ -40,7 +41,7 @@ vector<UID> Devices::getSensorUIDs() {
   auto nvSensors = NV::getSensors();
   if (!nvSensors.empty())
     Util::moveAppend(nvSensors, sensors);
-#endif //FANCON_NVIDIA_SUPPORT
+#endif // FANCON_NVIDIA_SUPPORT
 
   sensors.shrink_to_fit();
   return sensors;

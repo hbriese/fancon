@@ -1,8 +1,8 @@
 #ifndef FANCON_SENSORINTERFACE_HPP
 #define FANCON_SENSORINTERFACE_HPP
 
-#include "UID.hpp"
 #include "Config.hpp"
+#include "UID.hpp"
 
 using fancon::UID;
 using fancon::temp_t;
@@ -21,7 +21,9 @@ struct SensorInterface {
 };
 
 struct Sensor : public SensorInterface {
-  Sensor(const UID &uid) : input_path(uid.getBasePath() + "_input") { input_path.shrink_to_fit(); }
+  Sensor(const UID &uid) : input_path(uid.getBasePath() + "_input") {
+    input_path.shrink_to_fit();
+  }
 
   string input_path;
 
@@ -31,4 +33,4 @@ struct Sensor : public SensorInterface {
 };
 }
 
-#endif //FANCON_SENSORINTERFACE_HPP
+#endif // FANCON_SENSORINTERFACE_HPP

@@ -39,14 +39,14 @@ public:
   prev_it;
 
   bool tested = false;        // Characteristic variables written
-  rpm_t rpm_min, rpm_max;     // TODO: remove with testPWM
+  rpm_t rpm_min, rpm_max;     // TODO remove with testPWM
   pwm_t pwm_min, pwm_start;   // ^^
   milliseconds wait_time;
 
   const enable_mode_t manual_enable_mode;
   enable_mode_t driver_enable_mode;
 
-  // TODO: Functions don't need to be public
+  // TODO Functions don't need to be public
   virtual rpm_t readRPM() = 0;
   virtual rpm_t readPWM() = 0;
   virtual void writePWM(const pwm_t &pwm) = 0;
@@ -69,7 +69,7 @@ protected:
   pwm_t calcPWM(const rpm_t &rpm);
   void validatePoints(const UID &fanUID);
 
-  pwm_t testPWM(const rpm_t &rpm);    // TODO: remove
+  pwm_t testPWM(const rpm_t &rpm);    // TODO remove
 
   rpm_t getMaxRPM(FanState &state, const milliseconds waitTime);
   milliseconds getMaxSpeedChangeTime(FanState &state, const rpm_t &rpmMax);

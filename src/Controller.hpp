@@ -1,12 +1,12 @@
 #ifndef FANCON_CONTROLLER_HPP
 #define FANCON_CONTROLLER_HPP
 
-#include <algorithm>    // find_if
-#include <csignal>
-#include <sstream>      // istringstream
-#include <chrono>
-#include <thread>
 #include "Devices.hpp"
+#include <algorithm> // find_if
+#include <chrono>
+#include <csignal>
+#include <sstream> // istringstream
+#include <thread>
 
 using std::istringstream;
 using std::find_if;
@@ -19,9 +19,12 @@ struct MappedFan;
 
 using sensor_container_t = vector<unique_ptr<SensorInterface>>;
 using fan_container_t = vector<MappedFan>;
+using time_point_t = chrono::time_point<chrono::steady_clock, milliseconds>;
 
 enum class ControllerState {
-  run, stop = SIGTERM, reload = SIGHUP
+  run,
+  stop = SIGTERM,
+  reload = SIGHUP
 } extern controller_state;
 
 class Controller {
@@ -30,7 +33,7 @@ public:
 
   controller::Config conf;
 
-  chrono::time_point <chrono::steady_clock, milliseconds> sensors_wakeup, fans_wakeup;
+  time_point_t sensors_wakeup, fans_wakeup;
 
   sensor_container_t sensors;
   fan_container_t fans;
@@ -47,7 +50,7 @@ public:
   static bool validConfigLine(const string &line);
 
 private:
-  void deferStart(chrono::time_point <chrono::steady_clock, milliseconds> &timePoint);
+  void deferStart(time_point_t &timePoint);
 };
 
 struct MappedFan {
@@ -59,4 +62,4 @@ struct MappedFan {
 };
 }
 
-#endif //FANCON_CONTROLLER_HPP
+#endif // FANCON_CONTROLLER_HPP

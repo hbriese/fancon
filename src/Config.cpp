@@ -7,17 +7,24 @@ namespace scc = fancon::serialization_constants::controller_config;
 namespace scp = fancon::serialization_constants::point;
 
 // TODO: review beg != end
-InputValue::InputValue(string &input, string::iterator &&begin, std::function<bool(const char &ch)> predicate)
-    : beg(begin), end(std::find_if_not(beg, input.end(), predicate)), found(beg != input.end() && beg != end) {}
+InputValue::InputValue(string &input, string::iterator &&begin,
+                       std::function<bool(const char &ch)> predicate)
+    : beg(begin), end(std::find_if_not(beg, input.end(), predicate)),
+      found(beg != input.end() && beg != end) {}
 
-InputValue::InputValue(string &input, const string &sep, std::function<bool(const char &ch)> predicate)
-    : InputValue(input, afterSeperator(input.begin(), input.end(), sep), move(predicate)) {}
+InputValue::InputValue(string &input, const string &sep,
+                       std::function<bool(const char &ch)> predicate)
+    : InputValue(input, afterSeperator(input.begin(), input.end(), sep),
+                 move(predicate)) {}
 
-InputValue::InputValue(string &input, const char &sep, std::function<bool(const char &ch)> predicate)
-    : InputValue(input, afterSeperator(input.begin(), input.end(), sep), move(predicate)) {}
+InputValue::InputValue(string &input, const char &sep,
+                       std::function<bool(const char &ch)> predicate)
+    : InputValue(input, afterSeperator(input.begin(), input.end(), sep),
+                 move(predicate)) {}
 
-string::iterator
-InputValue::afterSeperator(const string::iterator &&beg, const string::iterator &&end, const char &sep) {
+string::iterator InputValue::afterSeperator(const string::iterator &&beg,
+                                            const string::iterator &&end,
+                                            const char &sep) {
   auto ret = find(beg, end, sep);
   if (ret != end)
     ++ret;
@@ -25,8 +32,9 @@ InputValue::afterSeperator(const string::iterator &&beg, const string::iterator 
   return ret;
 }
 
-string::iterator
-InputValue::afterSeperator(const string::iterator &&beg, const string::iterator &&end, const string &sep) {
+string::iterator InputValue::afterSeperator(const string::iterator &&beg,
+                                            const string::iterator &&end,
+                                            const string &sep) {
   auto ret = search(beg, end, sep.begin(), sep.end());
   if (ret != end)
     std::advance(ret, sep.size());
@@ -35,10 +43,9 @@ InputValue::afterSeperator(const string::iterator &&beg, const string::iterator 
 }
 
 ostream &controller::operator<<(ostream &os, const controller::Config &c) {
-  using namespace fancon::serialization_constants::controller_config;
   os << scc::interval_prefix << c.update_interval.count() << ' '
-     << scc::threads_prefix << c.max_threads << ' '
-     << scc::dynamic_prefix << ((c.dynamic) ? "true" : "false");
+     << scc::threads_prefix << c.max_threads << ' ' << scc::dynamic_prefix
+     << ((c.dynamic) ? "true" : "false");
 
   return os;
 }
@@ -50,7 +57,7 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
   InputValue dynamic(in, scc::dynamic_prefix, ::isalpha);
   InputValue interval(in, scc::interval_prefix, ::isdigit);
   InputValue threads(in, scc::threads_prefix, ::isdigit);
-  InputValue update(in, scc::update_prefix_deprecated, ::isdigit);  /// <\deprecated Use interval
+  InputValue update(in, scc::update_prefix_deprecated, ::isdigit);
 
   // Fail if no values are found
   if (!dynamic.found && !interval.found && !threads.found && !update.found) {
@@ -75,8 +82,10 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
       interval.setIfValid(update_interval);
     else {
       update.setIfValid(update_interval);
-      LOG(llvl::warning) << scc::update_prefix_deprecated << " in " << Util::config_path
-                         << " is deprecated, and WILL BE REMOVED. Use " << scc::interval_prefix;
+      LOG(llvl::warning) << scc::update_prefix_deprecated << " in "
+                         << Util::config_path
+                         << " is deprecated, and WILL BE REMOVED. Use "
+                         << scc::interval_prefix;
     }
 
     if (update_interval > 0)
@@ -90,8 +99,7 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
 }
 
 ostream &fan::operator<<(ostream &os, const fan::Point &p) {
-  os << p.temp
-     << ((p.validRPM()) ? scp::rpm_separator + to_string(p.rpm) : "")
+  os << p.temp << ((p.validRPM()) ? scp::rpm_separator + to_string(p.rpm) : "")
      << ((p.validPWM()) ? scp::pwm_separator + to_string(p.pwm) : "");
 
   return os;
@@ -107,7 +115,8 @@ istream &fan::operator>>(istream &is, fan::Point &p) {
   InputValue rpm(in, scp::rpm_separator, ::isdigit);
 
   // Temp must be before (first of) PWM & RPM
-  auto &&tempEnd = std::prev((rpm.found && rpm.beg < pwm.beg) ? rpm.beg : pwm.beg);
+  auto &&tempEnd =
+      std::prev((rpm.found && rpm.beg < pwm.beg) ? rpm.beg : pwm.beg);
   InputValue temp(in, find_if(in.begin(), tempEnd, ::isdigit), ::isdigit);
 
   // Must contain temp, and either a rpm or pwm value
@@ -119,7 +128,9 @@ istream &fan::operator>>(istream &is, fan::Point &p) {
   // Set values if they are found & valid
   if (temp.found) {
     temp.setIfValid(p.temp);
-    if (temp.end != in.end() && std::tolower(*temp.end) == scp::fahrenheit)   // Convert from fahrenheit to celsius
+
+    // Support fahrenheit by converting to celsius
+    if (temp.end != in.end() && std::tolower(*temp.end) == scp::fahrenheit)
       p.temp = static_cast<temp_t>((p.temp - 32) / 1.8);
   }
 
@@ -142,7 +153,7 @@ ostream &fan::operator<<(ostream &os, const fan::Config &c) {
 }
 
 istream &fan::operator>>(istream &is, fan::Config &c) {
-  while (!is.eof()) {   // TODO: !is.fail() ??
+  while (!is.eof()) { // TODO !is.fail() ??
     Point p;
     is >> p;
     if (p.valid())

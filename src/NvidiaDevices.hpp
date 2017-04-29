@@ -3,26 +3,23 @@
 #define FANCON_NVDEVICES_HPP
 
 #include "FanInterface.hpp"
-#include "SensorInterface.hpp"
 #include "NvidiaUtil.hpp"
+#include "SensorInterface.hpp"
 
 namespace fancon {
 using percent_t = int;
 
 class FanNV : public FanInterface {
 public:
-  FanNV(const UID &fanUID, const fan::Config &conf = fan::Config(), bool dynamic = true);
+  FanNV(const UID &fanUID, const fan::Config &conf = fan::Config(),
+        bool dynamic = true);
   ~FanNV() { writeEnableMode(driver_enable_mode); }
 
   rpm_t readRPM() { return NV::rpm.read(hw_id); };
   pwm_t readPWM() { return percentToPWM(NV::pwm_percent.read(hw_id)); }
-  void writePWM(const pwm_t &pwm) {
-    // Attempt to recover control of the device if the write fails
-    if (!NV::pwm_percent.write<pwm_t>(hw_id, pwmToPercent(pwm)))
-      FanInterface::recoverControl(string("NVIDIA fan ").append(hw_id_str));
-  }
-  bool writeEnableMode(const enable_mode_t &mode) { return NV::enable_mode.write<enable_mode_t>(hw_id, mode); }
-
+  void writePWM(const pwm_t &pwm);
+  bool writeEnableMode(const enable_mode_t &mode);
+  
 private:
   static percent_t pwmToPercent(const pwm_t &pwm);
   static pwm_t percentToPWM(const percent_t &percent);
@@ -39,5 +36,5 @@ struct SensorNV : public SensorInterface {
 };
 }
 
-#endif //FANCON_NVDEVICES_HPP
-#endif //FANCON_NVIDIA_SUPPORT
+#endif // FANCON_NVDEVICES_HPP
+#endif // FANCON_NVIDIA_SUPPORT

@@ -1,15 +1,15 @@
 #ifndef FANCON_CONFIG_HPP
 #define FANCON_CONFIG_HPP
 
-#include <algorithm>    // find, search, remove_if
-#include <cctype>       // isspace, isdigit
-#include <exception>    // runtime_error
-#include <iostream>     // skipws, cin
-#include <string>       // to_string, stoi, stod
-#include <sstream>      // ostream, istream
+#include "Util.hpp"
+#include <algorithm> // find, search, remove_if
+#include <cctype>    // isspace, isdigit
+#include <exception> // runtime_error
+#include <iostream>  // skipws, cin
+#include <sstream>   // ostream, istream
+#include <string>    // to_string, stoi, stod
 #include <thread>
 #include <vector>
-#include "Util.hpp"
 
 using std::find;
 using std::string;
@@ -29,18 +29,20 @@ using temp_t = int;
 
 class InputValue {
 public:
-  InputValue(string &input, string::iterator &&begin, std::function<bool(const char &ch)> predicate);
-  InputValue(string &input, const string &sep, std::function<bool(const char &ch)> predicate);
-  InputValue(string &input, const char &sep, std::function<bool(const char &ch)> predicate);
+  InputValue(string &input, string::iterator &&begin,
+             std::function<bool(const char &ch)> predicate);
+  InputValue(string &input, const string &sep,
+             std::function<bool(const char &ch)> predicate);
+  InputValue(string &input, const char &sep,
+             std::function<bool(const char &ch)> predicate);
 
   const string::iterator beg, end;
   const bool found;
 
-  template<typename T>
-  void setIfValid(T &value) {
+  template <typename T> void setIfValid(T &value) {
     assert(found && "Input value must be found before trying to set");
 
-    // TODO: C++17 - use from_chars
+    // TODO C++17: use from_chars
     std::istringstream iss(string(beg, end));
     T val;
     iss >> val;
@@ -49,8 +51,12 @@ public:
   }
 
 private:
-  string::iterator afterSeperator(const string::iterator &&beg, const string::iterator &&end, const char &sep);
-  string::iterator afterSeperator(const string::iterator &&beg, const string::iterator &&end, const string &sep);
+  string::iterator afterSeperator(const string::iterator &&beg,
+                                  const string::iterator &&end,
+                                  const char &sep);
+  string::iterator afterSeperator(const string::iterator &&beg,
+                                  const string::iterator &&end,
+                                  const string &sep);
 };
 
 namespace controller {
@@ -58,10 +64,10 @@ class Config {
 public:
   Config(bool dynamic = true, seconds updateInterval = seconds(2),
          uint maxThreads = std::thread::hardware_concurrency())
-      : dynamic(dynamic), update_interval(updateInterval), max_threads(maxThreads) {}
+      : dynamic(dynamic), update_interval(updateInterval),
+        max_threads(maxThreads) {}
 
-  Config(istream &is)
-      : Config() { is >> *this; }
+  Config(istream &is) : Config() { is >> *this; }
 
   bool dynamic;
   seconds update_interval;
@@ -70,7 +76,8 @@ public:
   bool valid() { return update_interval.count() > 0 && max_threads > 0; }
 
   Config &operator=(const Config &other) {
-    std::tie(dynamic, update_interval, max_threads) = std::tie(other.dynamic, other.update_interval, other.max_threads);
+    std::tie(dynamic, update_interval, max_threads) =
+        std::tie(other.dynamic, other.update_interval, other.max_threads);
     return *this;
   }
 
@@ -95,11 +102,12 @@ constexpr static const rpm_t rpm_min_abs = 0;
 /// Optional: f (fahrenheit) and % (percent)
 class Point {
 public:
-  Point(temp_t temp = 0, rpm_t rpm = (rpm_min_abs - 1), pwm_t pwm = (pwm_min_abs - 1), bool isRpmPercent = false)
+  Point(temp_t temp = 0, rpm_t rpm = (rpm_min_abs - 1),
+        pwm_t pwm = (pwm_min_abs - 1), bool isRpmPercent = false)
       : temp(temp), rpm(rpm), pwm(pwm), is_rpm_percent(isRpmPercent) {}
 
   temp_t temp;
-  rpm_t rpm;    // TODO: C++17: replace with std::variant (tagged union)
+  rpm_t rpm; // TODO: C++17: replace with std::variant (tagged union)
   pwm_t pwm;
   bool is_rpm_percent;
 
@@ -134,23 +142,19 @@ ostream &operator<<(ostream &os, const Config &c);
 istream &operator>>(istream &is, Config &c);
 }
 
-namespace serialization_constants {   // TODO: Review name
+namespace serialization_constants { // TODO: Review name
 namespace controller_config {
-const string
-    dynamic_prefix = "dynamic=",
-    interval_prefix = "interval=",
-    threads_prefix = "threads=";
-const string update_prefix_deprecated = "update=";  /// <\deprecated Use interval_prefix  // TODO: remove 08/17
+const string dynamic_prefix = "dynamic=", interval_prefix = "interval=",
+             threads_prefix = "threads=";
+const string update_prefix_deprecated =
+    "update="; /// <\deprecated Use interval_prefix  // TODO: remove 08/17
 }
 
 namespace point {
-constexpr const char
-    rpm_separator = ':',
-    pwm_separator = ';',
-    fahrenheit = 'f',
-    percent = '%';
+constexpr const char rpm_separator = ':', pwm_separator = ';', fahrenheit = 'f',
+                     percent = '%';
 }
 }
 }
 
-#endif //FANCON_CONFIG_HPP
+#endif // FANCON_CONFIG_HPP

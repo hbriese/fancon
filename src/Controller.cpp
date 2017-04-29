@@ -1,4 +1,3 @@
-#include <shared_mutex>
 #include "Controller.hpp"
 
 using namespace fancon;
@@ -7,7 +6,6 @@ namespace fancon {
 ControllerState controller_state{ControllerState::stop};
 }
 
-/// \param configPath Path to a file containing the ControllerConfig and user fan configurations
 Controller::Controller(const string &configPath) {
   ifstream ifs(configPath);
   bool configFound = false;
@@ -34,9 +32,10 @@ Controller::Controller(const string &configPath) {
         liss.seekg(0, std::ios::beg);
     }
 
-    // Deserialize, and check for valid fan (with appropriate support), sensor and config
+    // Deserialize, then check input is valid
     UID fanUID(liss);
-    if (!fanUID.valid(DeviceType::fan_interface) || ((fanUID.type == DeviceType::fan_nv) & !NV::support))
+    if (!fanUID.valid(DeviceType::fan_interface) ||
+        ((fanUID.type == DeviceType::fan_nv) & !NV::support))
       continue;
 
     UID sensorUID(liss);
@@ -47,10 +46,12 @@ Controller::Controller(const string &configPath) {
     if (!fanConf.valid())
       continue;
 
-    // Find sensors if it has already been defined
-    auto sIt = find_if(sensors.begin(), sensors.end(),
-                       [&](const unique_ptr<SensorInterface> &s) { return *s == sensorUID; });
+    // Find iterator of existing sensor
+    auto sIt = find_if(
+        sensors.begin(), sensors.end(),
+        [&](const unique_ptr<SensorInterface> &s) { return *s == sensorUID; });
 
+    // Add sensor if iterator not found, and update iterator
     // Add the sensor if it is missing, and update the sensor iterator
     if (sIt == sensors.end())
       sIt = sensors.emplace(sensors.end(), Devices::getSensor(sensorUID));
@@ -71,7 +72,8 @@ Controller::Controller(const string &configPath) {
 /// \return Controller state
 ControllerState Controller::run() {
   if (fans.empty()) {
-    LOG(llvl::info) << "No fan configurations found, exiting fancond. See 'fancon -help'";
+    LOG(llvl::info)
+        << "No fan configurations found, exiting fancond. See 'fancon -help'";
     return ControllerState::stop;
   }
 
@@ -138,14 +140,16 @@ void Controller::updateFans(vector<fan_container_t::iterator> fans) {
   }
 }
 
-/// \warning Scheduling is done without locks, and assumes that sensor updates will take 100ms or less
+/// \warning Scheduling is done without locks, and assumes that sensor updates
+/// will take 100ms or less
 void Controller::scheduler() {
-  auto schedulerWakeup = chrono::time_point_cast<milliseconds>(chrono::steady_clock::now());
+  auto schedulerWakeup =
+      chrono::time_point_cast<milliseconds>(chrono::steady_clock::now());
 
   auto update = [this, &schedulerWakeup](const milliseconds &interval) {
     schedulerWakeup += interval;
     sensors_wakeup = schedulerWakeup + milliseconds(20);
-    fans_wakeup = sensors_wakeup + milliseconds(100); // 100ms could be an issue at ~10 sensors/thread under high load
+    fans_wakeup = sensors_wakeup + milliseconds(100);
   };
 
   // Wake deferred threads almost immediately
@@ -165,18 +169,23 @@ void Controller::signalHandler(int sig) {
   switch (sig) {
   case SIGTERM:
   case SIGINT:
-  case SIGABRT: controller_state = ControllerState::stop;
+  case SIGABRT:
+    controller_state = ControllerState::stop;
     break;
-  case SIGHUP: controller_state = ControllerState::reload;
+  case SIGHUP:
+    controller_state = ControllerState::reload;
     break;
-  default: LOG(llvl::warning) << "Unknown signal caught (" << sig << "): " << strsignal(sig);
+  default:
+    LOG(llvl::warning) << "Unhandled signal caught: " << sig << " - "
+                       << strsignal(sig);
   }
 }
 
 /// \return True if the line doesn't start with '#' and isn't just spaces/tabs
 bool Controller::validConfigLine(const string &line) {
   // Skip spaces, tabs & whitespace
-  auto beg = find_if(line.begin(), line.end(), [](const char &c) { return !std::isspace(c); });
+  auto beg = find_if(line.begin(), line.end(),
+                     [](const char &c) { return !std::isspace(c); });
 
   if (beg != line.end())
     return *beg != '#';
@@ -184,8 +193,8 @@ bool Controller::validConfigLine(const string &line) {
   return false;
 }
 
-/// \brief Lock while controller_state isn't run, then sleep until the given time point
-void Controller::deferStart(chrono::time_point <chrono::steady_clock, milliseconds> &timePoint) {
+/// \brief Lock until ControllerState::run, then sleep until timePoint
+void Controller::deferStart(time_point_t &timePoint) {
   while (controller_state != ControllerState::run)
     sleep_for(milliseconds(10));
 
