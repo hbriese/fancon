@@ -30,7 +30,7 @@ using temp_t = int;
 class InputValue {
 public:
   InputValue(string &input, string::iterator &&begin,
-             std::function<bool(const char &ch)> predicate);
+             std::function<bool(const char &)> &&predicate);
   InputValue(string &input, const string &sep,
              std::function<bool(const char &ch)> predicate);
   InputValue(string &input, const char &sep,
@@ -39,7 +39,7 @@ public:
   const string::iterator beg, end;
   const bool found;
 
-  template <typename T> void setIfValid(T &value) {
+  template<typename T> void setIfValid(T &value) {
     assert(found && "Input value must be found before trying to set");
 
     // TODO C++17: use from_chars
@@ -62,15 +62,16 @@ private:
 namespace controller {
 class Config {
 public:
-  Config(bool dynamic = true, seconds updateInterval = seconds(2),
-         uint maxThreads = std::thread::hardware_concurrency())
+  explicit Config(bool dynamic = true,
+                  milliseconds updateInterval = milliseconds(2000),
+                  uint maxThreads = std::thread::hardware_concurrency())
       : dynamic(dynamic), update_interval(updateInterval),
         max_threads(maxThreads) {}
 
-  Config(istream &is) : Config() { is >> *this; }
+  explicit Config(istream &is) : Config() { is >> *this; }
 
   bool dynamic;
-  seconds update_interval;
+  milliseconds update_interval;
   uint max_threads;
 
   bool valid() { return update_interval.count() > 0 && max_threads > 0; }
@@ -107,7 +108,7 @@ public:
       : temp(temp), rpm(rpm), pwm(pwm), is_rpm_percent(isRpmPercent) {}
 
   temp_t temp;
-  rpm_t rpm; // TODO: C++17: replace with std::variant (tagged union)
+  rpm_t rpm; // TODO C++17: replace with std::variant (tagged union)
   pwm_t pwm;
   bool is_rpm_percent;
 
@@ -126,9 +127,9 @@ istream &operator>>(istream &is, Point &p);
 /// List of points <br> I/O is sequential
 class Config {
 public:
-  Config() {}
+  explicit Config() = default;
   Config(vector<Point> &&points) : points(points) {}
-  Config(istream &is) { is >> *this; }
+  explicit Config(istream &is) { is >> *this; }
 
   vector<Point> points;
 
@@ -142,7 +143,7 @@ ostream &operator<<(ostream &os, const Config &c);
 istream &operator>>(istream &is, Config &c);
 }
 
-namespace serialization_constants { // TODO: Review name
+namespace serialization_constants { // TODO Review name
 namespace controller_config {
 const string dynamic_prefix = "dynamic=", interval_prefix = "interval=",
              threads_prefix = "threads=";

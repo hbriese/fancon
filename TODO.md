@@ -19,11 +19,10 @@
 - Add 'precise' option for more accurate RPM control
 - Auto-config option - copy current controller configuration
 - Check for NVIDIA hardware, and recommend libs for nvidia support
-- Update interval as a float
 - C++17: template Option & custom config path (with tuple of options & std::apply)
-- Remove sensor or fan failing to update (maybe??)
+- list-fans outputs manual mode (y/N) and current RPM
 
-### Performance 
+### Performance
 
 - Optimize X11 auth & display search
 - Test between linear & binary search for points (of varies total sizes)
@@ -32,7 +31,7 @@
 
 ### Refactoring
 
-- C++17: uncomment 'TODO: C++17' code
+- C++17: uncomment 'TODO C++17' code
 - C++17: nested namespaces
 
 ### Documentation

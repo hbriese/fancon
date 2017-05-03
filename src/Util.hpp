@@ -67,7 +67,7 @@ string getDir(const string &hwID, DeviceType devType, const bool sysFS = false);
 string getPath(const string &path_pf, const string &hwID,
                DeviceType devType = DeviceType::fan, const bool sysFS = false);
 
-string readLine(string path, int nFailed = 0); // TODO: string -> string&
+string readLine(string path, int nFailed = 0); // TODO string -> string&
 
 template <typename T> T read(const string &path, int nFailed = 0);
 
@@ -170,7 +170,7 @@ void fancon::Util::moveAppend(vector<T> &src, vector<T> &dst) {
 /// \param tasksContainer Container holding tasks to be distributed among
 /// threads
 /// \return A list of iterators distributed to threads
-template <typename T> // TODO: check iterator support
+template<typename T> // TODO check iterator support
 vector<vector<typename T::iterator>>
 fancon::Util::distributeTasks(uint threads, T &tasksContainer) {
   // Cannot have more threads than tasks

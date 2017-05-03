@@ -6,9 +6,9 @@ namespace fan = fancon::fan;
 namespace scc = fancon::serialization_constants::controller_config;
 namespace scp = fancon::serialization_constants::point;
 
-// TODO: review beg != end
+// TODO review beg != end
 InputValue::InputValue(string &input, string::iterator &&begin,
-                       std::function<bool(const char &ch)> predicate)
+                       std::function<bool(const char &)> &&predicate)
     : beg(begin), end(std::find_if_not(beg, input.end(), predicate)),
       found(beg != input.end() && beg != end) {}
 
@@ -75,21 +75,22 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
   }
 
   if (interval.found || update.found) {
-    // chrono::duration doesn't define operator>>
-    decltype(c.update_interval.count()) update_interval{0};
+    // Convert floating point seconds to milliseconds
+    float uInterval{0};
 
     if (interval.found)
-      interval.setIfValid(update_interval);
+      interval.setIfValid(uInterval);
     else {
-      update.setIfValid(update_interval);
-      LOG(llvl::warning) << scc::update_prefix_deprecated << " in "
-                         << Util::config_path
-                         << " is deprecated, and WILL BE REMOVED. Use "
-                         << scc::interval_prefix;
+      update.setIfValid(uInterval);
+      LOG(llvl::warning)
+        << scc::update_prefix_deprecated << " in "
+        << Util::config_path << " is deprecated, and WILL BE REMOVED. Use "
+        << scc::interval_prefix;
     }
 
-    if (update_interval > 0)
-      c.update_interval = seconds(update_interval);
+    if (uInterval > 0)
+      c.update_interval = milliseconds(
+          static_cast<decltype(c.update_interval.count())>(uInterval * 1000));
   }
 
   if (threads.found)
@@ -154,7 +155,7 @@ ostream &fan::operator<<(ostream &os, const fan::Config &c) {
 
 istream &fan::operator>>(istream &is, fan::Config &c) {
   while (!is.eof()) { // TODO !is.fail() ??
-    Point p;
+    Point p{};
     is >> p;
     if (p.valid())
       c.points.emplace_back(move(p));

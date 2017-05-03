@@ -3,8 +3,10 @@
 using namespace fancon;
 
 FanInterface::FanInterface(const UID &uid, const fan::Config &c, bool dynamic,
-                           enable_mode_t driverEnableM, enable_mode_t manualEnableM)
-    : points(c.points), manual_enable_mode(manualEnableM), driver_enable_mode(driverEnableM), hw_id(uid.hw_id),
+                           enable_mode_t driverEnableM,
+                           enable_mode_t manualEnableM)
+    : points(c.points), manual_enable_mode(manualEnableM),
+      driver_enable_mode(driverEnableM), hw_id(uid.hw_id),
       hw_id_str(to_string(hw_id)), dynamic(dynamic) {
   FanInterfacePaths p(uid);
   tested = p.tested();
@@ -16,15 +18,21 @@ FanInterface::FanInterface(const UID &uid, const fan::Config &c, bool dynamic,
     pwm_min = read<decltype(pwm_min)>(p.pwm_min_pf, hw_id_str, uid.type);
     pwm_start = read<decltype(pwm_start)>(p.pwm_start_pf, hw_id_str, uid.type);
     slope = read<decltype(slope)>(p.slope_pf, hw_id_str, uid.type);
-    wait_time = milliseconds(read<decltype(wait_time.count())>(p.wait_time_pf, hw_id_str, uid.type));
+    wait_time = milliseconds(
+        read<decltype(wait_time.count())>(p.wait_time_pf, hw_id_str, uid.type));
 
     decltype(stop_time) temp{};
-    stop_time = ((temp = read<decltype(temp)>(p.wait_time_pf, hw_id_str, uid.type)) > 0) ? temp : 3000;
+    stop_time =
+        ((temp = read<decltype(temp)>(p.wait_time_pf, hw_id_str, uid.type)) > 0)
+        ? temp
+        : 4000;
   }
 
   // Validate points, sort by temperature and shrink
   validatePoints(uid);
-  std::sort(points.begin(), points.end(), [](const Point &lhs, const Point &rhs) { return lhs.temp < rhs.temp; });
+  std::sort(
+      points.begin(), points.end(),
+      [](const Point &lhs, const Point &rhs) { return lhs.temp < rhs.temp; });
   prev_it = points.begin();
   points.shrink_to_fit();
 }
@@ -42,15 +50,16 @@ bool FanInterface::recoverControl(const string &deviceLabel) {
 }
 
 void FanInterface::update(const temp_t temp) {
-  auto comparePoints = [](const Point &p1, const Point &p2) { return p1.temp < p2.temp; };
-  decltype(points)::iterator
-  it;
+  auto comparePoints = [](const Point &p1, const Point &p2) {
+    return p1.temp < p2.temp;
+  };
 
   // Narrow search space by comparing to the previous iterator
-  if (temp < prev_it->temp)
-    it = std::upper_bound(points.begin(), prev_it, temp, comparePoints);
-  else
-    it = std::upper_bound(prev_it, points.end(), temp, comparePoints);
+  decltype(points)::iterator
+  it =
+      (temp < prev_it->temp)
+      ? std::upper_bound(points.begin(), prev_it, temp, comparePoints)
+      : std::upper_bound(prev_it, points.end(), temp, comparePoints);
 
   // std::upper_bound returns element greater-than
   // Therefore the previous element is less-or-equal (unless last point)
@@ -64,7 +73,8 @@ void FanInterface::update(const temp_t temp) {
     // Start fan if stopped, or calculate dynamic
     if (readRPM() == 0)
       newPwm = pwm_start;
-    else if (dynamic && (nextIt = next(it)) != points.end()) // Can't be highest element
+    else if (dynamic &&
+        (nextIt = next(it)) != points.end()) // Can't be highest element
       newPwm += ((nextIt->pwm - newPwm) / (nextIt->temp - it->temp));
   }
 
@@ -74,28 +84,35 @@ void FanInterface::update(const temp_t temp) {
 FanTestResult FanInterface::test() {
   // Store pre-test PWM & enable manual control
   auto ptPWM = readPWM();
-  if (!writeEnableMode(manual_enable_mode))   // Fail if manual mode cannot be enabled (or use readEnableMode != ...)
-    return FanTestResult();   // TODO: FanTestResult level - fatal
+  if (!writeEnableMode(manual_enable_mode)) // Fail if manual mode cannot be
+    // enabled (or use readEnableMode !=
+    // ...)
+    return FanTestResult();                 // TODO FanTestResult level - fatal
 
-  // Test FanState in each function, asserting if assuming a state, and setting if modified
+  // Test FanState in each function, asserting if assuming a state, and setting
+  // if modified
   FanState state = FanState::unknown;
 
-  constexpr const seconds arbitaryWaitTime{6};   // Expected wait time for rpm change - (almost) completely arbitrary
+  constexpr const seconds arbitaryWaitTime{
+      6}; // Expected wait time for rpm change - (almost) completely arbitrary
   auto rpmMax = getMaxRPM(state, arbitaryWaitTime);
 
   // Fail if RPM isn't being reported by the driver
   if (rpmMax <= 0) {
-//    writeEnableMode(driver_enable_mode); // Restore driver control  // TODO: unnecessary
+    //    writeEnableMode(driver_enable_mode); // Restore driver control  //
+    //    TODO unnecessary
     return FanTestResult();
   }
 
-  auto closeRpmMax = static_cast<rpm_t>(rpmMax - (rpmMax / 20));  // 99.5% of rpmMax
+  auto closeRpmMax =
+      static_cast<rpm_t>(rpmMax - (rpmMax / 20)); // 99.5% of rpmMax
   const auto waitTime = getMaxSpeedChangeTime(state, closeRpmMax);
   auto pwmMax = getMaxPWM(state, waitTime, closeRpmMax);
   auto pwmStart = getPWMStart(state, waitTime);
 
   // Set pwm as max, then lower until it stops
-//  auto [pwmMin, rpmMin] = getMinAttributes(state, waitTime, pwmStart);   TODO C++17
+  //  auto [pwmMin, rpmMin] = getMinAttributes(state, waitTime, pwmStart);
+  //  TODO C++17
   pwm_t pwmMin;
   rpm_t rpmMin;
   std::tie(pwmMin, rpmMin) = getMinAttributes(state, waitTime, pwmStart);
@@ -105,12 +122,14 @@ FanTestResult FanInterface::test() {
 
   // Restore pre-test RPM & driver control
   writePWM(ptPWM);
-//  writeEnableMode(driver_enable_mode);
+  //  writeEnableMode(driver_enable_mode);
 
-  return FanTestResult(rpmMin, rpmMax, pwmMin, pwmMax, pwmStart, slope, waitTime);
+  return FanTestResult(rpmMin, rpmMax, pwmMin, pwmMax, pwmStart, slope,
+                       waitTime);
 }
 
-void FanInterface::writeTestResult(const UID &uid, const FanTestResult &r, DeviceType devType) {
+void FanInterface::writeTestResult(const UID &uid, const FanTestResult &r,
+                                   DeviceType devType) {
   FanInterfacePaths p(uid);
   string hwID = to_string(uid.hw_id);
 
@@ -139,7 +158,8 @@ FanInterfacePaths::FanInterfacePaths(const UID &uid)
 
 bool FanInterfacePaths::tested() const {
   // fail if any path doesn't exist
-  for (const auto &pf : {&pwm_min_pf, &pwm_max_pf, &rpm_min_pf, &rpm_max_pf, &slope_pf, &wait_time_pf})
+  for (const auto &pf : {&pwm_min_pf, &pwm_max_pf, &rpm_min_pf, &rpm_max_pf,
+                         &slope_pf, &wait_time_pf})
     if (!exists(getPath(*pf, hw_id, type)))
       return false;
 
@@ -163,19 +183,21 @@ void FanInterface::validatePoints(const UID &fanUID) {
   stringstream ignoring;
 
   /// \return True if <= max or >= min and non-zero
-  auto withinBounds =
-      [&](const fan::Point &p, const auto &val, const auto &min, const auto &max) {
-        if (val > max || ((val < min) & (val != 0))) {
-          ignoring << ' ' << p;
-          return !(invalidPoints = true);
-        }
+  auto withinBounds = [&](const fan::Point &p, const auto &val, const auto &min,
+                          const auto &max) {
+    if (val > max || ((val < min) & (val != 0))) {
+      ignoring << ' ' << p;
+      return !(invalidPoints = true);
+    }
 
-        return true;
-      };
+    return true;
+  };
 
-  /// \brief A valid point requires either a valid PWM, or a valid RPM with testing
+  /// \brief A valid point requires either a valid PWM, or a valid RPM with
+  /// testing
   /// \return False if the point is malformed or incomplete
-  auto validPoint = [this, &withinBounds, &ignoring, &untestedPoints](fan::Point &p) {
+  auto validPoint = [this, &withinBounds, &ignoring,
+      &untestedPoints](fan::Point &p) {
     // PWM must valid & within bounds
     if (p.validPWM())
       return withinBounds(p, p.pwm, pwm_min, pwm_max_abs);
@@ -183,8 +205,9 @@ void FanInterface::validatePoints(const UID &fanUID) {
     // RPM must be valid, within bounds and tested
     if (tested && p.validRPM()) {
       // Convert percent to RPM
-      if (p.is_rpm_percent && p.rpm > 0)  // Keep at 0 if 0%
-        p.rpm = rpm_min + static_cast<rpm_t>((0.01 * p.rpm) * (rpm_max - rpm_min));
+      if (p.is_rpm_percent && p.rpm > 0) // Keep at 0 if 0%
+        p.rpm =
+            rpm_min + static_cast<rpm_t>((0.01 * p.rpm) * (rpm_max - rpm_min));
 
       if (withinBounds(p, p.rpm, rpm_min, rpm_max)) {
         p.pwm = calcPWM(p.rpm);
@@ -200,8 +223,10 @@ void FanInterface::validatePoints(const UID &fanUID) {
   };
 
   // Erase invalid points
-  points.erase(std::remove_if(points.begin(), points.end(), [&validPoint](fan::Point &p) { return !validPoint(p); }),
-               points.end());
+  points.erase(
+      std::remove_if(points.begin(), points.end(),
+                     [&validPoint](fan::Point &p) { return !validPoint(p); }),
+      points.end());
 
   if (!ignoring.str().empty()) {
     stringstream uss;
@@ -209,12 +234,15 @@ void FanInterface::validatePoints(const UID &fanUID) {
     string spaces(uss.str().size(), ' ');
 
     if (untestedPoints)
-      LOG(llvl::warning) << uss.str() << " : has not been tested yet, so RPM speed cannot be used (only PWM)";
+      LOG(llvl::warning) << uss.str() << " : has not been tested yet, so RPM "
+            "speed cannot be used (only PWM)";
 
     if (invalidPoints)
-      LOG(llvl::warning) << ((untestedPoints) ? spaces : uss.str()) << " : invalid config entries: "
+      LOG(llvl::warning) << ((untestedPoints) ? spaces : uss.str())
+                         << " : invalid config entries: "
                          << "rpm min=" << rpm_min << "(or 0), max=" << rpm_max
-                         << "; pwm min=" << pwm_min << "(or 0), max=" << pwm_max_abs;
+                         << "; pwm min=" << pwm_min
+                         << "(or 0), max=" << pwm_max_abs;
 
     LOG(llvl::warning) << spaces << " : ignoring" << ignoring.str();
   }
@@ -262,9 +290,11 @@ rpm_t FanInterface::getMaxRPM(FanState &state, const milliseconds waitTime) {
   return rpmMax;
 }
 
-/// \return The maximum time to reach full speed, or stop the fan (larger of the two)
+/// \return The maximum time to reach full speed, or stop the fan (larger of the
+/// two)
 /// \retval state FanState::FULL_SPEED
-milliseconds FanInterface::getMaxSpeedChangeTime(FanState &state, const rpm_t &rpmMax) {
+milliseconds FanInterface::getMaxSpeedChangeTime(FanState &state,
+                                                 const rpm_t &rpmMax) {
   milliseconds stopTime;
   {
     assert(state == FanState::full_speed);
@@ -297,7 +327,8 @@ milliseconds FanInterface::getMaxSpeedChangeTime(FanState &state, const rpm_t &r
 }
 
 /// \retval state FanState::SPINNING
-pwm_t FanInterface::getMaxPWM(FanState &state, const milliseconds &waitTime, const rpm_t &rpmMax) {
+pwm_t FanInterface::getMaxPWM(FanState &state, const milliseconds &waitTime,
+                              const rpm_t &rpmMax) {
   assert(state == FanState::full_speed);
 
   auto pwmMax = pwm_max_abs;
@@ -306,7 +337,7 @@ pwm_t FanInterface::getMaxPWM(FanState &state, const milliseconds &waitTime, con
     writePWM(pwmMax - 2);
   }
 
-  state = FanState::unknown;  // Almost full_speed
+  state = FanState::unknown; // Almost full_speed
   return pwmMax;
 }
 
@@ -317,9 +348,9 @@ pwm_t FanInterface::getPWMStart(FanState &state, const milliseconds &waitTime) {
   writePWM(pwm_min_abs);
   while (readRPM() > 0)
     sleep_for(waitTime);
-//  state = FanState::stopped;
+  //  state = FanState::stopped;
 
-//  assert(state == FanState::stopped);
+  //  assert(state == FanState::stopped);
   // Find PWM at which fan starts
   pwm_t pwmStart = 0;
   while (readRPM() <= 0) {
@@ -334,8 +365,9 @@ pwm_t FanInterface::getPWMStart(FanState &state, const milliseconds &waitTime) {
   else
     pwmStart = pwm_max_abs;
 
-  if (readPWM() != pwmStart)  // PWM has changed since writing it to device
-    LOG(llvl::debug) << "PWM control is not exclusive - this may cause inaccurate testing results";
+  if (readPWM() != pwmStart) // PWM has changed since writing it to device
+    LOG(llvl::debug) << "PWM control is not exclusive - this may cause "
+          "inaccurate testing results";
 
   state = FanState::unknown;
   return pwmStart;
@@ -343,7 +375,8 @@ pwm_t FanInterface::getPWMStart(FanState &state, const milliseconds &waitTime) {
 
 /// \return Minimum PWM & RPM, prior to the fan stopping
 /// \retval state FanState::STOPPED
-tuple<pwm_t, rpm_t> FanInterface::getMinAttributes(FanState &state, const milliseconds &waitTime,
+tuple<pwm_t, rpm_t> FanInterface::getMinAttributes(FanState &state,
+                                                   const milliseconds &waitTime,
                                                    const pwm_t &startPWM) {
   assert(state != FanState::stopped);
   // Begin at the startPWM, to reduce time taken
@@ -353,7 +386,7 @@ tuple<pwm_t, rpm_t> FanInterface::getMinAttributes(FanState &state, const millis
   rpm_t rpm_min{};
   for (rpm_t rpm; (rpm = readRPM()) > 0; sleep_for(waitTime)) {
     // Break if min RPM has already been found
-    if (rpm < rpm_min)    // Fans may increase their rpm
+    if (rpm < rpm_min) // Fans may increase their rpm
       break;
 
     rpm_min = rpm;

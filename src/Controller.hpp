@@ -29,7 +29,7 @@ enum class ControllerState {
 
 class Controller {
 public:
-  Controller(const string &configPath);
+  explicit Controller(const string &configPath);
 
   controller::Config conf;
 

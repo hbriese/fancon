@@ -6,7 +6,6 @@
 #include "UID.hpp"
 #include "Util.hpp"
 #include <algorithm> // lower_bound
-#include <array>
 #include <boost/filesystem.hpp>
 #include <chrono>  // system_clock::now, duration
 #include <thread>  // this_thread::sleep

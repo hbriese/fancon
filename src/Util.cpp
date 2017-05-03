@@ -18,19 +18,18 @@ fancon::DeviceType fancon::operator&(fancon::DeviceType lhs,
 }
 
 int Util::lastNum(const string &str) {
-  auto endDigRevIt = std::find_if(
-      str.rbegin(), str.rend(), [](const char &c) { return std::isdigit(c); });
-  auto endIt = (endDigRevIt + 1).base();
+  auto endRevIt = std::find_if(str.rbegin(), str.rend(),
+                               [](const char &c) { return std::isdigit(c); });
 
   bool numFound = false;
-  auto begDigRevIt = std::find_if(endDigRevIt, str.rend(), [&](const char &c) {
+  auto begRevIt = std::find_if_not(endRevIt, str.rend(), [&](const char &c) {
     if (std::isdigit(c))
-      numFound = true;
-    return numFound && !std::isdigit(c);
+      return (numFound = true);
+
+    return !numFound;
   });
 
-  string numStr(begDigRevIt.base(), endIt + 1);
-  stringstream ss(numStr); // define numStr when passing
+  stringstream ss(string(begRevIt.base(), endRevIt.base()));
   int num{};
   ss >> num;
   return num;

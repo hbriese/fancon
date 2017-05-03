@@ -51,8 +51,7 @@ Controller::Controller(const string &configPath) {
         sensors.begin(), sensors.end(),
         [&](const unique_ptr<SensorInterface> &s) { return *s == sensorUID; });
 
-    // Add sensor if iterator not found, and update iterator
-    // Add the sensor if it is missing, and update the sensor iterator
+    // Add sensor if iterator not found, then update iterator
     if (sIt == sensors.end())
       sIt = sensors.emplace(sensors.end(), Devices::getSensor(sensorUID));
 
@@ -61,7 +60,7 @@ Controller::Controller(const string &configPath) {
     if (!fan->points.empty())
       fans.emplace_back(MappedFan(move(fan), *(*sIt)));
     else
-      LOG(llvl::warning) << fanUID << " has no valid points";
+      LOG(llvl::warning) << fanUID << " has no valid configuration";
   }
 
   // Shrink containers
@@ -140,8 +139,7 @@ void Controller::updateFans(vector<fan_container_t::iterator> fans) {
   }
 }
 
-/// \warning Scheduling is done without locks, and assumes that sensor updates
-/// will take 100ms or less
+/// \warning Fans may update before sensor if sensor update takes >100ms
 void Controller::scheduler() {
   auto schedulerWakeup =
       chrono::time_point_cast<milliseconds>(chrono::steady_clock::now());

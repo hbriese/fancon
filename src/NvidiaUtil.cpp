@@ -133,7 +133,7 @@ bool NV::supported() {
   }
 
   int eventBase, errorBase;
-  if (!(xnvlib.QueryExtension(*dw, &eventBase, &errorBase))) {
+  if (!xnvlib.QueryExtension(*dw, &eventBase, &errorBase)) {
     LOG(llvl::debug)
         << "NVIDIA fan control not supported"; // NV-CONTROL X does not exist!
     return false;
@@ -146,11 +146,10 @@ bool NV::supported() {
     return false;
   } else if ((major < 1) ||
              (major == 1 && minor < 9)) // XNVCTRL must be at least v1.9
-    LOG(llvl::warning) << "NV-CONTROL X version is not officially supported "
-                          "(too old!); please use v1.9 or higher";
+    LOG(llvl::warning) << "Update your NVIDIA driver for official support\n"
+          ">= v1.9 X NV_CONTROL is recommended";
 
-  // Check coolbits value, actual change required restart - ONLY if run in a
-  // terminal, so user knows to restart
+  // Enable fan control coolbit if run from a TTY - so user knows to reboot
   if (isatty(STDERR_FILENO) && enableFanControlCoolbit()) {
     LOG(llvl::warning)
         << "RESTART system (or display server) to use NVIDIA fan control";
@@ -160,10 +159,9 @@ bool NV::supported() {
   return true;
 }
 
+// TODO find and set Coolbits value without 'nvidia-xconfig'
 /// \return True if the system's coolbit value has been changed
 bool NV::enableFanControlCoolbit() {
-  // TODO: find and set Coolbits value without 'nvidia-xconfig' - for when not
-  // available (e.g. in snap confinement)
   redi::ipstream ips("nvidia-xconfig -t | grep Coolbits");
   string l;
   std::getline(ips, l);
@@ -171,14 +169,14 @@ bool NV::enableFanControlCoolbit() {
   // Exit early with message if nvidia-xconfig isn't found
   if (l.empty()) {
     LOG(llvl::info) << "nvidia-xconfig could not be found, either install it, "
-                       "or set the coolbits value manually";
+          "or set the coolbits value manually";
     return false;
   }
 
   auto initialv = Util::lastNum(l), curv = initialv;
 
-  const int nBits = 5;
-  const int fcBit = 2;                 // 4
+  const auto nBits = 5;
+  const auto fcBit = 2;                // 4
   int cbVal[nBits] = {1, 2, 4, 8, 16}; // bit^2
   bool cbSet[nBits]{0};
 
@@ -199,13 +197,13 @@ bool NV::enableFanControlCoolbit() {
     newv += cbVal[fcBit];
 
   // Write new value if changes to the initial value have been made
-  if (newv == initialv) {
+  if (newv != initialv) {
     LOG(llvl::info) << "Enabling NVIDIA fan control coolbit; value: " << newv;
-    if (system(string("nvidia-xconfig --cool-bits=")
-                   .append(to_string(newv))
-                   .c_str()) != 0)
+
+    const auto scb = string("nvidia-xconfig --cool-bits=") + to_string(newv);
+    if (system(scb.c_str()) != 0)
       LOG(llvl::error)
-          << "Failed to write coolbits value, nvidia fan control may fail!";
+        << "Failed to write coolbits value, nvidia fan control may fail!";
 
     return true;
   }
@@ -262,11 +260,12 @@ vector<UID> NV::getFans() {
     ret = xnvlib.QueryTargetStringAttribute(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
                                             NV_CTRL_STRING_PRODUCT_NAME,
                                             &productNameBuf);
+
     if (!ret || productNameBuf == nullptr) {
       LOG(llvl::error) << "Failed to query gpu: " << i << " product name";
       continue;
     }
-    string productName(productNameBuf);
+    string productName(productNameBuf); // TODO C++17: replace with string_view
 
     // Move iterator past title(s), and space trailing it
     vector<string> titles = {"GeForce", "GTX", "GRID", "Quadro"};
@@ -336,7 +335,7 @@ vector<nvmlDevice_t> NV::getDevices() {
   return devices;
 }
 
-// TODO: add support for cards with multiple fans
+// TODO add support for cards with multiple fans
 vector<UID> NV::getFans() {
   vector<UID> uids;
   auto devices = getDevices();
