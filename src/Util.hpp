@@ -82,7 +82,7 @@ template <typename T> bool write(const string &path, T val, int nFailed = 0);
 template <typename T>
 bool write(const string &path_pf, const string &hwmon_id, T val,
            DeviceType devType = DeviceType::fan, bool sysFS = false) {
-  return write<T>(getPath(path_pf, hwmon_id, devType, sysFS), val);
+  return write(getPath(path_pf, hwmon_id, devType, sysFS), val);
 }
 
 template <typename T> void moveAppend(vector<T> &src, vector<T> &dst);
@@ -144,7 +144,7 @@ bool fancon::Util::write(const string &path, T val, int nFailed) {
 
   if (!ofs) {
     if (nFailed <= 3) // Retry 3 times
-      return write<T>(path, move(val), ++nFailed);
+      return write(path, move(val), ++nFailed);
 
     LOG(llvl::debug) << "Failed to write '" << val << "' to: " << path
                      << " - filesystem of permission error; user id "

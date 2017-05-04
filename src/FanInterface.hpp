@@ -22,9 +22,11 @@ using namespace fancon::fan;
 namespace chrono = std::chrono;
 
 namespace fancon {
-struct FanTestResult;
+struct FanCharacteristics;
 
+using TestResult = std::pair<const FanCharacteristics, bool>;
 using enable_mode_t = int;
+using slope_t = double;
 
 enum class FanState { unknown, stopped, full_speed };
 
@@ -33,15 +35,13 @@ public:
   FanInterface(const UID &uid, const fan::Config &conf, bool dynamic,
                enable_mode_t driverEnableMode,
                enable_mode_t manualEnableMode = 1);
-  virtual ~FanInterface() {}
+  virtual ~FanInterface() = default;
 
   vector<fan::Point> points;
   decltype(points)::iterator
   prev_it;
 
-  bool tested = false;      // Characteristic variables written
-  rpm_t rpm_min, rpm_max;   // TODO remove with testPWM
-  pwm_t pwm_min, pwm_start; // ^^
+  pwm_t pwm_start;
   milliseconds wait_time;
 
   const enable_mode_t manual_enable_mode;
@@ -56,24 +56,24 @@ public:
 
   void update(const temp_t temp);
 
-  FanTestResult test();
-  static void writeTestResult(const UID &uid, const FanTestResult &result,
+  TestResult test();
+  static void writeTestResult(const UID &uid, const FanCharacteristics &result,
                               DeviceType devType);
 
 protected:
   const int hw_id;
   const string hw_id_str;
 
-  long stop_time;
-  double slope; // i.e. rpm-per-pwm
   const bool dynamic;
 
-  pwm_t calcPWM(const rpm_t &rpm);
-  void validatePoints(const UID &fanUID);
+  pwm_t calcPWM(const rpm_t &rpmMin, const pwm_t &pwmMin,
+                const slope_t &slope, const rpm_t &rpm);
+  void validatePoints(const UID &fanUID, const bool &tested,
+                      const FanCharacteristics &c);
 
-  pwm_t testPWM(const rpm_t &rpm); // TODO remove
+  pwm_t testPWM(const FanCharacteristics &c, const rpm_t &rpm); // TODO remove
 
-  rpm_t getMaxRPM(FanState &state, const milliseconds waitTime);
+  rpm_t getMaxRPM(FanState &state, const milliseconds &waitTime);
   milliseconds getMaxSpeedChangeTime(FanState &state, const rpm_t &rpmMax);
   pwm_t getMaxPWM(FanState &state, const milliseconds &waitTime,
                   const rpm_t &rpmMax);
@@ -83,41 +83,33 @@ protected:
                                        const pwm_t &startPWM);
 };
 
-struct FanInterfacePaths {
-  FanInterfacePaths(const UID &uid);
-
-  constexpr static const char *pwm_prefix = "pwm", *rpm_prefix = "fan";
+struct FanCharacteristicPaths {
+  explicit FanCharacteristicPaths(const UID &uid);
 
   DeviceType type;
 
-  string pwm_min_pf, pwm_max_pf, rpm_min_pf, rpm_max_pf, pwm_start_pf, slope_pf,
-      wait_time_pf;
+  constexpr static const char *pwm_prefix = "pwm", *rpm_prefix = "fan";
+  string pwm_min_pf, pwm_max_pf, pwm_start_pf,
+      rpm_min_pf, rpm_max_pf, slope_pf, wait_time_pf;
   const string hw_id;
 
   bool tested() const;
   static int getDeviceID(const UID &uid) { return Util::lastNum(uid.dev_name); }
 };
 
-struct FanTestResult {
-  FanTestResult() : can_test(false) {}
-
-  FanTestResult(const rpm_t &rpmMin, const rpm_t &rpmMax, const pwm_t &pwmMin,
-                const pwm_t &pwmMax, const pwm_t &pwmStart, const double &slope,
-                const milliseconds &waitTime)
-      : can_test(true), rpm_min(rpmMin), rpm_max(rpmMax), pwm_min(pwmMin),
-        pwm_max(pwmMax), pwm_start(pwmStart), slope(slope),
-        wait_time(waitTime) {}
-
-  bool can_test;
+struct FanCharacteristics {
+  FanCharacteristics() = default;
+  FanCharacteristics(rpm_t rpmMin, rpm_t rpmMax, pwm_t pwmStart, pwm_t pwmMin,
+                     pwm_t pwmMax, slope_t slope, milliseconds waitTime)
+      : rpm_min(rpmMin), rpm_max(rpmMax), pwm_start(pwmStart),
+        pwm_min(pwmMin), pwm_max(pwmMax), slope(slope), wait_time(waitTime) {}
 
   rpm_t rpm_min, rpm_max;
-  pwm_t pwm_min{fancon::fan::pwm_min_abs}, pwm_max, pwm_start;
-  double slope;
+  pwm_t pwm_start, pwm_min{fancon::fan::pwm_min_abs}, pwm_max;
+  slope_t slope;
   milliseconds wait_time;
 
-  bool testable() { return can_test; }
-
-  bool valid() {
+  bool valid() const {
     return (rpm_min > 0) && (rpm_min < rpm_max) && (pwm_min > 0) &&
         (pwm_max <= 255) && (pwm_min < pwm_max) && (pwm_start > 0) &&
         (slope > 0);

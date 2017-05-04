@@ -116,8 +116,7 @@ istream &fan::operator>>(istream &is, fan::Point &p) {
   InputValue rpm(in, scp::rpm_separator, ::isdigit);
 
   // Temp must be before (first of) PWM & RPM
-  auto &&tempEnd =
-      std::prev((rpm.found && rpm.beg < pwm.beg) ? rpm.beg : pwm.beg);
+  auto &&tempEnd = prev((rpm.found && rpm.beg < pwm.beg) ? rpm.beg : pwm.beg);
   InputValue temp(in, find_if(in.begin(), tempEnd, ::isdigit), ::isdigit);
 
   // Must contain temp, and either a rpm or pwm value

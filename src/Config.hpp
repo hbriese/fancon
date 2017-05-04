@@ -60,8 +60,7 @@ private:
 };
 
 namespace controller {
-class Config {
-public:
+struct Config {
   explicit Config(bool dynamic = true,
                   milliseconds updateInterval = milliseconds(2000),
                   uint maxThreads = std::thread::hardware_concurrency())
@@ -76,11 +75,11 @@ public:
 
   bool valid() { return update_interval.count() > 0 && max_threads > 0; }
 
-  Config &operator=(const Config &other) {
-    std::tie(dynamic, update_interval, max_threads) =
-        std::tie(other.dynamic, other.update_interval, other.max_threads);
-    return *this;
-  }
+//  Config &operator=(const Config &other) {
+//    std::tie(dynamic, update_interval, max_threads) =
+//        std::tie(other.dynamic, other.update_interval, other.max_threads);
+//    return *this;
+//  }
 
   friend ostream &operator<<(ostream &os, const Config &c);
   friend istream &operator>>(istream &is, Config &c);
@@ -146,14 +145,14 @@ istream &operator>>(istream &is, Config &c);
 namespace serialization_constants { // TODO Review name
 namespace controller_config {
 const string dynamic_prefix = "dynamic=", interval_prefix = "interval=",
-             threads_prefix = "threads=";
+    threads_prefix = "threads=";
 const string update_prefix_deprecated =
     "update="; /// <\deprecated Use interval_prefix  // TODO: remove 08/17
 }
 
 namespace point {
 constexpr const char rpm_separator = ':', pwm_separator = ';', fahrenheit = 'f',
-                     percent = '%';
+    percent = '%';
 }
 }
 }

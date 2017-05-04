@@ -22,9 +22,7 @@ using fan_container_t = vector<MappedFan>;
 using time_point_t = chrono::time_point<chrono::steady_clock, milliseconds>;
 
 enum class ControllerState {
-  run,
-  stop = SIGTERM,
-  reload = SIGHUP
+  run, stop = SIGTERM, reload = SIGHUP
 } extern controller_state;
 
 class Controller {
@@ -39,7 +37,6 @@ public:
   fan_container_t fans;
 
   ControllerState run();
-  void reload(const string &configPath);
 
   void updateSensors(vector<sensor_container_t::iterator> sensors);
   void updateFans(vector<fan_container_t::iterator> fans);

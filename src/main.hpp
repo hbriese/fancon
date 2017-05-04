@@ -24,10 +24,8 @@ using boost::filesystem::create_directory; // TODO C++17: std::create_directory
 using fancon::Controller;
 using fancon::ControllerState;
 using fancon::Devices;
-using fancon::FanTestResult;
+using fancon::TestResult;
 using fancon::Util::config_path;
-
-namespace Util = fancon::Util;
 
 int main(int argc, char *argv[]);
 
@@ -48,8 +46,9 @@ void appendConfig(const string &configPath);
 void testFans(uint testRetries, bool singleThreaded);
 void testFan(const UID &uid, unique_ptr<FanInterface> &&fan, uint retries);
 
+void forkOffParent();
 void start(const bool fork);
-void sendSignal(ControllerState state);
+void signalState(ControllerState state);
 
 struct Command {
   Command(const char *name, const char *shortName, function<void()> func,

@@ -19,16 +19,16 @@ using fancon::UID;
 namespace fancon {
 class Fan : public FanInterface {
 public:
-  Fan(const UID &fanUID, const fan::Config &conf = fan::Config(),
-      bool dynamic = true);
-  ~Fan() { writeEnableMode(driver_enable_mode); }
+  explicit Fan(const UID &fanUID, const fan::Config &conf = fan::Config(),
+               bool dynamic = true);
+  ~Fan() override { writeEnableMode(driver_enable_mode); }
 
-  pwm_t readPWM() { return read<pwm_t>(p.pwm); }
-  void writePWM(const pwm_t &pwm);
+  pwm_t readPWM() override { return read<pwm_t>(p.pwm); }
+  void writePWM(const pwm_t &pwm) override;
 
-  rpm_t readRPM() { return read<rpm_t>(p.rpm); }
+  rpm_t readRPM() override { return read<rpm_t>(p.rpm); }
 
-  bool writeEnableMode(const enable_mode_t &mode);
+  bool writeEnableMode(const enable_mode_t &mode) override;
   enable_mode_t readEnableMode();
 
 private:

@@ -3,13 +3,17 @@
 using namespace fancon;
 
 void SensorInterface::refresh() {
-  temp_t newTemp(read());
+  temp_t newTemp{read()};
 
   if (newTemp != temp) {
     temp = newTemp;
     update = true;
   } else
     update = false;
+}
+
+Sensor::Sensor(const UID &uid) : input_path(uid.getBasePath() + "_input") {
+  input_path.shrink_to_fit();
 }
 
 bool Sensor::operator==(const UID &other) const {

@@ -11,28 +11,28 @@ using percent_t = int;
 
 class FanNV : public FanInterface {
 public:
-  FanNV(const UID &fanUID, const fan::Config &conf = fan::Config(),
-        bool dynamic = true);
-  ~FanNV() { writeEnableMode(driver_enable_mode); }
+  explicit FanNV(const UID &fanUID, const fan::Config &conf = fan::Config(),
+                 bool dynamic = true);
+  ~FanNV() override { writeEnableMode(driver_enable_mode); }
 
-  rpm_t readRPM() { return NV::rpm.read(hw_id); };
-  pwm_t readPWM() { return percentToPWM(NV::pwm_percent.read(hw_id)); }
-  void writePWM(const pwm_t &pwm);
-  bool writeEnableMode(const enable_mode_t &mode);
-  
+  rpm_t readRPM() override { return NV::rpm.read(hw_id); };
+  pwm_t readPWM() override { return percentToPWM(NV::pwm_percent.read(hw_id)); }
+  void writePWM(const pwm_t &pwm) override;
+  bool writeEnableMode(const enable_mode_t &mode) override;
+
 private:
   static percent_t pwmToPercent(const pwm_t &pwm);
   static pwm_t percentToPWM(const percent_t &percent);
 };
 
 struct SensorNV : public SensorInterface {
-  SensorNV(const UID &uid) : hw_id(uid.hw_id) {}
+  explicit SensorNV(const UID &uid) : hw_id(uid.hw_id) {}
 
   int hw_id;
 
-  bool operator==(const UID &other) const { return hw_id == other.hw_id; }
+  bool operator==(const UID &other) const override;
 
-  temp_t read() { return NV::temp.read(hw_id); };
+  temp_t read() const override { return NV::temp.read(hw_id); };
 };
 }
 

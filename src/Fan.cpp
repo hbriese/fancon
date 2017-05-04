@@ -28,12 +28,12 @@ enable_mode_t Fan::readEnableMode() {
 }
 
 Fan::Paths::Paths(const UID &uid, const string &hwID) {
-  const string devID(to_string(fancon::FanInterfacePaths::getDeviceID(uid)));
+  const string devID(to_string(FanCharacteristicPaths::getDeviceID(uid)));
 
-  string pwm_pf = fancon::FanInterfacePaths::pwm_prefix + devID;
-  (pwm = fancon::Util::getPath(pwm_pf, hwID, uid.type, true)).shrink_to_fit();
+  string pwm_pf = FanCharacteristicPaths::pwm_prefix + devID;
+  (pwm = Util::getPath(pwm_pf, hwID, uid.type, true)).shrink_to_fit();
   (enable_pf = pwm_pf + "_enable").shrink_to_fit();
 
-  string rpm_pf = fancon::FanInterfacePaths::rpm_prefix + devID + "_input";
-  (rpm = fancon::Util::getPath(rpm_pf, hwID, uid.type, true)).shrink_to_fit();
+  string rpm_pf = FanCharacteristicPaths::rpm_prefix + devID + "_input";
+  (rpm = Util::getPath(rpm_pf, hwID, uid.type, true)).shrink_to_fit();
 }

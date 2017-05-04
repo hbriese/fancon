@@ -1,34 +1,34 @@
 #include "main.hpp"
 
 namespace f = fancon;
+namespace Util = fancon::Util;
 
 void f::help() {
   using fancon::serialization_constants::controller_config::threads_prefix;
 
   LOG(llvl::info)
-      << "Usage:\n"
-      << "  fancon <command> [options]\n\n"
-      << "list-fans     -lf  Lists the UIDs of all fans\n"
-      << "list-sensors  -ls  List the UIDs of all sensors\n"
-      << "write-config  -wc  Appends missing fan UIDs to " << config_path
-      << '\n'
-      << "test               Tests the characteristic of all fans - REQUIRED "
-         "for RPM / percentage configuration\n"
-      << "  -r retries       Retry attempts for a failing test - increase for "
-         "failing tests (default: 4)\n"
-      << "start         -s   Starts the fancon daemon\n"
-      << "  -f fork          Forks off the parent process\n"
-      << "  -t threads       Override \"" << threads_prefix << "\" in "
-      << config_path << '\n'
-      << "stop          -S   Stops the fancon daemon\n"
-      << "reload        -re  Reloads the fancon daemon\n\n"
-      << "Global options:\n"
-      << "  -v verbose       Output all messages\n"
-      << "  -q quiet         Output only error or fatal messages\n\n"
-      << "Logging: Logs are stored at " << fancon::log::log_path
-      << " or in the systemd journal (if applicable)\n"
-      << "NVIDIA Support: Install the following packages (libraries): "
-      << "libx11-6 (libX11.so); libxnvctrl0 (libXNVCtrl.so)";
+    << "Usage:\n"
+    << "  fancon <command> [options]\n\n"
+    << "list-fans     -lf  Lists the UIDs of all fans\n"
+    << "list-sensors  -ls  List the UIDs of all sensors\n"
+    << "write-config  -wc  Appends missing fan UIDs to " << config_path << '\n'
+    << "test               Tests the characteristic of all fans - REQUIRED "
+        "for RPM / percentage configuration\n"
+    << "  -r retries       Retry attempts for a failing test - increase for "
+        "failing tests (default: 4)\n"
+    << "start         -s   Starts the fancon daemon\n"
+    << "  -f fork          Forks off the parent process\n"
+    << "  -t threads       Override \"" << threads_prefix << "\" in "
+    << config_path << '\n'
+    << "stop          -S   Stops the fancon daemon\n"
+    << "reload        -re  Reloads the fancon daemon\n\n"
+    << "Global options:\n"
+    << "  -v verbose       Output all messages\n"
+    << "  -q quiet         Output only error or fatal messages\n\n"
+    << "Logging: Logs are stored at " << fancon::log::log_path
+    << " or in the systemd journal (if applicable)\n"
+    << "NVIDIA Support: Install the following packages (libraries): "
+    << "libx11-6 (libX11.so); libxnvctrl0 (libXNVCtrl.so)";
 }
 
 void f::suggestUsage(const char *fanconDir, const char *configPath) {
@@ -36,7 +36,7 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
   const char *bold = "\033[1m", *red = "\033[31m", *resetFont = "\033[0m";
 
   const bool suggestTest = !exists(fanconDir),
-             suggestConfig = !exists(configPath);
+      suggestConfig = !exists(configPath);
 
   if (suggestTest || suggestConfig) {
     std::ostringstream messages;
@@ -44,8 +44,8 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
 
     if (suggestTest) {
       constexpr const char *m = "Run `sudo fancon test` to be able to "
-                                "configure fan profiles using RPM, or RPM "
-                                "percentage";
+          "configure fan profiles using RPM, or RPM "
+          "percentage";
       constexpr const auto mSize = static_cast<int>(strlength(m));
       // constexpr const auto mSize =
       // static_cast<int>(std::char_traits<char>::length(m)); // TODO C++17
@@ -58,7 +58,7 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
     if (suggestConfig) {
       const string m =
           string("Edit ") + configPath +
-          " to configure fan profiles, referencing `sudo fancon list-sensors`";
+              " to configure fan profiles, referencing `sudo fancon list-sensors`";
       const auto mSize = static_cast<int>(m.size());
       if (mSize > maxSize)
         maxSize = mSize;
@@ -76,41 +76,41 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
 
 void f::listFans() {
   auto uids = Devices::getFanUIDs();
-  stringstream ss;
+  stringstream oss;
 
   int fcw = 20, scw = 15;
   if (uids.empty())
-    ss << "No fans were detected, try running 'sudo sensors-detect' first\n";
+    oss << "No fans were detected, try running 'sudo sensors-detect' first\n";
   else
-    ss << setw(fcw) << left << "<Fan UID>" << setw(scw) << left
-       << "<min-max RPM>"
-       << "<min PWM> <max PWM = 255>\n";
+    oss << setw(fcw) << left << "<Fan UID>" << setw(scw) << left
+        << "<min-max RPM>"
+        << "<min PWM> <max PWM = 255>\n";
 
   bool untested = false;
   for (const auto &uid : uids) {
-    stringstream sst;
-    sst << uid;
-    ss << setw(fcw) << left << sst.str();
+    stringstream fss;
+    fss << uid;
+    oss << setw(fcw) << left << fss.str();
 
-    FanInterfacePaths p(uid);
+    FanCharacteristicPaths p(uid);
     string hwID = to_string(uid.hw_id);
     if (p.tested()) {
-      sst.str("");
+      fss.str("");
       // Read stored data about device without instantiating it
-      sst << read<rpm_t>(p.rpm_min_pf, hwID, uid.type) << " - "
+      fss << read<rpm_t>(p.rpm_min_pf, hwID, uid.type) << " - "
           << read<rpm_t>(p.rpm_max_pf, hwID, uid.type);
-      ss << setw(scw) << left << sst.str()
-         << read<pwm_t>(p.pwm_min_pf, hwID, uid.type) << " (or 0)";
+      oss << setw(scw) << left << fss.str()
+          << read<pwm_t>(p.pwm_min_pf, hwID, uid.type) << " (or 0)";
     } else
       untested = true;
 
-    ss << '\n';
+    oss << '\n';
   }
 
   if (untested)
-    ss << "\nNote: un-tested fans have no values";
+    oss << "\nNote: un-tested fans have no values";
 
-  LOG(llvl::info) << ss.rdbuf();
+  LOG(llvl::info) << oss.rdbuf();
 }
 
 void f::listSensors() {
@@ -118,8 +118,7 @@ void f::listSensors() {
   stringstream ss;
 
   ss << ((!uids.empty()) ? "<Sensor UID>" : "No sensors were detected, try "
-                                            "running `sudo sensors-detect` "
-                                            "first");
+      "running `sudo sensors-detect` first");
 
   for (const auto &uid : uids) {
     ss << '\n' << uid;
@@ -177,30 +176,30 @@ void f::appendConfig(const string &path) {
   auto writeTop = [](ostream &os) {
     os << "# Interval is the seconds between fan speed changes\n"
        << "# Dynamic enables interpolation between points, e.g. 30:20% 40:30%, "
-          "@ 35°C, RPM is 25%\n"
+           "@ 35°C, RPM is 25%\n"
        << controller::Config() << "\n\n"
        << "# Missing <Fan UID>'s are appended with 'fancon write-config' or "
-          "manually with 'fancon list-fans'\n"
+           "manually with 'fancon list-fans'\n"
        << "# <Sensor UID>s can be enumerated with 'fancon list-sensors'\n"
        << "# <Fan Config>s are comprised of one or more points\n"
        << "#\n"
        << "# Note. 'fancon test' MUST be run for RPM & percentage speed "
-          "control\n"
+           "control\n"
        << "# Point syntax: Temperature(f):RPM(%);PWM\n"
        << "#               REQUIRED: Temperature, and RPM or PWM\n"
        << "#               OPTIONAL: 'f' for temperature in fahrenheit\n"
        << "#                         '%' for percentage of max RPM control - "
-          "1% being the slowest spinning speed\n"
+           "1% being the slowest spinning speed\n"
        << "#\n"
        << "# Example:\n"
        << "# it8728/2:fan1 coretemp/0:temp2   0:0% 25:10% 113f:30% 55:50% "
-          "65:1000 80:1400 190:100%\n"
+           "65:1000 80:1400 190:100%\n"
        << "# 0:0%     (or 32f;0)  -> fan stopped below 25°C\n"
        << "# 25:10%   (or 77f:5%) -> fan starts -- 10% of max speed @ 25°C (77 "
-          "fahrenheit)\n"
+           "fahrenheit)\n"
        << "# 113f:30% (or 45:10%) -> 30% @ 30°C (113 fahrenheit)\n"
        << "# 65:1000  (or 65;180) -> 1000 RPM @ 65°C -- where 1000 RPM is "
-          "reached at 180 PWM\n"
+           "reached at 180 PWM\n"
        << "# 90:100%  (or 90;255) -> 100% (max) @ 90°C\n"
        << "#\n"
        << "# <Fan UID>     <Sensor UID>     <Fan Config>\n";
@@ -229,7 +228,7 @@ void f::testFans(uint testRetries, bool singleThreaded) {
   auto fanUIDs = Devices::getFanUIDs();
   if (fanUIDs.empty()) {
     LOG(llvl::warning)
-        << "No fans were detected, try running 'sudo sensors-detect' first";
+      << "No fans were detected, try running 'sudo sensors-detect' first";
     return;
   }
 
@@ -237,7 +236,7 @@ void f::testFans(uint testRetries, bool singleThreaded) {
     create_directory(Util::fancon_dir);
 
   LOG(llvl::info)
-      << "Starting tests. This may take some time (to ensure accurate results)";
+    << "Starting tests. This may take some time (to ensure accurate results)";
   vector<thread> threads;
   for (auto it = fanUIDs.begin(); it != fanUIDs.end(); ++it) {
     auto dir = Util::getDir(to_string(it->hw_id), it->type);
@@ -262,85 +261,87 @@ void f::testFans(uint testRetries, bool singleThreaded) {
 }
 
 void f::testFan(const UID &uid, unique_ptr<FanInterface> &&fan, uint retries) {
-  FanTestResult res;
   stringstream ss;
-  for (; retries > 0; --retries) {
-    res = fan->test();
+  bool testable;
 
-    if (res.testable() && res.valid()) {
-      FanInterface::writeTestResult(uid, res, uid.type);
+  for (; retries > 0; --retries) {
+//    auto [res, testable] = fan->test(); // TODO C++17
+    FanCharacteristics c;
+    std::tie(c, testable) = fan->test();
+
+    if (testable && c.valid()) {
+      FanInterface::writeTestResult(uid, c, uid.type);
       ss << uid << " passed";
       break;
-    } else if (uid.type == DeviceType::fan_nv)
+    }
+
+    if (uid.type == DeviceType::fan_nv)
       LOG(llvl::error) << "NVIDIA manual fan control coolbit is not set. "
                        << "Please run 'sudo nvidia-xconfig --cool-bits=4', "
-                          "restart your X server (or reboot) and retry test";
+                           "restart your X server (or reboot) and retry test";
   }
 
   if (retries <= 0)
-    ss << uid << ((res.testable()) ? " results are invalid, consider running "
-                                     "with more --retries (default is 4)"
-                                   : " cannot be tested, driver unresponsive");
+    ss << uid << ((testable)
+                  ? " results are invalid, consider running "
+                      "with '--retries' greater than " + to_string(retries)
+                  : " cannot be tested, driver unresponsive");
   LOG(llvl::info) << ss.rdbuf();
 }
 
-void f::start(const bool fork_) {
-  if (fork_) {
-    LOG(llvl::info)
-        << "Starting fancond forked; see 'fancon -help' for logging info";
+void f::forkOffParent() {
+  auto pid = fork();
 
-    // Fork off the parent process
-    pid_t pid = fork();
-    auto exitParent = [](pid_t &p) {
-      if (p > 0)
-        exit(EXIT_SUCCESS);
-      else if (p < 0) {
-        LOG(llvl::fatal) << "Failed to fork off parent";
-        exit(EXIT_FAILURE);
-      }
-    };
-    exitParent(pid);
-
-    // Redirect standard file descriptors to /dev/null
-    stdin = fopen("/dev/null", "r");
-    stdout = fopen("/dev/null", "r+");
-    stderr = fopen("/dev/null", "r+");
-
-    // Create a new session for the child
-    if ((pid = setsid()) < 0) {
-      LOG(llvl::fatal) << "Failed to fork off parent";
-      exit(EXIT_FAILURE);
-    }
-
-    // fork again
-    pid = fork();
-    exitParent(pid);
-
-    // refresh pid file to reflect forks
-    write<pid_t>(Util::pid_path, getpid());
+  if (pid > 0)
+    exit(EXIT_SUCCESS);
+  else if (pid < 0) {
+    LOG(llvl::fatal) << "Failed to fork off parent";
+    exit(EXIT_FAILURE);
   }
+}
 
+void f::start(const bool fork_) {
   umask(f::default_umask);
 
   // Change working directory
   if (chdir("/") < 0)
     LOG(llvl::warning) << "Failed to set working directory";
 
-  Controller controller(config_path);
-  while (controller.run() == ControllerState::reload) {
-    controller.reload(config_path);
-    LOG(llvl::info) << "Reloading...";
+  if (fork_) {
+    LOG(llvl::info)
+      << "Starting fancon daemon forked; see 'fancon -help' for logging info";
+
+    // Daemononize process by forking, creating new session, then forking again
+    f::forkOffParent();
+
+    // Create a new session for the child
+    if (setsid() < 0) {
+      LOG(llvl::fatal) << "Failed to fork off parent";
+      exit(EXIT_FAILURE);
+    }
+
+    f::forkOffParent();
+
+    // Update PID file to reflect forks
+    write(Util::pid_path, getpid());
+
+    // Redirect standard file descriptors to /dev/null
+    stdin = fopen("/dev/null", "r");
+    stdout = fopen("/dev/null", "r+");
+    stderr = fopen("/dev/null", "r+");
   }
 
-  return;
+  // Load config into controller & run, looping while signaled to reload
+  while (Controller(config_path).run() == ControllerState::reload)
+    LOG(llvl::info) << "Reloaded";
 }
 
-void f::sendSignal(ControllerState state) {
+void f::signalState(ControllerState state) {
   // Use kill() to send signal to the process
   if (Util::locked())
     kill(read<pid_t>(Util::pid_path), static_cast<int>(state));
   else if (state == ControllerState::reload)
-    LOG(llvl::info) << "Cannot reload: fancond is not running";
+    LOG(llvl::info) << "Cannot reload: fancon daemon is not running";
 }
 
 bool f::Option::setIfValid(const string &str) {
@@ -372,7 +373,7 @@ int main(int argc, char *argv[]) {
       retries("retries", "r", true),
       debug("debug", "d"); /// <\deprecated Use verbose  TODO remove 07/2017
   vector<reference_wrapper<f::Option>> options{verbose, debug, quiet,
-                                               threads, fork,  retries};
+                                               threads, fork, retries};
 
   f::Command help("help", "", &f::help, false, false, args.empty()),
       list_fans("list-fans", "lf", &f::listFans),
@@ -385,8 +386,8 @@ int main(int argc, char *argv[]) {
            },
            true),
       start("start", "s", [&fork] { f::start(fork.called); }, true),
-      stop("stop", "S", [] { f::sendSignal(ControllerState::stop); }),
-      reload("reload", "re", [] { f::sendSignal(ControllerState::reload); });
+      stop("stop", "S", [] { f::signalState(ControllerState::stop); }),
+      reload("reload", "re", [] { f::signalState(ControllerState::reload); });
   vector<reference_wrapper<f::Command>> commands = {
       help, list_fans, list_fans, list_sensors,
       write_config, test, start, stop, reload};
@@ -432,7 +433,7 @@ int main(int argc, char *argv[]) {
   if (debug.called) {
     verbose.called = true;
     LOG(llvl::warning)
-        << "'-debug' option is deprecated, and WILL BE REMOVED. Use '-verbose'";
+      << "'-debug' option is deprecated, and WILL BE REMOVED. Use '-verbose'";
   }
 
   llvl logLevel = llvl::info; // Default
@@ -452,13 +453,17 @@ int main(int argc, char *argv[]) {
 
       // Command requirements must be met before running
       if (com.lock && !Util::try_lock()) {
-        LOG(llvl::warning) << "A fancon process is already running\n";
-        exit(EXIT_FAILURE); // Exiting failing so init system does not restart
-      } else if (com.require_root && getuid() != 0)
-        LOG(llvl::error) << "Please run with sudo, or as root for command: "
-                         << com.name << '\n';
-      else
-        com.func();
+        LOG(llvl::error) << "A fancon process is already running\n";
+        return EXIT_FAILURE; // Exiting failing so init system does not restart
+      }
+
+      if (com.require_root && getuid() != 0) {
+        LOG(llvl::error)
+          << "Please run '" << com.name << "' with sudo, or as root\n";
+        return EXIT_FAILURE;
+      }
+
+      com.func();
 
       break;
     }
@@ -469,5 +474,5 @@ int main(int argc, char *argv[]) {
   ProfilerStop();
 #endif // FANCON_PROFILE
 
-  return 0;
+  return EXIT_SUCCESS;
 }

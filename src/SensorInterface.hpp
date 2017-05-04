@@ -9,27 +9,26 @@ using fancon::temp_t;
 
 namespace fancon {
 struct SensorInterface {
-  SensorInterface(temp_t temp = {}) : temp(temp), update(true) {}
+  explicit SensorInterface(temp_t temp = {}, bool update = true)
+      : temp(temp), update(update) {}
 
   temp_t temp;
   bool update;
 
   virtual bool operator==(const UID &other) const = 0;
 
-  virtual temp_t read() = 0;
+  virtual temp_t read() const = 0;
   void refresh();
 };
 
 struct Sensor : public SensorInterface {
-  Sensor(const UID &uid) : input_path(uid.getBasePath() + "_input") {
-    input_path.shrink_to_fit();
-  }
+  explicit Sensor(const UID &uid);
 
   string input_path;
 
-  bool operator==(const UID &other) const;
+  bool operator==(const UID &other) const override;
 
-  temp_t read() { return Util::read<temp_t>(input_path) / 1000; }
+  temp_t read() const override { return Util::read<temp_t>(input_path) / 1000; }
 };
 }
 

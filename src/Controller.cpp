@@ -71,8 +71,8 @@ Controller::Controller(const string &configPath) {
 /// \return Controller state
 ControllerState Controller::run() {
   if (fans.empty()) {
-    LOG(llvl::info)
-        << "No fan configurations found, exiting fancond. See 'fancon -help'";
+    LOG(llvl::info) << "No fan configurations found, exiting fancon daemon. "
+          "See 'fancon -help'";
     return ControllerState::stop;
   }
 
@@ -108,11 +108,6 @@ ControllerState Controller::run() {
       t.join();
 
   return controller_state;
-}
-
-/// \copydoc Controller::Controller(const string &configPath)
-void Controller::reload(const string &configPath) {
-  *this = Controller(configPath);
 }
 
 void Controller::updateSensors(vector<sensor_container_t::iterator> sensors) {
@@ -167,15 +162,12 @@ void Controller::signalHandler(int sig) {
   switch (sig) {
   case SIGTERM:
   case SIGINT:
-  case SIGABRT:
-    controller_state = ControllerState::stop;
+  case SIGABRT:controller_state = ControllerState::stop;
     break;
-  case SIGHUP:
-    controller_state = ControllerState::reload;
+  case SIGHUP:controller_state = ControllerState::reload;
     break;
-  default:
-    LOG(llvl::warning) << "Unhandled signal caught: " << sig << " - "
-                       << strsignal(sig);
+  default:LOG(llvl::warning) << "Unhandled signal caught: " << sig << " - "
+                             << strsignal(sig);
   }
 }
 

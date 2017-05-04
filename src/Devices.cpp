@@ -13,7 +13,7 @@ unique_ptr<FanInterface> Devices::getFan(const UID &uid, const Config &fanConf,
 }
 
 vector<UID> Devices::getFanUIDs() {
-  auto fans = getHWMonUIDs(FanInterfacePaths::rpm_prefix);
+  auto fans = getHWMonUIDs(FanCharacteristicPaths::rpm_prefix);
 
 #ifdef FANCON_NVIDIA_SUPPORT
   auto nvFans = NV::getFans();
