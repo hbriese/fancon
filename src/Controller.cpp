@@ -174,13 +174,13 @@ void Controller::signalHandler(int sig) {
 /// \return True if the line doesn't start with '#' and isn't just spaces/tabs
 bool Controller::validConfigLine(const string &line) {
   // Skip spaces, tabs & whitespace
-  auto beg = find_if(line.begin(), line.end(),
-                     [](const char &c) { return !std::isspace(c); });
+  auto beg = std::find_if_not(line.begin(), line.end(),
+                              [](const char &c) { return std::isspace(c); });
 
-  if (beg != line.end())
-    return *beg != '#';
+  if (beg == line.end())
+    return false;
 
-  return false;
+  return *beg != '#';
 }
 
 /// \brief Lock until ControllerState::run, then sleep until timePoint

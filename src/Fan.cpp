@@ -13,10 +13,12 @@ Fan::Fan(const UID &fanUID, const fan::Config &conf, bool dynamic)
     writeEnableMode(manual_enable_mode);
 }
 
-void Fan::writePWM(const pwm_t &pwm) {
+bool Fan::writePWM(const pwm_t &pwm) {
   // Attempt to recover control of the device if the write fails
   if (!write(p.pwm, pwm))
-    FanInterface::recoverControl(p.pwm);
+    return FanInterface::recoverControl(p.pwm);
+
+  return true;
 }
 
 bool Fan::writeEnableMode(const enable_mode_t &mode) {

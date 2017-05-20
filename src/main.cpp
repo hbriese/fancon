@@ -43,9 +43,9 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
     int maxSize{};
 
     if (suggestTest) {
-      constexpr const char *m = "Run `sudo fancon test` to be able to "
-          "configure fan profiles using RPM, or RPM "
-          "percentage";
+      constexpr const char *m = "Run 'sudo fancon test' to enable fan "
+          "configuration using RPM, or RPM percentage - "
+          "current only PWM control is enabled";
       constexpr const auto mSize = static_cast<int>(strlength(m));
       // constexpr const auto mSize =
       // static_cast<int>(std::char_traits<char>::length(m)); // TODO C++17
@@ -56,9 +56,8 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
     }
 
     if (suggestConfig) {
-      const string m =
-          string("Edit ") + configPath +
-              " to configure fan profiles, referencing `sudo fancon list-sensors`";
+      const string m = string("Edit ") + configPath + " to configure fan "
+          "profiles, referencing 'sudo fancon list-sensors'";
       const auto mSize = static_cast<int>(m.size());
       if (mSize > maxSize)
         maxSize = mSize;
@@ -140,14 +139,13 @@ void f::appendConfig(const string &path) {
   std::ifstream ifs(path);
 
   auto allUIDs = Devices::getFanUIDs();
-  vector<decltype(allUIDs)::iterator> existingUIDs;
+  vector<decltype(allUIDs)::iterator> oldUIDs;
 
   bool pExists = exists(path);
   bool controllerConfigFound = false;
 
   // Read fan UIDs from config
   if (pExists) {
-    LOG(llvl::info) << "Config exists, adding absent fans";
 
     for (string line; std::getline(ifs, line) && !ifs.eof();) {
       if (!Controller::validConfigLine(line))
@@ -166,22 +164,23 @@ void f::appendConfig(const string &path) {
       UID fanUID(liss);
       auto it = find(allUIDs.begin(), allUIDs.end(), fanUID);
       if (fanUID.valid(DeviceType::fan_interface) && it != allUIDs.end())
-        existingUIDs.emplace_back(move(it));
+        oldUIDs.emplace_back(move(it));
     }
   }
 
   // Append missing info to the config
   ofstream ofs(path, std::ios_base::app);
 
-  auto writeTop = [](ostream &os) {
+  auto writeHeader = [](ostream &os) {
     os << "# Interval is the seconds between fan speed changes\n"
        << "# Dynamic enables interpolation between points, e.g. 30:20% 40:30%, "
            "@ 35°C, RPM is 25%\n"
        << controller::Config() << "\n\n"
-       << "# Missing <Fan UID>'s are appended with 'fancon write-config' or "
-           "manually with 'fancon list-fans'\n"
+       << "# Missing <Fan UID>'s are appended with 'fancon write-config' "
+           "or manually with 'fancon list-fans'\n"
        << "# <Sensor UID>s can be enumerated with 'fancon list-sensors'\n"
        << "# <Fan Config>s are comprised of one or more points\n"
+
        << "#\n"
        << "# Note. 'fancon test' MUST be run for RPM & percentage speed "
            "control\n"
@@ -195,8 +194,8 @@ void f::appendConfig(const string &path) {
        << "# it8728/2:fan1 coretemp/0:temp2   0:0% 25:10% 113f:30% 55:50% "
            "65:1000 80:1400 190:100%\n"
        << "# 0:0%     (or 32f;0)  -> fan stopped below 25°C\n"
-       << "# 25:10%   (or 77f:5%) -> fan starts -- 10% of max speed @ 25°C (77 "
-           "fahrenheit)\n"
+       << "# 25:10%   (or 77f:5%) -> fan starts -- 10% of max speed @ 25°C "
+           "(77 fahrenheit)\n"
        << "# 113f:30% (or 45:10%) -> 30% @ 30°C (113 fahrenheit)\n"
        << "# 65:1000  (or 65;180) -> 1000 RPM @ 65°C -- where 1000 RPM is "
            "reached at 180 PWM\n"
@@ -205,16 +204,26 @@ void f::appendConfig(const string &path) {
        << "# <Fan UID>     <Sensor UID>     <Fan Config>\n";
   };
 
+  // Append missing UIDs and header
+  size_t newFans = 0;
   if (!pExists) {
-    LOG(llvl::info) << "Writing new config: " << path;
-    writeTop(ofs);
+    LOG(llvl::info) << "Writing new config to " << path;
+    writeHeader(ofs);
+
+    newFans = allUIDs.size();
+    for (auto &it : allUIDs)
+      ofs << it << '\n';
+
+  } else {
+    for (auto it = allUIDs.begin(), end = allUIDs.end(); it != end; ++it)
+      if (find(oldUIDs.begin(), oldUIDs.end(), it) == oldUIDs.end()) {
+        ofs << *it << '\n';
+        ++newFans;
+      }
   }
 
-  // Append UIDs not found in config (existingUIDs)
-  for (auto it = allUIDs.begin(); it != allUIDs.end(); ++it)
-    if (find(existingUIDs.begin(), existingUIDs.end(), it) ==
-        existingUIDs.end()) // Not currently configured
-      ofs << *it << '\n';
+  if (newFans)
+    LOG(llvl::info) << "Adding " << newFans << " new fans";
 
   ofs.close();
   if (!ofs)
@@ -262,30 +271,49 @@ void f::testFans(uint testRetries, bool singleThreaded) {
 
 void f::testFan(const UID &uid, unique_ptr<FanInterface> &&fan, uint retries) {
   stringstream ss;
-  bool testable;
+  FailState fstate;
 
-  for (; retries > 0; --retries) {
-//    auto [res, testable] = fan->test(); // TODO C++17
+  auto availRetries = retries;
+  for (; availRetries > 0; --availRetries) {
+//    auto [res, failReason] = fan->test(); // TODO C++17
     FanCharacteristics c;
-    std::tie(c, testable) = fan->test();
+    std::tie(c, fstate) = fan->test();
 
-    if (testable && c.valid()) {
+    if (c.valid() && fstate == FailState::null) {
       FanInterface::writeTestResult(uid, c, uid.type);
-      ss << uid << " passed";
       break;
     }
 
-    if (uid.type == DeviceType::fan_nv)
+    if (uid.type == DeviceType::fan_nv) {
       LOG(llvl::error) << "NVIDIA manual fan control coolbit is not set. "
                        << "Please run 'sudo nvidia-xconfig --cool-bits=4', "
                            "restart your X server (or reboot) and retry test";
+      break;
+    }
   }
 
-  if (retries <= 0)
-    ss << uid << ((testable)
-                  ? " results are invalid, consider running "
-                      "with '--retries' greater than " + to_string(retries)
-                  : " cannot be tested, driver unresponsive");
+  // Write fail, or success message
+  ss << uid;
+  if (availRetries <= 0) {
+    ss << " failed: ";
+
+    if (fstate != FailState::null) {
+      switch (fstate) {
+      case FailState::control: ss << "unable to acquire manual fan control";
+        break;
+      case FailState::pwm_write: ss << "cannot write PWM to device";
+        break;
+      case FailState::rpm_read_accuracy:
+        ss << "inaccurate RPM reported by driver (fan may not be plugged in)";
+        break;
+      default:assert(true && "Unhandled test fail state");
+      }
+    } else
+      ss << " results are invalid, consider running with "
+          "'--retries' greater than " + to_string(retries);
+  } else
+    ss << " passed";
+
   LOG(llvl::info) << ss.rdbuf();
 }
 
@@ -353,8 +381,8 @@ bool f::Option::setIfValid(const string &str) {
 
 int main(int argc, char *argv[]) {
 #ifdef FANCON_PROFILE
-  ProfilerStart("fancon_profiler");
-  HeapProfilerStart("fancon_heap_profiler");
+  //  ProfilerStart("fancon_main");
+    HeapProfilerStart("fancon_main");
 #endif // FANCON_PROFILE
 
   vector<string> args;
@@ -471,7 +499,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef FANCON_PROFILE
   HeapProfilerStop();
-  ProfilerStop();
+//  ProfilerStop();
 #endif // FANCON_PROFILE
 
   return EXIT_SUCCESS;

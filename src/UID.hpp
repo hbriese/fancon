@@ -16,6 +16,8 @@ using std::istream;
 using std::to_string;
 
 namespace fancon {
+using hwid_t = int;
+
 /// \note
 /// Format: [chip_name/chip_id:device_name_&_number]
 class UID {
@@ -24,7 +26,7 @@ public:
     is >> *this;
     type = getType();
   }
-  UID(string chipname, int hwID, string dev_name)
+  UID(string chipname, hwid_t hwID, string dev_name)
       : chipname(std::move(chipname)), hw_id(hwID), dev_name(move(dev_name)),
         valid_(true) {
     type = getType();
@@ -32,15 +34,11 @@ public:
 
   DeviceType type;
   string chipname;
-  int hw_id;
+  hwid_t hw_id;
   string dev_name;
   bool valid_;
 
-  bool isFan() const { return (type & DeviceType::fan_interface) == type; }
-  bool isSensor() const {
-    return (type & DeviceType::sensor_interface) == type;
-  }
-  bool valid(DeviceType type) const;
+  bool valid(DeviceType devType) const;
 
   const string getBasePath() const;
 

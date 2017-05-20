@@ -54,8 +54,9 @@ void Util::lock() {
     LOG(llvl::error)
         << "A fancon process is already running, please close it to continue";
     exit(EXIT_FAILURE);
-  } else
-    write(pid_path, getpid());
+  }
+
+  write(pid_path, getpid());
 }
 
 /// \return True if lock is acquired

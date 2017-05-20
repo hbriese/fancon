@@ -21,7 +21,6 @@ using std::ofstream;
 using std::string;
 using std::stringstream;
 using std::to_string;
-using std::chrono::seconds;
 using std::unique_ptr;
 using std::make_unique;
 using std::pair;
@@ -60,7 +59,7 @@ bool locked();
 void lock();
 bool try_lock();
 
-template <typename IT>
+template<typename IT>
 bool equalTo(std::initializer_list<const IT> values, const IT value);
 
 string getDir(const string &hwID, DeviceType devType, const bool sysFS = false);
@@ -69,25 +68,25 @@ string getPath(const string &path_pf, const string &hwID,
 
 string readLine(string path, int nFailed = 0); // TODO string -> string&
 
-template <typename T> T read(const string &path, int nFailed = 0);
+template<typename T> T read(const string &path, int nFailed = 0);
 
-template <typename T>
+template<typename T>
 T read(const string &path_pf, const string &hw_id,
        DeviceType devType = DeviceType::fan, bool sysFS = false) {
   return read<T>(getPath(path_pf, hw_id, devType, sysFS));
 }
 
-template <typename T> bool write(const string &path, T val, int nFailed = 0);
+template<typename T> bool write(const string &path, T val, int nFailed = 0);
 
-template <typename T>
+template<typename T>
 bool write(const string &path_pf, const string &hwmon_id, T val,
            DeviceType devType = DeviceType::fan, bool sysFS = false) {
   return write(getPath(path_pf, hwmon_id, devType, sysFS), val);
 }
 
-template <typename T> void moveAppend(vector<T> &src, vector<T> &dst);
+template<typename T> void moveAppend(vector<T> &source, vector<T> &destination);
 
-template <typename T>
+template<typename T>
 vector<vector<typename T::iterator>> distributeTasks(uint threads,
                                                      T &tasksContainer);
 }
@@ -97,7 +96,7 @@ vector<vector<typename T::iterator>> distributeTasks(uint threads,
 // TEMPLATE DEFINITIONS //
 //----------------------//
 
-template <typename IT>
+template<typename IT>
 bool fancon::Util::equalTo(std::initializer_list<const IT> values,
                            const IT value) {
   for (const auto &it : values)
@@ -107,7 +106,8 @@ bool fancon::Util::equalTo(std::initializer_list<const IT> values,
   return false;
 }
 
-template <typename T> T fancon::Util::read(const string &path, int nFailed) {
+template<typename T> T
+fancon::Util::read(const string &path, int nFailed) {
   ifstream ifs(path);
   T ret;
   ifs >> ret;
@@ -136,7 +136,7 @@ template <typename T> T fancon::Util::read(const string &path, int nFailed) {
   return ret;
 }
 
-template <typename T>
+template<typename T>
 bool fancon::Util::write(const string &path, T val, int nFailed) {
   ofstream ofs(path);
   ofs << val;
@@ -146,16 +146,16 @@ bool fancon::Util::write(const string &path, T val, int nFailed) {
     if (nFailed <= 3) // Retry 3 times
       return write(path, move(val), ++nFailed);
 
-    LOG(llvl::debug) << "Failed to write '" << val << "' to: " << path
-                     << " - filesystem of permission error; user id "
-                     << getuid();
+    LOG(llvl::debug) << "Failed to write '" << val << "' to: " << path << " - "
+          "filesystem of permission error; user id " << getuid();
     return false;
   }
 
   return true;
 }
 
-template <typename T>
+/// \brief Move source to the end of destination
+template<typename T>
 void fancon::Util::moveAppend(vector<T> &src, vector<T> &dst) {
   if (!dst.empty()) {
     dst.reserve(dst.size() + src.size());

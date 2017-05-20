@@ -23,8 +23,10 @@ namespace chrono = std::chrono;
 
 namespace fancon {
 struct FanCharacteristics;
+enum class FailState { null, control, pwm_write, rpm_read_accuracy };
 
-using TestResult = std::pair<const FanCharacteristics, bool>;
+/// FanCharacteristics, and any fail messages
+using TestResult = std::pair<const FanCharacteristics, const FailState>;
 using enable_mode_t = int;
 using slope_t = double;
 
@@ -50,7 +52,7 @@ public:
   // TODO Functions don't need to be public
   virtual rpm_t readRPM() = 0;
   virtual rpm_t readPWM() = 0;
-  virtual void writePWM(const pwm_t &pwm) = 0;
+  virtual bool writePWM(const pwm_t &pwm) = 0;
   virtual bool writeEnableMode(const enable_mode_t &mode) = 0;
   bool recoverControl(const string &deviceLabel);
 
@@ -61,7 +63,7 @@ public:
                               DeviceType devType);
 
 protected:
-  const int hw_id;
+  const hwid_t hw_id;
   const string hw_id_str;
 
   const bool dynamic;

@@ -6,7 +6,6 @@ namespace fan = fancon::fan;
 namespace scc = fancon::serialization_constants::controller_config;
 namespace scp = fancon::serialization_constants::point;
 
-// TODO review beg != end
 InputValue::InputValue(string &input, string::iterator &&begin,
                        std::function<bool(const char &)> &&predicate)
     : beg(begin), end(std::find_if_not(beg, input.end(), predicate)),

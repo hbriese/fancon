@@ -24,7 +24,7 @@ public:
   ~Fan() override { writeEnableMode(driver_enable_mode); }
 
   pwm_t readPWM() override { return read<pwm_t>(p.pwm); }
-  void writePWM(const pwm_t &pwm) override;
+  bool writePWM(const pwm_t &pwm) override;
 
   rpm_t readRPM() override { return read<rpm_t>(p.rpm); }
 

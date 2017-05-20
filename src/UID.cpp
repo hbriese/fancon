@@ -2,15 +2,13 @@
 
 using namespace fancon;
 
-/// \breif Check that the UID is valid & the expected DeviceType matches
-bool UID::valid(DeviceType type_) const {
-  return valid_ && (type & type_) == type;
+/// \breif Check that the UID is valid, and of the DeviceType
+bool UID::valid(DeviceType devType) const {
+  return valid_ && (type & devType) == type;
 }
 
 const string UID::getBasePath() const {
-  string bpath(fancon::Util::hwmon_path);
-  bpath.append(to_string(hw_id)).append("/").append(dev_name);
-  return bpath;
+  return string(fancon::Util::hwmon_path) + to_string(hw_id) + '/' + dev_name;
 }
 
 bool UID::operator==(const UID &other) const {
@@ -19,19 +17,15 @@ bool UID::operator==(const UID &other) const {
 }
 
 DeviceType UID::getType() {
-  DeviceType type;
-  const string sDevName(Util::temp_sensor_label);
+  const string sensorDN(Util::temp_sensor_label);
   const bool isSensor =
-      search(dev_name.begin(), dev_name.end(), sDevName.begin(),
-             sDevName.end()) != dev_name.end();
+      search(dev_name.begin(), dev_name.end(), sensorDN.begin(), sensorDN.end())
+          != dev_name.end();
   const bool isNVIDIA = chipname == Util::nvidia_label;
 
-  if (isNVIDIA)
-    type = (isSensor) ? DeviceType::sensor_nv : DeviceType::fan_nv;
-  else
-    type = (isSensor) ? DeviceType::sensor : DeviceType::fan;
-
-  return type;
+  return (isNVIDIA)
+         ? ((isSensor) ? DeviceType::sensor_nv : DeviceType::fan_nv)
+         : ((isSensor) ? DeviceType::sensor : DeviceType::fan);
 }
 
 ostream &fancon::operator<<(ostream &os, const UID &u) {
@@ -64,7 +58,7 @@ istream &fancon::operator>>(istream &is, UID &u) {
 
   u.chipname = string(cnBeginIt, cnEndIt);
   string hwID = string(hwIdBegIt, hwIdEndIt);
-  u.hw_id = stoi(hwID);
+  u.hw_id = std::stoi(hwID);
   u.dev_name = string(devnBegIt, devnEndIt);
 
   return is;

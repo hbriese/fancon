@@ -7,14 +7,13 @@
 #include <exception> // runtime_error
 #include <iostream>  // skipws, cin
 #include <sstream>   // ostream, istream
-#include <string>    // to_string, stoi, stod
+#include <string>    // to_string
 #include <thread>
 #include <vector>
 
 using std::find;
 using std::string;
 using std::search;
-using std::stoi;
 using std::ostream;
 using std::istream;
 using std::to_string;
@@ -74,12 +73,6 @@ struct Config {
   uint max_threads;
 
   bool valid() { return update_interval.count() > 0 && max_threads > 0; }
-
-//  Config &operator=(const Config &other) {
-//    std::tie(dynamic, update_interval, max_threads) =
-//        std::tie(other.dynamic, other.update_interval, other.max_threads);
-//    return *this;
-//  }
 
   friend ostream &operator<<(ostream &os, const Config &c);
   friend istream &operator>>(istream &is, Config &c);
@@ -146,13 +139,13 @@ namespace serialization_constants { // TODO Review name
 namespace controller_config {
 const string dynamic_prefix = "dynamic=", interval_prefix = "interval=",
     threads_prefix = "threads=";
-const string update_prefix_deprecated =
-    "update="; /// <\deprecated Use interval_prefix  // TODO: remove 08/17
+/// \deprecated Use interval_prefix  // TODO: remove 08/17
+const string update_prefix_deprecated = "update=";
 }
 
 namespace point {
-constexpr const char rpm_separator = ':', pwm_separator = ';', fahrenheit = 'f',
-    percent = '%';
+constexpr const char
+    rpm_separator = ':', pwm_separator = ';', fahrenheit = 'f', percent = '%';
 }
 }
 }

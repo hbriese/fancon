@@ -14,6 +14,16 @@ FanInterface::FanInterface(const UID &uid, const fan::Config &conf, bool dyn,
   FanCharacteristics c;
   if (tested) {
     // Read values from fancon dir
+//    auto readIn = [this, &uid] (auto &data, const auto &pf) {
+//      data = read<decltype(data)>(pf, hw_id_str, uid.type);
+//    };
+
+//    readIn(c.rpm_min, p.rpm_min_pf);
+//    readIn(c.rpm_max, p.rpm_max_pf);
+//    readIn(c.pwm_min, p.pwm_min_pf);
+//    readIn(c.pwm_start, p.pwm_start_pf);
+//    readIn(c.slope, p.slope_pf);
+
     c.rpm_min = read<decltype(c.rpm_min)>(p.rpm_min_pf, hw_id_str, uid.type);
     c.rpm_max = read<decltype(c.rpm_max)>(p.rpm_max_pf, hw_id_str, uid.type);
     c.pwm_min = read<decltype(c.pwm_min)>(p.pwm_min_pf, hw_id_str, uid.type);
@@ -75,10 +85,15 @@ void FanInterface::update(const temp_t temp) {
 }
 
 TestResult FanInterface::test() {
-  // Store pre-test PWM & enable manual control
+  // Store pre-test PWM to restore when test finished
   auto ptPWM = readPWM();
+
+  // Fail early if can't write enable mode or PWM
   if (!writeEnableMode(manual_enable_mode))
-    return {FanCharacteristics(), false};
+    return {FanCharacteristics(), FailState::control};
+
+  if (!writePWM(pwm_max_abs))
+    return {FanCharacteristics(), FailState::pwm_write};
 
   // Assert state when assuming, and set after change
   FanState state = FanState::unknown;
@@ -88,7 +103,7 @@ TestResult FanInterface::test() {
 
   // Fail if RPM isn't being reported by the driver
   if (rpmMax <= 0)
-    return {FanCharacteristics(), false};
+    return {FanCharacteristics(), FailState::rpm_read_accuracy};
 
   // 99.5% of rpmMax
   auto closeRpmMax = static_cast<rpm_t>(rpmMax - (rpmMax / 20));
@@ -111,7 +126,7 @@ TestResult FanInterface::test() {
   writePWM(ptPWM);
 
   return {FanCharacteristics(rpmMin, rpmMax, pwmStart, pwmMin,
-                             pwmMax, slope, waitTime), true};
+                             pwmMax, slope, waitTime), FailState::null};
 }
 
 void FanInterface::writeTestResult(const UID &uid, const FanCharacteristics &c,
@@ -119,12 +134,17 @@ void FanInterface::writeTestResult(const UID &uid, const FanCharacteristics &c,
   FanCharacteristicPaths p(uid);
   string hwID = to_string(uid.hw_id);
 
-  write(p.pwm_min_pf, hwID, c.pwm_min, devType);
-  write(p.pwm_max_pf, hwID, c.pwm_max, devType);
-  write(p.rpm_min_pf, hwID, c.rpm_min, devType);
-  write(p.rpm_max_pf, hwID, c.rpm_max, devType);
-  write(p.pwm_start_pf, hwID, c.pwm_start, devType);
-  write(p.slope_pf, hwID, c.slope, devType);
+  auto writeRes = [&hwID, &devType](const auto &pf, const auto &data) {
+    write(pf, hwID, data, devType);
+  };
+
+  writeRes(p.rpm_min_pf, c.rpm_min);
+  writeRes(p.rpm_max_pf, c.rpm_max);
+  writeRes(p.pwm_min_pf, c.pwm_min);
+  writeRes(p.pwm_max_pf, c.pwm_max);
+  writeRes(p.pwm_start_pf, c.pwm_start);
+  writeRes(p.slope_pf, c.slope);
+  writeRes(p.wait_time_pf, c.wait_time.count());
 }
 
 FanCharacteristicPaths::FanCharacteristicPaths(const UID &uid)
@@ -143,7 +163,7 @@ FanCharacteristicPaths::FanCharacteristicPaths(const UID &uid)
 }
 
 bool FanCharacteristicPaths::tested() const {
-  // fail if any path doesn't exist
+  // Fail if any path doesn't exist
   for (const auto &pf : {&pwm_min_pf, &pwm_max_pf, &rpm_min_pf, &rpm_max_pf,
                          &slope_pf, &wait_time_pf})
     if (!exists(getPath(*pf, hw_id, type)))
@@ -197,8 +217,7 @@ void FanInterface::validatePoints(const UID &fanUID, const bool &tested,
             static_cast<rpm_t>((0.01 * p.rpm) * (c.rpm_max - c.rpm_min));
 
       if (withinBounds(p, p.rpm, c.rpm_min, c.rpm_max)) {
-        p.pwm =
-            calcPWM(c.rpm_min, c.pwm_max, c.slope, p.rpm);
+        p.pwm = calcPWM(c.rpm_min, c.pwm_min, c.slope, p.rpm);
         return true;
       }
     } else if (!tested) {
@@ -352,10 +371,6 @@ pwm_t FanInterface::getPWMStart(FanState &state, const milliseconds &waitTime) {
     pwmStart += arbInc;
   else
     pwmStart = pwm_max_abs;
-
-  if (readPWM() != pwmStart) // PWM has changed since writing it to device
-    LOG(llvl::debug) << "PWM control is not exclusive - this may cause "
-          "inaccurate testing results";
 
   state = FanState::unknown;
   return pwmStart;

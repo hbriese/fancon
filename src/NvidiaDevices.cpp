@@ -11,10 +11,12 @@ FanNV::FanNV(const UID &fanUID, const fan::Config &conf, bool dynamic)
     writeEnableMode(manual_enable_mode);
 }
 
-void FanNV::writePWM(const pwm_t &pwm) {
+bool FanNV::writePWM(const pwm_t &pwm) {
   // Attempt to recover control of the device if the write fails
   if (!NV::pwm_percent.write(hw_id, pwmToPercent(pwm)))
-    FanInterface::recoverControl(string("NVIDIA fan ") + hw_id_str);
+    return FanInterface::recoverControl(string("NVIDIA fan ") + hw_id_str);
+
+  return true;
 }
 
 bool FanNV::writeEnableMode(const enable_mode_t &mode) {

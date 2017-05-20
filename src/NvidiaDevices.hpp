@@ -17,7 +17,7 @@ public:
 
   rpm_t readRPM() override { return NV::rpm.read(hw_id); };
   pwm_t readPWM() override { return percentToPWM(NV::pwm_percent.read(hw_id)); }
-  void writePWM(const pwm_t &pwm) override;
+  bool writePWM(const pwm_t &pwm) override;
   bool writeEnableMode(const enable_mode_t &mode) override;
 
 private:
@@ -28,7 +28,7 @@ private:
 struct SensorNV : public SensorInterface {
   explicit SensorNV(const UID &uid) : hw_id(uid.hw_id) {}
 
-  int hw_id;
+  hwid_t hw_id;
 
   bool operator==(const UID &other) const override;
 

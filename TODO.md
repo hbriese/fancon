@@ -4,7 +4,7 @@
 
 ### Bugs
 
-- Fan PWM writes fail once after reload
+- Fan PWM writes fail once after reload - before correction
 - Sensor thread may take > 100ms to update - causing old data to be used by associated fan
 
 ### Features
@@ -12,15 +12,15 @@
 - Add support for AMD GPU fans
 - Targeted fans option
 - CLI fan point configuration graph
-- qt configuration
+- qt configuration GUI
 - Check UID chip name against chip
-- Better fail checking - exists(pwmX, rpmX, (?) pwmX_enable)
 - Remove fan when control has been lost (maybe??)
 - Add 'precise' option for more accurate RPM control
 - Auto-config option - copy current controller configuration
 - Check for NVIDIA hardware, and recommend libs for nvidia support
 - C++17: template Option & custom config path (with tuple of options & std::apply)
 - list-fans outputs manual mode (y/N) and current RPM
+- Check fan is present while adding to the controller
 
 ### Performance
 

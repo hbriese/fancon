@@ -4,12 +4,12 @@ using fancon::Devices;
 
 unique_ptr<FanInterface> Devices::getFan(const UID &uid, const Config &fanConf,
                                          bool dynamic) {
-  assert(uid.isFan());
+  assert(uid.valid(DeviceType::fan_interface));
 
-  if (uid.type == DeviceType::fan)
-    return make_unique<Fan>(uid, fanConf, dynamic);
-  else
+  if (uid.type == DeviceType::fan_nv)
     return make_unique<FanNV>(uid, fanConf, dynamic);
+
+  return make_unique<Fan>(uid, fanConf, dynamic);
 }
 
 vector<UID> Devices::getFanUIDs() {
@@ -26,12 +26,12 @@ vector<UID> Devices::getFanUIDs() {
 }
 
 unique_ptr<SensorInterface> Devices::getSensor(const UID &uid) {
-  assert(uid.isSensor());
+  assert(uid.valid(DeviceType::sensor_interface));
 
-  if (uid.type == DeviceType::sensor)
-    return make_unique<Sensor>(uid);
-  else
+  if (uid.type == DeviceType::sensor_nv)
     return make_unique<SensorNV>(uid);
+
+  return make_unique<Sensor>(uid);
 }
 
 vector<UID> Devices::getSensorUIDs() {
