@@ -5,7 +5,7 @@ using namespace fancon;
 FanInterface::FanInterface(const UID &uid, const fan::Config &conf, bool dyn,
                            enable_mode_t driverEnableM,
                            enable_mode_t manualEnableM)
-    : points(conf.points), manual_enable_mode(manualEnableM),
+    : points(conf.points), manual_enable_mode(manualEnableM), // TODO move conf
       driver_enable_mode(driverEnableM), hw_id(uid.hw_id),
       hw_id_str(to_string(hw_id)), dynamic(dyn) {
   FanCharacteristicPaths p(uid);
@@ -27,9 +27,9 @@ FanInterface::FanInterface(const UID &uid, const fan::Config &conf, bool dyn,
     c.rpm_min = read<decltype(c.rpm_min)>(p.rpm_min_pf, hw_id_str, uid.type);
     c.rpm_max = read<decltype(c.rpm_max)>(p.rpm_max_pf, hw_id_str, uid.type);
     c.pwm_min = read<decltype(c.pwm_min)>(p.pwm_min_pf, hw_id_str, uid.type);
-    c.pwm_start =
-        read<decltype(c.pwm_start)>(p.pwm_start_pf, hw_id_str, uid.type);
     c.slope = read<decltype(c.slope)>(p.slope_pf, hw_id_str, uid.type);
+    pwm_start =
+        read<decltype(c.pwm_start)>(p.pwm_start_pf, hw_id_str, uid.type);
     wait_time = milliseconds(
         read<decltype(wait_time.count())>(p.wait_time_pf, hw_id_str, uid.type));
   }
@@ -37,9 +37,7 @@ FanInterface::FanInterface(const UID &uid, const fan::Config &conf, bool dyn,
   // Validate points, sort by temperature and shrink
   validatePoints(uid, tested, c);
   std::sort(points.begin(), points.end(),
-            [](const Point &lhs, const Point &rhs) {
-              return lhs.temp < rhs.temp;
-            });
+            [](const Point &l, const Point &r) { return l.temp < r.temp; });
   prev_it = points.begin();
   points.shrink_to_fit();
 }
@@ -201,9 +199,7 @@ void FanInterface::validatePoints(const UID &fanUID, const bool &tested,
     return true;
   };
 
-  /// \brief A valid point requires either a valid PWM, or a valid RPM with
-  /// testing
-  /// \return False if the point is malformed or incomplete
+  /// \return True if point has either an RPM (having been tested) or a PWM
   auto validPoint = [&](fan::Point &p) {
     // PWM must valid & within bounds
     if (p.validPWM())
@@ -212,9 +208,10 @@ void FanInterface::validatePoints(const UID &fanUID, const bool &tested,
     // RPM must be valid, within bounds and tested
     if (tested && p.validRPM()) {
       // Convert percent to RPM
-      if (p.is_rpm_percent && p.rpm > 0) // RPM is 0 if percent is 0
-        p.rpm = c.rpm_min +
-            static_cast<rpm_t>((0.01 * p.rpm) * (c.rpm_max - c.rpm_min));
+      if (p.is_rpm_percent && p.rpm > 0) { // RPM is 0 if percent is 0
+        const auto multi = static_cast<double>(p.rpm) / 100;
+        p.rpm = c.rpm_min + static_cast<rpm_t>(multi * (c.rpm_max - c.rpm_min));
+      }
 
       if (withinBounds(p, p.rpm, c.rpm_min, c.rpm_max)) {
         p.pwm = calcPWM(c.rpm_min, c.pwm_min, c.slope, p.rpm);
@@ -222,10 +219,9 @@ void FanInterface::validatePoints(const UID &fanUID, const bool &tested,
       }
     } else if (!tested) {
       ignoring << ' ' << p;
-      return (untestedPoints = true);
+      untestedPoints = true;
     }
 
-    assert(true && "Unhandled condition!");
     return false;
   };
 
@@ -241,8 +237,8 @@ void FanInterface::validatePoints(const UID &fanUID, const bool &tested,
     string spaces(uss.str().size(), ' ');
 
     if (untestedPoints)
-      LOG(llvl::warning) << uss.str() << " : has not been tested yet, so RPM "
-            "speed cannot be used (only PWM)";
+      LOG(llvl::warning) << uss.str() << " : has not been tested yet, "
+            "so RPM (or %) cannot be used - only PWM";
 
     if (invalidPoints)
       LOG(llvl::warning)
@@ -366,7 +362,7 @@ pwm_t FanInterface::getPWMStart(FanState &state, const milliseconds &waitTime) {
   }
 
   // Increase start PWM by an arbitrary amount to ensure start
-  const pwm_t arbInc = 10;
+  constexpr const pwm_t arbInc = 10;
   if ((pwmStart + arbInc) <= pwm_max_abs)
     pwmStart += arbInc;
   else

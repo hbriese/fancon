@@ -21,6 +21,8 @@
 - C++17: template Option & custom config path (with tuple of options & std::apply)
 - list-fans outputs manual mode (y/N) and current RPM
 - Check fan is present while adding to the controller
+- Don't rely on nvidia-xconfig - Screen _> Coolbits
+- Set max width of '-----' to terminal width
 
 ### Performance
 
