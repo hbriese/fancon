@@ -17,18 +17,18 @@ void f::help() {
     << "  -r retries       Retry attempts for a failing test - increase for "
         "failing tests (default: 4)\n"
     << "start         -s   Starts the fancon daemon\n"
-    << "  -f fork          Forks off the parent process\n"
-    << "  -t threads       Override \"" << threads_prefix << "\" in "
-    << config_path << '\n'
-    << "stop          -S   Stops the fancon daemon\n"
-    << "reload        -re  Reloads the fancon daemon\n\n"
-    << "Global options:\n"
-    << "  -v verbose       Output all messages\n"
-    << "  -q quiet         Output only error or fatal messages\n\n"
-    << "Logging: Logs are stored at " << fancon::log::log_path
-    << " or in the systemd journal (if applicable)\n"
-    << "NVIDIA Support: Install the following packages (libraries): "
-    << "libx11-6 (libX11.so); libxnvctrl0 (libXNVCtrl.so)";
+        << "  -f fork          Forks off the parent process\n"
+        << "  -t threads       Override \"" << threads_prefix << "\" in "
+        << config_path << '\n'
+        << "stop          -S   Stops the fancon daemon\n"
+        << "reload        -re  Reloads the fancon daemon\n\n"
+        << "Global options:\n"
+        << "  -v verbose       Output all messages\n"
+        << "  -q quiet         Output only error or fatal messages\n\n"
+        << "Logging: Logs are stored at " << fancon::log::log_path
+        << " or in the systemd journal (if applicable)\n"
+        << "NVIDIA support requires: "
+        << "libx11-6 (libX11.so), and libxnvctrl0 (libXNVCtrl.so)";
 }
 
 void f::suggestUsage(const char *fanconDir, const char *configPath) {
@@ -40,7 +40,7 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
 
   if (suggestTest || suggestConfig) {
     std::ostringstream messages;
-    int maxSize{};
+    int textLen{};
 
     if (suggestTest) {
       constexpr const char *m = "Run 'sudo fancon test' to enable fan "
@@ -49,8 +49,8 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
       constexpr const auto mSize = static_cast<int>(strlength(m));
       // constexpr const auto mSize =
       // static_cast<int>(std::char_traits<char>::length(m)); // TODO C++17
-      if (mSize > maxSize)
-        maxSize = mSize;
+      if (mSize > textLen)
+        textLen = mSize;
 
       messages << bold << red << m << '\n';
     }
@@ -59,57 +59,88 @@ void f::suggestUsage(const char *fanconDir, const char *configPath) {
       const string m = string("Edit ") + configPath + " to configure fan "
           "profiles, referencing 'sudo fancon list-sensors'";
       const auto mSize = static_cast<int>(m.size());
-      if (mSize > maxSize)
-        maxSize = mSize;
+      if (mSize > textLen)
+        textLen = mSize;
 
       messages << resetFont << red << m << '\n';
     }
 
-    LOG(llvl::info) << bold << setw(maxSize) << std::setfill('-') << left << '-'
-                    << '\n'
-                    << resetFont << messages.str() << resetFont << bold
-                    << setw(maxSize) << std::setfill('-') << left << '-' << '\n'
-                    << resetFont;
+    // Use the lesser of terminal or text width
+    const auto termLen = f::getTerminalWidth();
+    const auto &width = (termLen > 0 && termLen < textLen) ? termLen : textLen;
+
+    LOG(llvl::info)
+      << bold << setw(width) << std::setfill('-') << left << '-' << '\n'
+      << resetFont << messages.str() << resetFont << bold
+      << setw(width) << std::setfill('-') << left << '-' << resetFont;
   }
+}
+
+unsigned short f::getTerminalWidth() {
+  struct winsize w;
+  ioctl(STDIN_FILENO, TIOCGWINSZ, &w);
+
+  return w.ws_col;
 }
 
 void f::listFans() {
   auto uids = Devices::getFanUIDs();
-  stringstream oss;
 
-  int fcw = 20, scw = 15;
-  if (uids.empty())
-    oss << "No fans were detected, try running 'sudo sensors-detect' first\n";
-  else
-    oss << setw(fcw) << left << "<Fan UID>" << setw(scw) << left
-        << "<min-max RPM>"
-        << "<min PWM> <max PWM = 255>\n";
+  if (uids.empty()) {
+    LOG(llvl::info)
+      << "No fans were detected, try running 'sudo sensors-detect' first\n";
+    return;
+  }
 
-  bool untested = false;
-  for (const auto &uid : uids) {
+  vector<pair<UID, string>> uidPairs;
+  uidPairs.reserve(uids.size());
+
+  // Determine max column width, and get UID text
+  int uidWidth{1};
+  for (auto &u : uids) {
     stringstream fss;
-    fss << uid;
-    oss << setw(fcw) << left << fss.str();
+    fss << u;
 
-    FanCharacteristicPaths p(uid);
-    string hwID = to_string(uid.hw_id);
+    if (fss.tellp() > uidWidth)
+      uidWidth = static_cast<int>(fss.tellp()) + 1;
+
+    uidPairs.emplace_back(std::make_pair(move(u), fss.str()));
+  }
+
+  constexpr const auto rpmColWidth = 4 + 1 + 4 + 1;  // Space for 'XXXX-XXXX '
+  stringstream headerSS;
+  headerSS << setw(uidWidth) << left << "<UID>"
+           << setw(rpmColWidth) << left << "<RPM>"
+           << "<PWM>\n";
+
+  stringstream dataSS;
+  bool untested = false;
+  for (const auto &up : uidPairs) {
+    dataSS << setw(uidWidth) << left << up.second;
+
+    FanCharacteristicPaths p(up.first);
+    string hwID = to_string(up.first.hw_id);
     if (p.tested()) {
-      fss.str("");
       // Read stored data about device without instantiating it
-      fss << read<rpm_t>(p.rpm_min_pf, hwID, uid.type) << " - "
-          << read<rpm_t>(p.rpm_max_pf, hwID, uid.type);
-      oss << setw(scw) << left << fss.str()
-          << read<pwm_t>(p.pwm_min_pf, hwID, uid.type) << " (or 0)";
+      const string rpmData =
+          to_string(read<rpm_t>(p.rpm_min_pf, hwID, up.first.type)) + '-'
+              + to_string(read<rpm_t>(p.rpm_max_pf, hwID, up.first.type));
+
+      const string pwmData =
+          to_string(read<pwm_t>(p.pwm_min_pf, hwID, up.first.type)) + '-'
+              + to_string(read<pwm_t>(p.pwm_max_pf, hwID, up.first.type));
+
+      dataSS << setw(rpmColWidth) << left << rpmData << pwmData;
     } else
       untested = true;
 
-    oss << '\n';
+    dataSS << '\n';
   }
 
   if (untested)
-    oss << "\nNote: un-tested fans have no values";
+    dataSS << "\nNote: values are missing for un-tested fans";
 
-  LOG(llvl::info) << oss.rdbuf();
+  LOG(llvl::info) << headerSS.rdbuf() << dataSS.rdbuf();
 }
 
 void f::listSensors() {
@@ -156,8 +187,9 @@ void f::appendConfig(const string &path) {
         if (controller::Config(liss).valid()) {
           controllerConfigFound = true;
           continue;
-        } else
-          liss.seekg(0, std::ios::beg);
+        }
+
+        liss.seekg(0, std::ios::beg);
       }
 
       // Add UID to list
@@ -247,13 +279,13 @@ void f::testFans(uint testRetries, bool singleThreaded) {
   LOG(llvl::info)
     << "Starting tests. This may take some time (to ensure accurate results)";
   vector<thread> threads;
-  for (auto it = fanUIDs.begin(); it != fanUIDs.end(); ++it) {
-    auto dir = Util::getDir(to_string(it->hw_id), it->type);
+  for (const auto &uid : fanUIDs) {
+    auto dir = Util::getDir(to_string(uid.hw_id), uid.type);
     if (!exists(dir))
       create_directory(dir);
 
     threads.emplace_back(
-        thread(&f::testFan, std::ref(*it), Devices::getFan(*it), testRetries));
+        thread(&f::testFan, std::ref(uid), Devices::getFan(uid), testRetries));
 
     if (singleThreaded) {
       threads.back().join();
@@ -299,14 +331,15 @@ void f::testFan(const UID &uid, unique_ptr<FanInterface> &&fan, uint retries) {
 
     if (fstate != FailState::null) {
       switch (fstate) {
-      case FailState::control: ss << "unable to acquire manual fan control";
+      case FailState::control:
+        ss << "unable to acquire control (potential driver issue)";
         break;
       case FailState::pwm_write: ss << "cannot write PWM to device";
         break;
       case FailState::rpm_read_accuracy:
-        ss << "inaccurate RPM reported by driver (fan may not be plugged in)";
+        ss << "unresponsive fan (likely nothing plugged in)";
         break;
-      default:assert(true && "Unhandled test fail state");
+      default:static_assert(true, "Unhandled test fail state");
       }
     } else
       ss << " results are invalid, consider running with "

@@ -8,6 +8,7 @@
 #include <boost/filesystem.hpp>
 #include <functional> // reference_wrapped
 #include <iomanip>    // setw, left
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 
 #ifdef FANCON_PROFILE
@@ -35,6 +36,7 @@ constexpr const __mode_t default_umask{002};
 
 void help();
 void suggestUsage(const char *fanconDir, const char *configPath);
+unsigned short getTerminalWidth();
 constexpr size_t strlength(const char *s) // TODO C++17 - remove
 { return (*s == 0) ? 0 : strlength(s + 1) + 1; }
 

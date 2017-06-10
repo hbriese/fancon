@@ -21,7 +21,7 @@ FanInterface::FanInterface(const UID &uid, const fan::Config &conf, bool dyn,
 //    readIn(c.rpm_min, p.rpm_min_pf);
 //    readIn(c.rpm_max, p.rpm_max_pf);
 //    readIn(c.pwm_min, p.pwm_min_pf);
-//    readIn(c.pwm_start, p.pwm_start_pf);
+//    readIn(pwm_start, p.pwm_start_pf);
 //    readIn(c.slope, p.slope_pf);
 
     c.rpm_min = read<decltype(c.rpm_min)>(p.rpm_min_pf, hw_id_str, uid.type);
@@ -64,7 +64,7 @@ void FanInterface::update(const temp_t temp) {
             : std::upper_bound(prev_it, points.end(), temp, comparePoints);
 
   // std::upper_bound returns element greater-than
-  // Therefore the previous element is less-or-equal (unless last point)
+  // Therefore the previous element is less-or-equal (unless first point)
   if (it != points.begin())
     std::advance(it, -1);
 
@@ -73,7 +73,7 @@ void FanInterface::update(const temp_t temp) {
 
   if (newPwm > 0) {
     // Start fan if stopped, or calculate dynamic if not the highest element
-    if (readRPM() == 0)
+    if (readRPM() == 0 && pwm_start > newPwm)
       newPwm = pwm_start;
     else if (dynamic && (nextIt = next(it)) != points.end())
       newPwm += ((nextIt->pwm - newPwm) / (nextIt->temp - it->temp));
@@ -118,7 +118,7 @@ TestResult FanInterface::test() {
   std::tie(pwmMin, rpmMin) = getMinAttributes(state, waitTime, pwmStart);
 
   // Slope is the gradient between the minimum and (actual) max rpm/pwm
-  auto slope = static_cast<slope_t>((rpmMax - rpmMin)) / (pwmMax - pwmMin);
+  auto slope = static_cast<slope_t>(rpmMax - rpmMin) / (pwmMax - pwmMin);
 
   // Restore pre-test RPM & driver control
   writePWM(ptPWM);
