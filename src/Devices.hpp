@@ -11,14 +11,17 @@
 #include <sensors/sensors.h>
 #include <vector>
 
+#ifdef FANCON_NVIDIA_SUPPORT
+using fancon::FanNV;
+using fancon::SensorNV;
+#endif
+
 using fancon::Util::lastNum;
 using fancon::UID;
 using fancon::FanInterface;
 using fancon::Fan;
-using fancon::FanNV;
 using fancon::SensorInterface;
 using fancon::Sensor;
-using fancon::SensorNV;
 
 namespace {
 /// \brief Wrapper for safely handling libsensor chips

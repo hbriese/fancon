@@ -6,8 +6,10 @@ unique_ptr<FanInterface> Devices::getFan(const UID &uid, const Config &fanConf,
                                          bool dynamic) {
   assert(uid.valid(DeviceType::fan_interface));
 
+#ifdef FANCON_NVIDIA_SUPPORT
   if (uid.type == DeviceType::fan_nv)
     return make_unique<FanNV>(uid, fanConf, dynamic);
+#endif
 
   return make_unique<Fan>(uid, fanConf, dynamic);
 }
@@ -28,8 +30,10 @@ vector<UID> Devices::getFanUIDs() {
 unique_ptr<SensorInterface> Devices::getSensor(const UID &uid) {
   assert(uid.valid(DeviceType::sensor_interface));
 
+#ifdef FANCON_NVIDIA_SUPPORT
   if (uid.type == DeviceType::sensor_nv)
     return make_unique<SensorNV>(uid);
+#endif
 
   return make_unique<Sensor>(uid);
 }

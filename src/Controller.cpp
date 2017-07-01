@@ -34,8 +34,12 @@ Controller::Controller(const string &configPath) {
 
     // Deserialize, then check input is valid
     UID fanUID(liss);
-    if (!fanUID.valid(DeviceType::fan_interface) ||
-        ((fanUID.type == DeviceType::fan_nv) & !NV::support))
+    if (!fanUID.valid(DeviceType::fan_interface)
+#ifdef FANCON_NVIDIA_SUPPORT
+        ||
+            ((fanUID.type == DeviceType::fan_nv) & !NV::support)
+#endif
+        )
       continue;
 
     UID sensorUID(liss);

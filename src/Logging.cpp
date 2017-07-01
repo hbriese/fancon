@@ -70,8 +70,8 @@ BOOST_LOG_GLOBAL_LOGGER_INIT(logger, logger_t) {
     core::get()->add_sink(cerrSink);
   }
 
-  // Write to file when not using systemd-journal
-  if (!systemd) {
+  // Write to file when not using systemd-journal, and is root
+  if (!systemd && getuid() == 0) {
     auto fileSink = add_file_log(
         keywords::file_name = fancon::log::log_path,
         keywords::open_mode = std::ios_base::app, keywords::max_files = 1,

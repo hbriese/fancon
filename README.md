@@ -35,7 +35,10 @@ $ sudo yum –nogpgcheck install ./fancon*.rpm
 Tested with both gcc & clang
 
 ```sh
-$ sudo apt-get install gcc cmake libgcc-6-dev libc6-dev linux-libc-dev libc++-helpers lm-sensors libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev
+$ sudo apt-get install gcc g++ cmake libgcc-6-dev libc6-dev linux-libc-dev
+libc++-helpers lm-sensors libxnvctrl-dev libx11-dev libsensors4-dev 
+libboost-system-dev libboost-filesystem-dev libboost-log-dev 
+libpthread-stubs0-dev libpstreams-dev
 $ git clone https://github.com/hbriese/fancon.git && cd fancon
 $ mkdir build; cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j && sudo make install
 ```
