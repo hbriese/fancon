@@ -55,18 +55,23 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
   string in;
   std::getline(is, in);
 
+  InputValue profile(in, scc::profile_prefix, ::isalpha);
   InputValue dynamic(in, scc::dynamic_prefix, ::isalpha);
   InputValue interval(in, scc::interval_prefix, ::isdigit);
   InputValue threads(in, scc::threads_prefix, ::isdigit);
   InputValue update(in, scc::update_prefix_deprecated, ::isdigit);
 
   // Fail if no values are found
-  if (!dynamic.found && !interval.found && !threads.found && !update.found) {
+  if (!profile.found && !dynamic.found && !interval.found &&
+      !threads.found && !update.found) {
     // Set invalid values - see valid()
     c.update_interval = seconds(0);
     c.max_threads = 0;
     return is;
   }
+
+  if (profile.found)
+    profile.setIfValid(c.profile);
 
   if (dynamic.found) {
     // Convert string to bool

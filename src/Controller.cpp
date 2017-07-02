@@ -9,6 +9,7 @@ ControllerState controller_state{ControllerState::stop};
 Controller::Controller(const string &configPath) {
   ifstream ifs(configPath);
   bool configFound = false;
+  auto currentProfile = conf.profile;   // Assume default profile
 
   /* FORMAT: note. lines unordered
   * Config
@@ -19,7 +20,7 @@ Controller::Controller(const string &configPath) {
 
     istringstream liss(line);
 
-    // Check for Config (if not found already
+    // Check for Config (if not found already)
     if (!configFound) {
       // Read line and set Config (if valid)
       controller::Config fcc(liss);
@@ -31,6 +32,17 @@ Controller::Controller(const string &configPath) {
       } else
         liss.seekg(0, std::ios::beg);
     }
+
+    // Look for profile change
+    if (liss.get() == serialization_constants::profile_prefix) {
+      liss >> std::skipws >> currentProfile;
+      continue;
+    } else
+      liss.unget();
+
+    // Skip if not the desired profile
+    if (currentProfile != conf.profile)
+      continue;
 
     // Deserialize, then check input is valid
     UID fanUID(liss);

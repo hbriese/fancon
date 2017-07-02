@@ -60,14 +60,15 @@ private:
 
 namespace controller {
 struct Config {
-  explicit Config(bool dynamic = true,
+  explicit Config(string profile = "default", bool dynamic = true,
                   milliseconds updateInterval = milliseconds(2000),
                   uint maxThreads = std::thread::hardware_concurrency())
-      : dynamic(dynamic), update_interval(updateInterval),
-        max_threads(maxThreads) {}
+      : profile(profile), dynamic(dynamic),
+        update_interval(updateInterval), max_threads(maxThreads) {}
 
   explicit Config(istream &is) : Config() { is >> *this; }
 
+  string profile;
   bool dynamic;
   milliseconds update_interval;
   uint max_threads;
@@ -136,9 +137,11 @@ istream &operator>>(istream &is, Config &c);
 }
 
 namespace serialization_constants { // TODO Review name
+constexpr const char profile_prefix = '>';
+
 namespace controller_config {
-const string dynamic_prefix = "dynamic=", interval_prefix = "interval=",
-    threads_prefix = "threads=";
+const string profile_prefix = "profile=", dynamic_prefix = "dynamic=",
+    interval_prefix = "interval=", threads_prefix = "threads=";
 /// \deprecated Use interval_prefix  // TODO: remove 08/17
 const string update_prefix_deprecated = "update=";
 }

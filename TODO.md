@@ -23,6 +23,7 @@
 - Check fan is present while adding to the controller
 - Don't rely on nvidia-xconfig - Screen _> Coolbits
 - Set max width of '-----' to terminal width
+- InputValue: pass predicate as a function of the default value
 
 ### Performance
 
