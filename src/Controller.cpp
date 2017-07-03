@@ -9,7 +9,10 @@ ControllerState controller_state{ControllerState::stop};
 Controller::Controller(const string &configPath) {
   ifstream ifs(configPath);
   bool configFound = false;
-  auto currentProfile = conf.profile;   // Assume default profile
+
+  // Fans are selected if profile matches, or no profile has been selected, or
+  // given;
+  string currentProfile;
 
   /* FORMAT: note. lines unordered
   * Config
@@ -40,8 +43,8 @@ Controller::Controller(const string &configPath) {
     } else
       liss.unget();
 
-    // Skip if not the desired profile
-    if (currentProfile != conf.profile)
+    // Skip if not the desired profile, or no profile specified
+    if (!currentProfile.empty() && currentProfile != conf.profile)
       continue;
 
     // Deserialize, then check input is valid

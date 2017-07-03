@@ -204,7 +204,8 @@ void f::appendConfig(const string &path) {
   ofstream ofs(path, std::ios_base::app);
 
   auto writeHeader = [](ostream &os) {
-    os << "# Interval is the seconds between fan speed changes\n"
+    os << "# Profile is the active profile to be used"
+       << "# Interval is the seconds between fan speed changes\n"
        << "# Dynamic enables interpolation between points, e.g. 30:20% 40:30%, "
            "@ 35°C, RPM is 25%\n"
        << controller::Config() << "\n\n"
@@ -212,7 +213,6 @@ void f::appendConfig(const string &path) {
            "or manually with 'fancon list-fans'\n"
        << "# <Sensor UID>s can be enumerated with 'fancon list-sensors'\n"
        << "# <Fan Config>s are comprised of one or more points\n"
-
        << "#\n"
        << "# Note. 'fancon test' MUST be run for RPM & percentage speed "
            "control\n"
@@ -233,6 +233,8 @@ void f::appendConfig(const string &path) {
            "reached at 180 PWM\n"
        << "# 90:100%  (or 90;255) -> 100% (max) @ 90°C\n"
        << "#\n"
+       << "# Profiles can be specified with '>' followed by a string\n"
+       << "> default\n"
        << "# <Fan UID>     <Sensor UID>     <Fan Config>\n";
   };
 

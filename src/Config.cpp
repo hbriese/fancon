@@ -42,11 +42,12 @@ string::iterator InputValue::afterSeperator(const string::iterator &&beg,
 }
 
 ostream &controller::operator<<(ostream &os, const controller::Config &c) {
-  os << scc::interval_prefix
+  os << scc::profile_prefix << c.profile << ' '
+     << scc::interval_prefix
      // Ouput update_interval in seconds (ms / 10^3)
      << static_cast<float>(c.update_interval.count()) / 1000 << ' '
-     << scc::threads_prefix << c.max_threads << ' ' << scc::dynamic_prefix
-     << ((c.dynamic) ? "true" : "false");
+     << scc::threads_prefix << c.max_threads << ' '
+     << scc::dynamic_prefix << ((c.dynamic) ? "true" : "false");
 
   return os;
 }
