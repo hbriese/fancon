@@ -10,8 +10,7 @@ Controller::Controller(const string &configPath) {
   ifstream ifs(configPath);
   bool configFound = false;
 
-  // Fans are selected if profile matches, or no profile has been selected, or
-  // given;
+  // Fan isn't skipped if profile matches, no profile has been selected or given
   string currentProfile;
 
   /* FORMAT: note. lines unordered
@@ -51,8 +50,7 @@ Controller::Controller(const string &configPath) {
     UID fanUID(liss);
     if (!fanUID.valid(DeviceType::fan_interface)
 #ifdef FANCON_NVIDIA_SUPPORT
-        ||
-            ((fanUID.type == DeviceType::fan_nv) & !NV::support)
+        || ((fanUID.type == DeviceType::fan_nv) & !NV::support)
 #endif
         )
       continue;

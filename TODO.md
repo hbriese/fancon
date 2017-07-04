@@ -25,6 +25,7 @@
 - Set max width of '-----' to terminal width
 - InputValue: pass predicate as a function of the default value
 - Use InputValue for reading UID; or better value checking
+- Config path as option
 
 ### Performance
 
