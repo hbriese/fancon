@@ -44,11 +44,15 @@ fancon::DeviceType operator|(fancon::DeviceType lhs, fancon::DeviceType rhs);
 fancon::DeviceType operator&(fancon::DeviceType lhs, fancon::DeviceType rhs);
 
 namespace Util {
-constexpr const char *pid_path = "/run/fancon.pid";
-constexpr const char *config_path_default = "/etc/fancon.conf";
-constexpr const char *fancon_dir = "/etc/fancon.d/";
+constexpr const char *pid_path =
+    FANCON_LOCALSTATEDIR "/run/fancon.pid"; // e.g. Debian /var/run/fancon.pid
+constexpr const char *config_path_default =
+    FANCON_SYSCONFDIR "/fancon.conf";       // e.g. Debian /etc/fancon.conf
+constexpr const char *fancon_dir =
+    FANCON_SYSCONFDIR "/fancon.d/";
 constexpr const char *hwmon_path = "/sys/class/hwmon/hwmon";
-constexpr const char *fancon_hwmon_path = "/etc/fancon.d/hwmon";
+constexpr const char *fancon_hwmon_path =
+    FANCON_SYSCONFDIR "/fancon.d/hwmon";
 constexpr const char *temp_sensor_label = "temp";
 constexpr const char *nvidia_label = "nvidia";
 

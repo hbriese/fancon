@@ -23,19 +23,30 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPTIMIZATION_FLAG}")
 endif ()
 
-## libstdc++ static linking
-option(STATIC_LIBSTDC++ "Statically link libstdc++" OFF)
-if (STATIC_LIBSTDC++)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
-    message("Statically linking libstdc++")
-endif ()
-
 include_directories(src)
 set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/Logging.hpp src/Logging.cpp
         src/UID.cpp src/UID.hpp src/Devices.cpp src/Devices.hpp src/Config.cpp src/Config.hpp
         src/Fan.cpp src/Fan.hpp src/FanInterface.cpp src/FanInterface.hpp src/SensorInterface.cpp src/SensorInterface.hpp
         src/NvidiaDevices.cpp src/NvidiaDevices.hpp src/NvidiaUtil.cpp src/NvidiaUtil.hpp src/Controller.cpp src/Controller.hpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
+
+# Set system paths
+if (NOT DEFINED CMAKE_INSTALL_SYSCONFDIR)
+    set(CMAKE_INSTALL_SYSCONFDIR "/etc")
+endif ()
+add_definitions(-DFANCON_SYSCONFDIR="${CMAKE_INSTALL_SYSCONFDIR}")
+
+if (NOT DEFINED CMAKE_INSTALL_LOCALSTATEDIR)
+    set(CMAKE_INSTALL_LOCALSTATEDIR "/var")
+endif ()
+add_definitions(-DFANCON_LOCALSTATEDIR="${CMAKE_INSTALL_LOCALSTATEDIR}")
+
+## libstdc++ static linking
+option(STATIC_LIBSTDC++ "Statically link libstdc++" OFF)
+if (STATIC_LIBSTDC++)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
+    message("Statically linking libstdc++")
+endif ()
 
 ## Threads (pthread)
 find_package(Threads REQUIRED)
