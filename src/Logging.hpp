@@ -24,7 +24,7 @@ BOOST_LOG_GLOBAL_LOGGER(logger, logger_t)
 
 namespace fancon {
 namespace log {
-constexpr const char *log_path = "/var/log/fancon.log";
+constexpr const char *log_path = FANCON_LOCALSTATEDIR "/log/fancon.log";
 
 void setLevel(llvl logLevel);
 }
