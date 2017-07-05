@@ -420,8 +420,8 @@ bool f::Option::setIfValid(const string &str) {
 
 int main(int argc, char *argv[]) {
 #ifdef FANCON_PROFILE
-  //  ProfilerStart("fancon_main");
-    HeapProfilerStart("fancon_main");
+  ProfilerStart("fancon_main");
+  HeapProfilerStart("fancon_main");
 #endif // FANCON_PROFILE
 
   // Store arguments, skipping preceding '-'
@@ -437,9 +437,8 @@ int main(int argc, char *argv[]) {
   // Options and commands
   f::Option verbose("verbose", "v"), quiet("quiet", "q"),
       threads("threads", "t", true), fork("fork", "f"),
-      retries("retries", "r", true),
-      debug("debug", "d"); /// <\deprecated Use verbose  TODO remove 07/2017
-  vector<reference_wrapper<f::Option>> options{verbose, debug, quiet,
+      retries("retries", "r", true);
+  vector<reference_wrapper<f::Option>> options{verbose, quiet,
                                                threads, fork, retries};
 
   // Config to use
@@ -502,12 +501,6 @@ int main(int argc, char *argv[]) {
   }
 
   // Set log level
-  if (debug.called) {
-    verbose.called = true;
-    LOG(llvl::warning)
-      << "'-debug' option is deprecated, and WILL BE REMOVED. Use '-verbose'";
-  }
-
   llvl logLevel = llvl::info; // Default
   if (verbose.called)
     logLevel = llvl::debug;
@@ -543,7 +536,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef FANCON_PROFILE
   HeapProfilerStop();
-//  ProfilerStop();
+  ProfilerStop();
 #endif // FANCON_PROFILE
 
   return EXIT_SUCCESS;
