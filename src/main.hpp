@@ -26,7 +26,6 @@ using fancon::Controller;
 using fancon::ControllerState;
 using fancon::Devices;
 using fancon::TestResult;
-using fancon::Util::config_path;
 
 int main(int argc, char *argv[]);
 
@@ -34,7 +33,7 @@ namespace fancon {
 /// \var 664 (rw-rw-r--) files; 775 (rwxrwxr-x) directories
 constexpr const __mode_t default_umask{002};
 
-void help();
+void help(const char *configPath);
 void suggestUsage(const char *fanconDir, const char *configPath);
 unsigned short getTerminalWidth();
 constexpr size_t strlength(const char *s) // TODO C++17 - remove
@@ -45,11 +44,11 @@ void listSensors();
 
 void appendConfig(const string &configPath);
 
-void testFans(uint testRetries, bool singleThreaded);
+void testFans(uint testRetries, const char *configPath, bool singleThreaded);
 void testFan(const UID &uid, unique_ptr<FanInterface> &&fan, uint retries);
 
 void forkOffParent();
-void start(const bool fork);
+void start(const char *configPath, const bool fork);
 void signalState(ControllerState state);
 
 struct Command {

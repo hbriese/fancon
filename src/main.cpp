@@ -3,7 +3,7 @@
 namespace f = fancon;
 namespace Util = fancon::Util;
 
-void f::help() {
+void f::help(const char *configPath) {
   using fancon::serialization_constants::controller_config::threads_prefix;
 
   LOG(llvl::info)
@@ -11,24 +11,26 @@ void f::help() {
     << "  fancon <command> [options]\n\n"
     << "list-fans     -lf  Lists the UIDs of all fans\n"
     << "list-sensors  -ls  List the UIDs of all sensors\n"
-    << "write-config  -wc  Appends missing fan UIDs to " << config_path << '\n'
+    << "write-config  -wc  Appends missing fan UIDs to " << configPath << '\n'
     << "test               Tests the characteristic of all fans - REQUIRED "
         "for RPM / percentage configuration\n"
+    << "  -c config        Config path\n"
     << "  -r retries       Retry attempts for a failing test - increase for "
         "failing tests (default: 4)\n"
     << "start         -s   Starts the fancon daemon\n"
-        << "  -f fork          Forks off the parent process\n"
-        << "  -t threads       Override \"" << threads_prefix << "\" in "
-        << config_path << '\n'
-        << "stop          -S   Stops the fancon daemon\n"
-        << "reload        -re  Reloads the fancon daemon\n\n"
-        << "Global options:\n"
-        << "  -v verbose       Output all messages\n"
-        << "  -q quiet         Output only error or fatal messages\n\n"
-        << "Logging: Logs are stored at " << fancon::log::log_path
-        << " or in the systemd journal (if applicable)\n"
-        << "NVIDIA support requires: "
-        << "libx11-6 (libX11.so), and libxnvctrl0 (libXNVCtrl.so)";
+    << "  -c config        Config path\n"
+    << "  -f fork          Forks off the parent process\n"
+    << "  -t threads       Overrides \"" << threads_prefix
+    << "\" in " << configPath << '\n'
+    << "stop          -S   Stops the fancon daemon\n"
+    << "reload        -re  Reloads the fancon daemon\n\n"
+    << "Global options:\n"
+    << "  -v verbose       Output all messages\n"
+    << "  -q quiet         Output only error or fatal messages\n\n"
+    << "Logging: Logs are stored at " << fancon::log::log_path
+    << " or in the systemd journal (if applicable)\n"
+    << "NVIDIA support requires: "
+    << "libx11-6 (libX11.so), and libxnvctrl0 (libXNVCtrl.so)";
 }
 
 void f::suggestUsage(const char *fanconDir, const char *configPath) {
@@ -264,9 +266,11 @@ void f::appendConfig(const string &path) {
     LOG(llvl::error) << "Failed to write config: " << path;
 }
 
-void f::testFans(uint testRetries, bool singleThreaded) {
+void f::testFans(uint testRetries,
+                 const char *configPath,
+                 bool singleThreaded) {
   umask(default_umask);
-  appendConfig(config_path);
+  appendConfig(configPath);
 
   auto fanUIDs = Devices::getFanUIDs();
   if (fanUIDs.empty()) {
@@ -363,7 +367,7 @@ void f::forkOffParent() {
   }
 }
 
-void f::start(const bool fork_) {
+void f::start(const char *configPath, const bool fork_) {
   umask(f::default_umask);
 
   // Change working directory
@@ -395,7 +399,7 @@ void f::start(const bool fork_) {
   }
 
   // Load config into controller & run, looping while signaled to reload
-  while (Controller(config_path).run() == ControllerState::reload)
+  while (Controller(configPath).run() == ControllerState::reload)
     LOG(llvl::info) << "Reloaded";
 }
 
@@ -420,9 +424,9 @@ int main(int argc, char *argv[]) {
     HeapProfilerStart("fancon_main");
 #endif // FANCON_PROFILE
 
+  // Store arguments, skipping preceding '-'
   vector<string> args;
   for (auto i = 1; i < argc; ++i) {
-    // Skip all preceding '-'
     auto *argp = argv[i];
     while (*argp == '-')
       ++argp;
@@ -438,17 +442,22 @@ int main(int argc, char *argv[]) {
   vector<reference_wrapper<f::Option>> options{verbose, debug, quiet,
                                                threads, fork, retries};
 
-  f::Command help("help", "", &f::help, false, false, args.empty()),
+  // Config to use
+  string configPath = Util::config_path_default;
+
+  f::Command help("help", "", [&] { f::help(configPath.c_str()); },
+                  false, false, args.empty()),
       list_fans("list-fans", "lf", &f::listFans),
       list_sensors("list-sensors", "ls", &f::listSensors),
-      write_config("write-config", "wc", [] { f::appendConfig(config_path); }),
+      write_config("write-config", "wc", [&] { f::appendConfig(configPath); }),
       test("test", "",
-           [&retries, &threads] {
-             f::testFans((retries.called && retries.val > 0) ? retries.val : 4,
-                         (threads.called && threads.val == 1));
-           },
-           true),
-      start("start", "s", [&fork] { f::start(fork.called); }, true),
+           [&] {
+             f::testFans(
+                 (retries.called && retries.val > 0) ? retries.val : 4,
+                 configPath.c_str(), (threads.called && threads.val == 1));
+           }, true),
+      start("start", "s",
+            [&] { f::start(configPath.c_str(), fork.called); }, true),
       stop("stop", "S", [] { f::signalState(ControllerState::stop); }),
       reload("reload", "re", [] { f::signalState(ControllerState::reload); });
   vector<reference_wrapper<f::Command>> commands = {
@@ -507,7 +516,7 @@ int main(int argc, char *argv[]) {
   fancon::log::setLevel(logLevel);
 
   // Suggest usage
-  f::suggestUsage(Util::fancon_dir, config_path);
+  f::suggestUsage(Util::fancon_dir, configPath.c_str());
 
   // Run called commands
   for (const auto &c : commands) {

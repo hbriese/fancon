@@ -90,8 +90,7 @@ istream &controller::operator>>(istream &is, controller::Config &c) {
     else {
       update.setIfValid(uInterval);
       LOG(llvl::warning)
-        << scc::update_prefix_deprecated << " in "
-        << Util::config_path << " is deprecated, and WILL BE REMOVED. Use "
+        << scc::update_prefix_deprecated << " is deprecated; use "
         << scc::interval_prefix;
     }
 
