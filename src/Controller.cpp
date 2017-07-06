@@ -13,6 +13,10 @@ Controller::Controller(const string &configPath) {
   // Fan isn't skipped if profile matches, no profile has been selected or given
   string currentProfile;
 
+  // Determine connected fans, and sensors
+  auto validFans = Devices::getFanUIDs();
+  auto validSensors = Devices::getSensorUIDs();
+
   /* FORMAT: note. lines unordered
   * Config
   * Fan_UID TS_UID Config   */
@@ -46,7 +50,7 @@ Controller::Controller(const string &configPath) {
     if (!currentProfile.empty() && currentProfile != conf.profile)
       continue;
 
-    // Deserialize, then check input is valid
+    // Deserialize, checking the UID has valid format, and is connected
     UID fanUID(liss);
     if (!fanUID.valid(DeviceType::fan_interface)
 #ifdef FANCON_NVIDIA_SUPPORT
@@ -55,9 +59,23 @@ Controller::Controller(const string &configPath) {
         )
       continue;
 
-    UID sensorUID(liss);
-    if (!sensorUID.valid(DeviceType::sensor_interface))
+    if (find(validFans.begin(), validFans.end(), fanUID) == validFans.end()) {
+      LOG(llvl::warning) << "Invalid config lane: " << line
+                         << "\nFan is not connected: " << fanUID;
       continue;
+    }
+
+    UID sensorUID(liss);
+    if (!sensorUID.valid(DeviceType::sensor_interface)
+        || find(validSensors.begin(), validSensors.end(), sensorUID)
+            == validSensors.end())
+      continue;
+
+    if (find(validSensors.begin(), validSensors.end(), sensorUID)
+        == validSensors.end()) {
+      LOG(llvl::warning) << "Invalid config line: " << line
+                         << "\nSensor is not connected: " << sensorUID;
+    }
 
     fan::Config fanConf(liss);
     if (!fanConf.valid())

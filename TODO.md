@@ -1,7 +1,5 @@
 ##TODO
 
-- Arch package
-
 ### Bugs
 
 - Fan PWM writes fail once after reload - before correction
@@ -13,19 +11,18 @@
 - Targeted fans option
 - CLI fan point configuration graph
 - qt configuration GUI
-- Check UID chip name against chip
 - Remove fan when control has been lost (maybe??)
 - Add 'precise' option for more accurate RPM control
 - Auto-config option - copy current controller configuration
 - Check for NVIDIA hardware, and recommend libs for nvidia support
 - C++17: template Option & custom config path (with tuple of options & std::apply)
 - list-fans outputs manual mode (y/N) and current RPM
-- Check fan is present while adding to the controller
 - Don't rely on nvidia-xconfig - Screen _> Coolbits
-- Set max width of '-----' to terminal width
 - InputValue: pass predicate as a function of the default value
 - Use InputValue for reading UID; or better value checking
-- Config path as option
+- App armour support
+- Arch Linux package
+- Read-only constructor for fans
 
 ### Performance
 

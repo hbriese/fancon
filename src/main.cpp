@@ -168,7 +168,7 @@ void f::listSensors() {
 }
 
 void f::appendConfig(const string &path) {
-  umask(default_umask);
+  umask(read_write_umask);
   std::ifstream ifs(path);
 
   auto allUIDs = Devices::getFanUIDs();
@@ -269,7 +269,7 @@ void f::appendConfig(const string &path) {
 void f::testFans(uint testRetries,
                  const char *configPath,
                  bool singleThreaded) {
-  umask(default_umask);
+  umask(read_write_umask);
   appendConfig(configPath);
 
   auto fanUIDs = Devices::getFanUIDs();
@@ -368,7 +368,7 @@ void f::forkOffParent() {
 }
 
 void f::start(const char *configPath, const bool fork_) {
-  umask(f::default_umask);
+  umask(f::read_write_umask);
 
   // Change working directory
   if (chdir("/") < 0)

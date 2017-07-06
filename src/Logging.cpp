@@ -22,8 +22,7 @@ bool systemdAccessing(int fileDescriptor) {
   string fd = std::to_string(s.st_dev) + ':' + std::to_string(s.st_ino);
 
   // Return true if fd is found in js
-  auto it = std::search(js.begin(), js.end(), fd.begin(), fd.end());
-  return it != js.end();
+  return std::search(js.begin(), js.end(), fd.begin(), fd.end()) != js.end();
 }
 
 // TODO replace with function returning a tuple

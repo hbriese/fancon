@@ -31,7 +31,7 @@ int main(int argc, char *argv[]);
 
 namespace fancon {
 /// \var 664 (rw-rw-r--) files; 775 (rwxrwxr-x) directories
-constexpr const __mode_t default_umask{002};
+constexpr const __mode_t read_write_umask{002};
 
 void help(const char *configPath);
 void suggestUsage(const char *fanconDir, const char *configPath);
