@@ -2,114 +2,123 @@
 #ifndef FANCON_NVIDIAUTIL_HPP
 #define FANCON_NVIDIAUTIL_HPP
 
-#include <pstreams/pstream.h>
-#include <dlfcn.h>  // dlopen
+#if 1 // To avoid clang format placing Xlib below NVCtrlLib
 #include <X11/Xlib.h>
-#include <NVCtrl/NVCtrlLib.h>
-#include "Logging.hpp"
-#include "FanInterface.hpp"
-#include "SensorInterface.hpp"
+#endif // 1
 
-#ifdef FANCON_NVML_SUPPORT_EXPERIMENTAL
-#include <nvml.h>
-#endif //FANCON_NVML_SUPPORT_EXPERIMENTAL
+#include <NVCtrlLib.h> // WARNING: Xlib must be included before NVCtrlLib
 
-namespace fancon {
-namespace NV {
+// Xlib.h does not undefine macros, so undefine some of the more troublesome
+#ifdef Status
+#undef Status
+#endif // Status
+#ifdef None
+#undef None
+#endif // None
+
+#include <dlfcn.h> // dlopen
+#include <pstreams/pstream.h>
+
+#include "Util.hpp"
+
+using NVID = uint;
+
+namespace fc::NV {
+class NVAttr_R {
+public:
+  NVAttr_R(const char *title, uint attribute,
+           int target = NV_CTRL_TARGET_TYPE_COOLER)
+      : title(title), target(target), attribute(attribute) {}
+
+  const char *title;
+  const int target;
+  const uint attribute;
+
+  optional<int> read(int id) const;
+};
+
+class NVAttr_RW : public NVAttr_R {
+public:
+  using NVAttr_R::NVAttr_R;
+
+  template <typename T> bool write(const int id, const T &value) const;
+};
+
 class DynamicLibrary {
 public:
   DynamicLibrary(const char *file);
   ~DynamicLibrary() { dlclose(handle); }
 
+  bool available() const;
+
 protected:
   void *handle;
 };
 
-struct LibX11 : public DynamicLibrary {
-  LibX11();
-
-  // Function names exclude the 'X' prefix
-  decltype(XOpenDisplay)  (*OpenDisplay);
-  decltype(XCloseDisplay) (*CloseDisplay);
-  decltype(XInitThreads)  (*InitThreads);
-} extern xlib;
-
-struct LibXNvCtrl : public DynamicLibrary {
-  LibXNvCtrl();
-
-  // Function names exclude the "XNVCTRL" prefix
-  decltype(XNVCTRLQueryExtension)             (*QueryExtension);
-  decltype(XNVCTRLQueryVersion)               (*QueryVersion);
-  decltype(XNVCTRLQueryTargetCount)           (*QueryTargetCount);
-  decltype(XNVCTRLQueryTargetBinaryData)      (*QueryTargetBinaryData);
-  decltype(XNVCTRLQueryTargetStringAttribute) (*QueryTargetStringAttribute);
-  decltype(XNVCTRLQueryTargetAttribute)       (*QueryTargetAttribute);
-  decltype(XNVCTRLSetTargetAttributeAndGetStatus)
-  (*SetTargetAttributeAndGetStatus);
-} extern xnvlib;
-
-struct DisplayWrapper {
-  DisplayWrapper();
-  ~DisplayWrapper();
+class X11Display : public DynamicLibrary {
+public:
+  X11Display();
+  ~X11Display();
 
   Display *operator*();
-  inline bool connected() { return dp != nullptr; }
+  bool connected() const;
 
+private:
   Display *dp = nullptr;
-} extern dw;
 
-extern const bool support;
-bool supported();
-bool enableFanControlCoolbit();    // Doesn't work in snap confined
+  void init_display();
 
-int getNumGPUs();
-vector<int> nvProcessBinaryData(const unsigned char *data, const int len);
-vector<UID> getFans();
-vector<UID> getSensors();
-
-#ifdef FANCON_NVML_SUPPORT_EXPERIMENTAL
-vector<nvmlDevice_t> getDevices();
-vector<UID> getFans();
-vector<UID> getSensors();
-#endif //FANCON_NVML_SUPPORT_EXPERIMENTAL
-
-struct Data_R {
-  Data_R(const char *title, const uint attribute,
-    const int &&target = NV_CTRL_TARGET_TYPE_COOLER)
-      : title(title), target(target), attribute(attribute) {}
-
-  const string title;
-  const int target;
-  const uint attribute;
-
-  int read(const int hwID) const;
+  decltype(XOpenDisplay) *OpenDisplay;
+  decltype(XCloseDisplay) *CloseDisplay;
+  decltype(XInitThreads) *InitThreads;
 };
 
-struct Data_RW : Data_R {
-  using Data_R::Data_R;
+class LibXNvCtrl : public DynamicLibrary {
+public:
+  LibXNvCtrl();
 
-  template<typename T>
-  bool write(const int hwID, const T &value) const {
-    if (!xnvlib.SetTargetAttributeAndGetStatus(*dw, target, hwID, 0,
-                                               attribute, value)) {
-      LOG(llvl::debug) << "NVIDIA fan " << hwID << ": failed writing " << title
-                       << " = " << value;
-      return false;
-    }
+  NV::X11Display xdisplay;
+  bool supported;
+  const NVAttr_R rpm, temp;
+  const NVAttr_RW pwm_percent, enable_mode;
 
-    return true;
+  uint get_num_GPUs();
+  string get_gpu_product_name(NVID gpu_id);
+  static vector<uint> from_binary_data(const unsigned char *data, int len);
+
+  // Function names exclude the "XNVCTRL" prefix
+  decltype(XNVCTRLQueryExtension) *QueryExtension;
+  decltype(XNVCTRLQueryVersion) *QueryVersion;
+  decltype(XNVCTRLQueryTargetCount) *QueryTargetCount;
+  decltype(XNVCTRLQueryTargetBinaryData) *QueryTargetBinaryData;
+  decltype(XNVCTRLQueryTargetStringAttribute) *QueryTargetStringAttribute;
+  decltype(XNVCTRLQueryTargetAttribute) *QueryTargetAttribute;
+  decltype(
+      XNVCTRLSetTargetAttributeAndGetStatus) *SetTargetAttributeAndGetStatus;
+
+private:
+  bool check_support();
+  static bool enable_fan_control_coolbit();
+};
+
+extern unique_ptr<LibXNvCtrl> xnvlib;
+} // namespace fc::NV
+
+//----------------------//
+// TEMPLATE DEFINITIONS //
+//----------------------//
+
+template <typename T>
+bool fc::NV::NVAttr_RW::write(const int id, const T &value) const {
+  if (!xnvlib->SetTargetAttributeAndGetStatus(*NV::xnvlib->xdisplay, target, id,
+                                              0, attribute, value)) {
+    LOG(llvl::error) << "NVIDIA fan " << id << ": failed writing " << title
+                     << " = " << value;
+    return false;
   }
-};
 
-static const Data_R rpm("RPM", NV_CTRL_THERMAL_COOLER_SPEED);
-static const Data_RW pwm_percent("PWM %", NV_CTRL_THERMAL_COOLER_LEVEL);
-static const Data_RW enable_mode("Fan speed enable mode",
-                                 NV_CTRL_GPU_COOLER_MANUAL_CONTROL,
-                                 NV_CTRL_TARGET_TYPE_GPU);
-static const Data_R temp("temperature", NV_CTRL_THERMAL_SENSOR_READING,
-                                        NV_CTRL_TARGET_TYPE_THERMAL_SENSOR);
-}
+  return true;
 }
 
-#endif //FANCON_NVIDIA_SUPPORT
-#endif //FANCON_NVIDIAUTIL_HPP
+#endif // FANCON_NVIDIA_SUPPORT
+#endif // FANCON_NVIDIAUTIL_HPP

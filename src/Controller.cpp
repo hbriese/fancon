@@ -1,227 +1,278 @@
 #include "Controller.hpp"
 
-using namespace fancon;
+namespace fc {
+bool dynamic = true;
+uint smoothing_intervals = 3;
+uint top_stickiness_intervals = 2;
+uint temp_averaging_intervals = 3;
+ControllerState controller_state = ControllerState::RUN;
+} // namespace fc
 
-namespace fancon {
-ControllerState controller_state{ControllerState::stop};
+fc::Controller::Controller(path conf_path_) : config_path(move(conf_path_)) {
+  load_devices();
 }
 
-Controller::Controller(const string &configPath) {
-  ifstream ifs(configPath);
-  bool configFound = false;
+void fc::Controller::start() {
+  LOG(llvl::info) << "Starting controller";
+  do {
+    test(false);
 
-  // Fan isn't skipped if profile matches, no profile has been selected or given
-  string currentProfile;
-
-  // Determine connected fans, and sensors
-  auto validFans = Devices::getFanUIDs();
-  auto validSensors = Devices::getSensorUIDs();
-
-  /* FORMAT: note. lines unordered
-  * Config
-  * Fan_UID TS_UID Config   */
-  for (string line; std::getline(ifs >> std::skipws, line);) {
-    if (!validConfigLine(line))
-      continue;
-
-    istringstream liss(line);
-
-    // Check for Config (if not found already)
-    if (!configFound) {
-      // Read line and set Config (if valid)
-      controller::Config fcc(liss);
-
-      if (fcc.valid()) {
-        conf = move(fcc);
-        configFound = true;
+    vector<thread> threads;
+    for (unique_ptr<FanInterface> &f : devices.fans) {
+      if (f->ignore) {
+        LOG(llvl::debug) << *f << ": ignored, skipping";
         continue;
-      } else
-        liss.seekg(0, std::ios::beg);
+      }
+
+      if (!f->configured())
+        continue;
+
+      if (!f->enable_control()) {
+        LOG(llvl::error) << *f << ": failed to take control";
+        continue;
+      }
+
+      threads.emplace_back([this, &f]() {
+        while (running()) {
+          f->update();
+          sleep_for(update_interval);
+        }
+      });
     }
 
-    // Look for profile change
-    if (liss.get() == serialization_constants::profile_prefix) {
-      liss >> std::skipws >> currentProfile;
-      continue;
-    } else
-      liss.unget();
-
-    // Skip if not the desired profile, or no profile specified
-    if (!currentProfile.empty() && currentProfile != conf.profile)
-      continue;
-
-    // Deserialize, checking the UID has valid format, and is connected
-    UID fanUID(liss);
-    if (!fanUID.valid(DeviceType::fan_interface)
-#ifdef FANCON_NVIDIA_SUPPORT
-        || ((fanUID.type == DeviceType::fan_nv) & !NV::support)
-#endif
-        )
-      continue;
-
-    if (find(validFans.begin(), validFans.end(), fanUID) == validFans.end()) {
-      LOG(llvl::warning) << "Invalid config lane: " << line
-                         << "\nFan is not connected: " << fanUID;
-      continue;
+    if (devices.fans.empty()) {
+      LOG(llvl::info) << "No devices detected, exiting";
+      return;
     }
 
-    UID sensorUID(liss);
-    if (!sensorUID.valid(DeviceType::sensor_interface)
-        || find(validSensors.begin(), validSensors.end(), sensorUID)
-            == validSensors.end())
-      continue;
+    if (threads.empty())
+      LOG(llvl::info) << "Awaiting configuration";
 
-    if (find(validSensors.begin(), validSensors.end(), sensorUID)
-        == validSensors.end()) {
-      LOG(llvl::warning) << "Invalid config line: " << line
-                         << "\nSensor is not connected: " << sensorUID;
+    while (running()) { // Restart controller on external config changes
+      if (config_file_modified()) {
+        reload();
+      } else {
+        sleep_for(milliseconds(500));
+      }
     }
 
-    fan::Config fanConf(liss);
-    if (!fanConf.valid())
-      continue;
+    shutdown_threads(threads);
 
-    // Find iterator of existing sensor
-    auto sIt = find_if(
-        sensors.begin(), sensors.end(),
-        [&](const unique_ptr<SensorInterface> &s) { return *s == sensorUID; });
-
-    // Add sensor if iterator not found, then update iterator
-    if (sIt == sensors.end())
-      sIt = sensors.emplace(sensors.end(), Devices::getSensor(sensorUID));
-
-    // Add fan only if there are configured points
-    auto fan = Devices::getFan(fanUID, fanConf, conf.dynamic);
-    if (!fan->points.empty())
-      fans.emplace_back(MappedFan(move(fan), *(*sIt)));
-    else
-      LOG(llvl::warning) << fanUID << " has no valid configuration";
-  }
-
-  // Shrink containers
-  sensors.shrink_to_fit();
-  fans.shrink_to_fit();
+    // Reload devices only if requested & changes have actually been made
+    if (reloading()) {
+      controller_state = ControllerState::RUN;
+      if (config_file_modified()) {
+        LOG(llvl::info) << "Reloading changes";
+        load_devices();
+      }
+    }
+  } while (running());
 }
 
-/// \return Controller state
-ControllerState Controller::run() {
-  if (fans.empty()) {
-    LOG(llvl::info) << "No fan configurations found, exiting fancon daemon. "
-          "See 'fancon -help'";
-    return ControllerState::stop;
+void fc::Controller::test(bool force, bool safely) {
+  vector<decltype(devices.fans.begin())> to_test;
+  for (auto it = devices.fans.begin(); it != devices.fans.end(); ++it) {
+    if ((!(*it)->tested() || force) && !(*it)->ignore)
+      to_test.emplace_back(it);
   }
 
-  // Handle process signals
-  struct sigaction act;
-  act.sa_handler = &Controller::signalHandler;
-  sigemptyset(&act.sa_mask);
-  for (auto &s : {SIGTERM, SIGINT, SIGABRT, SIGHUP})
-    sigaction(s, &act, nullptr);
+  if (to_test.empty())
+    return;
 
-  // Run sensor & fan threads
-  vector<thread> threads;
-  {
-    auto sensorTasks = Util::distributeTasks(conf.max_threads, sensors);
-    auto fanTasks = Util::distributeTasks(conf.max_threads, fans);
-    threads.reserve(sensorTasks.size() + fanTasks.size());
+  LOG(llvl::info) << "Testing fans, this may take a long time." << endl
+                  << "Don't stress your system!";
 
-    for (auto &t : sensorTasks)
-      threads.emplace_back(thread(&Controller::updateSensors, this, move(t)));
+  // Run only one test at a time if run 'safely'
+  const double per_test_percent = 100.0 / to_test.size();
+  while (!to_test.empty()) {
+    vector<thread> threads;
+    vector<shared_ptr<double>> test_completion;
+    if (!safely) {
+      threads.reserve(to_test.size());
+      test_completion.reserve(to_test.size());
+    }
 
-    for (auto &t : fanTasks)
-      threads.emplace_back(thread(&Controller::updateFans, this, move(t)));
+    for (auto it = to_test.begin(); it != to_test.end();) {
+      auto completed = make_shared<double>(0.0);
+      auto &f = **it;
+      threads.emplace_back([&f, completed] { f->test(completed); });
+      test_completion.emplace_back(completed);
+
+      it = to_test.erase(it);
+      if (safely)
+        break;
+    }
+
+    double percent, prev_percent = -1;
+    while (running() && tests_running(test_completion)) {
+      percent = per_test_percent * sum(test_completion);
+      if (percent != prev_percent) {
+        prev_percent = percent;
+        cout << "\rTests " << percent << "% complete" << std::flush;
+      }
+
+      sleep_for(milliseconds(500));
+    }
+
+    shutdown_threads(threads);
   }
-  threads.shrink_to_fit();
+  cout << endl;
 
-  LOG(llvl::debug) << "Started with " << (threads.size() + 1) << " threads";
-
-  // Synchronize thread wake-up times in main thread
-  scheduler();
-
-  for (auto &t : threads)
-    if (t.joinable())
-      t.join();
-
-  return controller_state;
-}
-
-void Controller::updateSensors(vector<sensor_container_t::iterator> sensors) {
-  deferStart(sensors_wakeup);
-
-  while (controller_state == ControllerState::run) {
-    for (auto &it : sensors)
-      (*it)->refresh();
-
-    sleep_until(sensors_wakeup);
+  if (running()) {
+    LOG(llvl::info) << "Testing complete. Configure devices at: "
+                    << config_path;
+    to_file(config_path, true);
+  } else {
+    LOG(llvl::info) << "Testing cancelled";
   }
 }
 
-void Controller::updateFans(vector<fan_container_t::iterator> fans) {
-  deferStart(fans_wakeup);
+bool fc::Controller::running() {
+  return controller_state == ControllerState::RUN;
+}
 
-  while (controller_state == ControllerState::run) {
-    // Update fan speed if sensor's temperature has changed
-    for (auto &it : fans)
-      if (it->sensor.update)
-        it->fan->update(it->sensor.temp);
+void fc::Controller::stop() { controller_state = ControllerState::STOP; }
 
-    sleep_until(fans_wakeup);
+void fc::Controller::reload() { controller_state = ControllerState::RELOAD; }
+
+bool fc::Controller::reloading() {
+  return controller_state == ControllerState::RELOAD;
+}
+
+void fc::Controller::from(const fc_pb::Controller &c) {
+  from(c.config());
+  fc::Devices import_devices;
+  import_devices.from(c.devices());
+
+  for (unique_ptr<FanInterface> &f : import_devices.fans) {
+    auto it = find_if(devices.fans.begin(), devices.fans.end(),
+                      [&f](auto &target) { return target->uid() == f->uid(); });
+    if (it != devices.fans.end()) {
+      *it = move(f);
+    } else {
+      devices.fans.emplace_back(move(f));
+    }
+  }
+
+  for (auto &p : import_devices.sensor_map) {
+    auto it = find_if(
+        devices.sensor_map.begin(), devices.sensor_map.end(),
+        [&p](const auto &t) { return t.second->uid() == p.second->uid(); });
+    if (it != devices.sensor_map.end()) {
+      it->second = p.second;
+    } else {
+      devices.sensor_map.emplace(p.first, p.second);
+    }
   }
 }
 
-/// \warning Fans may update before sensor if sensor update takes >100ms
-void Controller::scheduler() {
-  auto schedulerWakeup =
-      chrono::time_point_cast<milliseconds>(chrono::steady_clock::now());
+void fc::Controller::from(const fc_pb::ControllerConfig &c) {
+  update_interval = milliseconds(c.update_interval());
+  dynamic = c.dynamic();
+  smoothing_intervals = c.smoothing_intervals();
+  top_stickiness_intervals = c.top_stickiness_intervals();
+  temp_averaging_intervals = c.temp_averaging_intervals();
+}
 
-  auto update = [this, &schedulerWakeup](const milliseconds &interval) {
-    schedulerWakeup += interval;
-    sensors_wakeup = schedulerWakeup + milliseconds(20);
-    fans_wakeup = sensors_wakeup + milliseconds(100);
-  };
+void fc::Controller::to(fc_pb::Controller &c) {
+  to(*c.mutable_config());
+  devices.to(*c.mutable_devices());
+}
 
-  // Wake deferred threads almost immediately
-  update(milliseconds(1));
-  controller_state = ControllerState::run;
-  sleep_until(schedulerWakeup);
+void fc::Controller::to(fc_pb::ControllerConfig &c) {
+  c.set_update_interval(update_interval.count());
+  c.set_dynamic(dynamic);
+  c.set_smoothing_intervals(smoothing_intervals);
+  c.set_top_stickiness_intervals(top_stickiness_intervals);
+  c.set_temp_averaging_intervals(temp_averaging_intervals);
+}
 
-  // Wake threads once every update_interval
-  while (controller_state == ControllerState::run) {
-    update(conf.update_interval);
-    sleep_until(schedulerWakeup);
+void fc::Controller::load_devices() {
+  devices = fc::Devices(false);
+
+  if (config_path.empty() || !exists(config_path))
+    return;
+
+  std::ifstream ifs(config_path);
+  std::stringstream ss;
+  ss << ifs.rdbuf();
+
+  fc_pb::Controller c;
+  google::protobuf::TextFormat::ParseFromString(ss.str(), &c);
+
+  if (ifs) {
+    from(c);
+    update_config_write_time();
+  } else {
+    LOG(llvl::error) << "Failed to read config from: " << config_path;
   }
 }
 
-/// \brief Sets controller_state if appropriate signals are recieved
-void Controller::signalHandler(int sig) {
-  switch (sig) {
-  case SIGTERM:
-  case SIGINT:
-  case SIGABRT:controller_state = ControllerState::stop;
-    break;
-  case SIGHUP:controller_state = ControllerState::reload;
-    break;
-  default:LOG(llvl::warning) << "Unhandled signal caught: " << sig << " - "
-                             << strsignal(sig);
+void fc::Controller::to_file(path file, bool backup) {
+  // Backup existing file
+  if (backup && exists(file)) {
+    const path new_p(file.string() + "-" + date_time_now());
+    LOG(llvl::info) << "Moving previous config to: " << new_p;
+    fs::rename(file, new_p);
+  }
+
+  std::ofstream ofs(file);
+  fc_pb::Controller c;
+  to(c);
+
+  string out_s;
+  google::protobuf::TextFormat::PrintToString(c, &out_s);
+  ofs << out_s;
+
+  update_config_write_time();
+
+  if (!ofs) {
+    LOG(llvl::error) << "Failed to write config to: " << file;
   }
 }
 
-/// \return True if the line doesn't start with '#' and isn't just spaces/tabs
-bool Controller::validConfigLine(const string &line) {
-  // Skip spaces, tabs & whitespace
-  auto beg = std::find_if_not(line.begin(), line.end(),
-                              [](const char &c) { return std::isspace(c); });
+void fc::Controller::update_config_write_time() {
+  if (exists(config_path))
+    config_write_time = fs::last_write_time(config_path);
+}
 
-  if (beg == line.end())
+bool fc::Controller::config_file_modified() const {
+  if (!exists(config_path))
     return false;
 
-  return *beg != '#';
+  return config_write_time != fs::last_write_time(config_path);
 }
 
-/// \brief Lock until ControllerState::run, then sleep until timePoint
-void Controller::deferStart(time_point_t &timePoint) {
-  while (controller_state != ControllerState::run)
-    sleep_for(milliseconds(10));
+void fc::Controller::shutdown_threads(vector<thread> &threads) {
+  for (auto &t : threads) { // Interrupt all threads still running
+    t.interrupt();
+  }
 
-  sleep_until(timePoint);
+  for (auto &t : threads) { // Wait for all threads to shutdown
+    if (t.joinable())
+      t.join();
+  }
+}
+
+string fc::Controller::date_time_now() const {
+  std::time_t tt = chrono::system_clock::to_time_t(chrono::system_clock::now());
+  std::tm tm{};
+  gmtime_r(&tt, &tm);
+
+  std::stringstream ss;
+  ss << tm.tm_year << "-" << tm.tm_mon << "-" << tm.tm_mday << "-" << tm.tm_hour
+     << "-" << tm.tm_min;
+  return ss.str();
+}
+
+bool fc::Controller::tests_running(
+    const vector<shared_ptr<double>> &test_completion) {
+  return std::any_of(test_completion.begin(), test_completion.end(),
+                     [](const auto c) { return *c < 1; });
+}
+
+double fc::Controller::sum(const vector<shared_ptr<double>> &numbers) {
+  return std::accumulate(
+      numbers.begin(), numbers.end(), 0.0,
+      [](const double &total, const auto &b_ptr) { return total + *b_ptr; });
 }

@@ -1,0 +1,20 @@
+[Unit]
+Description=fancon
+Documentation=man:fancon(1) https://github.com/hbriese/fancon
+# Start after display manager (due to XNVCtrl)
+After=display-manager.service
+
+[Service]
+Type=simple
+User=root
+PIDFile=/run/fancon.pid
+ExecStart=/usr/bin/fancon -l=info
+ExecStop=/usr/bin/fancon stop
+KillSignal=SIGQUIT
+ExecReload=/usr/bin/fancon reload
+Restart=on-failure
+RestartSec=2
+
+[Install]
+#WantedBy=multi-user.target
+WantedBy=default.target

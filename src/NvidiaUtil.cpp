@@ -1,40 +1,59 @@
 #ifdef FANCON_NVIDIA_SUPPORT
 #include "NvidiaUtil.hpp"
+#include "SensorInterface.hpp"
 
-using namespace fancon;
+using namespace fc;
 
-// Define global variables
-namespace fancon {
+namespace fc {
 namespace NV {
-NV::LibX11 xlib;
-NV::LibXNvCtrl xnvlib;
-NV::DisplayWrapper dw;
-const bool support = supported();
+unique_ptr<NV::LibXNvCtrl> xnvlib;
 }
-}
+} // namespace fc
 
-#define GET_SYMBOL(_proc, _name)                                               \
-  _proc = (decltype(_proc))dlsym(handle, _name);                               \
-  if (!_proc)                                                                  \
-    LOG(llvl::debug) << "Failed to load symbol " << _name;
+optional<int> NV::NVAttr_R::read(int id) const {
+  int val;
+  if (!xnvlib->QueryTargetAttribute(*NV::xnvlib->xdisplay, target, id, 0,
+                                    attribute, &val)) {
+    LOG(llvl::error) << "NVIDIA device " << id << ": failed reading " << title;
+    return nullopt;
+  }
+
+  return val;
+}
 
 NV::DynamicLibrary::DynamicLibrary(const char *file)
-    : handle(dlopen(file, RTLD_LAZY | RTLD_LOCAL)) {
+    : handle(dlopen(file, RTLD_LAZY)) {
   if (!handle)
-    LOG(llvl::debug) << "Failed to load " << file << ": " << dlerror()
-                     << "; see `fancon --help` for more info";
+    LOG(llvl::error) << "Failed to dload " << file << ": " << dlerror();
 }
 
-NV::LibX11::LibX11() : DynamicLibrary("libX11.so") {
-  if (handle) {
-    GET_SYMBOL(OpenDisplay, "XOpenDisplay");
-    GET_SYMBOL(CloseDisplay, "XCloseDisplay");
-    GET_SYMBOL(InitThreads, "XInitThreads");
-  }
+bool NV::DynamicLibrary::available() const { return handle != nullptr; }
+
+#define GET_SYMBOL(_proc, _name)                                               \
+  _proc = (decltype(_proc))(dlsym(handle, _name));                             \
+  if (!_proc)                                                                  \
+    LOG(llvl::error) << "Failed to load symbol " << _name;
+
+NV::X11Display::X11Display() : DynamicLibrary("libX11.so") {
+  if (!available())
+    return;
+
+  GET_SYMBOL(OpenDisplay, "XOpenDisplay");
+  GET_SYMBOL(CloseDisplay, "XCloseDisplay");
+  GET_SYMBOL(InitThreads, "XInitThreads");
+
+  init_display();
 }
 
-NV::LibXNvCtrl::LibXNvCtrl() : DynamicLibrary("libXNVCtrl.so") {
-  if (handle) {
+NV::LibXNvCtrl::LibXNvCtrl()
+    : DynamicLibrary("libXNVCtrl.so"), xdisplay(X11Display()),
+      rpm("Rpm", NV_CTRL_THERMAL_COOLER_SPEED),
+      temp("temperature", NV_CTRL_THERMAL_SENSOR_READING,
+           NV_CTRL_TARGET_TYPE_THERMAL_SENSOR),
+      pwm_percent("Pwm %", NV_CTRL_THERMAL_COOLER_LEVEL),
+      enable_mode("fan control enable mode", NV_CTRL_GPU_COOLER_MANUAL_CONTROL,
+                  NV_CTRL_TARGET_TYPE_GPU) {
+  if (available()) {
     GET_SYMBOL(QueryExtension, "XNVCTRLQueryExtension");
     GET_SYMBOL(QueryVersion, "XNVCTRLQueryVersion");
     GET_SYMBOL(QueryTargetCount, "XNVCTRLQueryTargetCount");
@@ -44,124 +63,154 @@ NV::LibXNvCtrl::LibXNvCtrl() : DynamicLibrary("libXNVCtrl.so") {
     GET_SYMBOL(SetTargetAttributeAndGetStatus,
                "XNVCTRLSetTargetAttributeAndGetStatus");
   }
+  supported = check_support();
 }
 
 #undef GET_SYMBOL
 
-NV::DisplayWrapper::DisplayWrapper() {
+NV::X11Display::~X11Display() {
   if (dp)
-    return;
+    CloseDisplay(dp);
+}
 
-  constexpr const char *dspEnv = "DISPLAY", *xauthEnv = "XAUTHORITY";
-  constexpr const char *xauthOverridePath = "/etc/fancon.d/xauthority",
-                       *dspOverridePath = "/etc/fancon.d/display";
+Display *NV::X11Display::operator*() {
+  if (!connected())
+    throw runtime_error("X11Display must be connected");
 
+  return dp;
+}
+
+bool NV::X11Display::connected() const { return dp != nullptr; }
+
+void NV::X11Display::init_display() {
+  // Try find the display from environmental variables & ensure xauth is set
   string dsp;
-  bool foundXauth = getenv(xauthEnv) != nullptr;
-  auto setXAuth = [&](const char *path) {
-    assert(!foundXauth && "Xauth ENV being overwritten");
-    foundXauth = true;
-    setenv(xauthEnv, path, 1);
-  };
-
-  // Set dsp & xauth from environmental variables, or from files in
-  // xauthOverridePath or dspOverridePath
-  char *res;
-  if ((res = getenv(dspEnv)))
+  if (char *res; (res = getenv("DISPLAY")))
     dsp = string(res);
-  else if (exists(dspOverridePath))
-    dsp = Util::read<string>(dspOverridePath);
-
-  if (!foundXauth && exists(xauthOverridePath))
-    setXAuth(xauthOverridePath);
 
   // If not found, attempt to find xauth, and or display from running X11 server
-  if (dsp.empty() || !foundXauth) {
+  bool found_xauth = getenv("XAUTHORITY") != nullptr;
+  if (dsp.empty() || !found_xauth) {
     redi::ipstream ips(
         "echo \"$(ps wwaux 2>/dev/null | grep -wv PID | grep -v grep)\" "
         "| grep '/X.* :[0-9][0-9]* .*-auth' | egrep -v 'startx|xinit' "
         "| sed -e 's,^.*/X.* \\(:[0-9][0-9]*\\) .* -auth \\([^ ][^ "
         "]*\\).*$,\\1\\,\\2,' | sort -u");
-    string pair;
-    ips >> pair;
+    string dsp_xauth;
+    ips >> dsp_xauth;
 
     // Set missing dsp/xa to that found
-    auto sepIt = find(pair.begin(), pair.end(), ',');
-    if (sepIt != pair.end()) {
+    const auto sep_it = find(dsp_xauth.begin(), dsp_xauth.end(), ',');
+    if (sep_it != dsp_xauth.end()) {
       if (dsp.empty())
-        dsp = string(pair.begin(), sepIt);
+        dsp = string(dsp_xauth.begin(), sep_it);
 
-      if (!foundXauth)
-        setXAuth(string(next(sepIt), pair.end()).c_str());
+      if (!found_xauth) {
+        setenv("XAUTHORITY", string(next(sep_it), dsp_xauth.end()).c_str(), 1);
+        found_xauth = true;
+      }
     }
   }
 
   // Open display with dsp or guess at display if not set
-  dp = xlib.OpenDisplay((!dsp.empty() ? dsp.c_str() : ":0"));
+  InitThreads();
+  dp = OpenDisplay((!dsp.empty() ? dsp.c_str() : ":0"));
 
-  // Suggest providing info to override paths
   if (!dp) {
-    if (dsp.empty())
-      LOG(llvl::error) << "Write display number (found by `echo $" << dspEnv
-                       << "`) to " << dspOverridePath;
-    if (!foundXauth)
-      LOG(llvl::error) << "Symbolically link, or copy, your .Xauthority file "
-                          "(found by `echo $"
-                       << xauthEnv << "`) to " << xauthOverridePath;
+    LOG(llvl::warning)
+        << (!dsp.empty() ? "$DISPLAY" : "")
+        << (!dsp.empty() && !found_xauth ? " & " : "")
+        << (!found_xauth ? "$XAUTHORITY" : "")
+        << " env variable(s) not set, set to enable NVIDIA support";
   }
 }
 
-NV::DisplayWrapper::~DisplayWrapper() {
-  if (dp)
-    xlib.CloseDisplay(dp);
+uint NV::LibXNvCtrl::get_num_GPUs() {
+  if (!supported)
+    return 0;
+
+  // Query number of GPUs
+  int n_gpus{0};
+  if (QueryTargetCount(*xdisplay, NV_CTRL_TARGET_TYPE_GPU, &n_gpus))
+    LOG(llvl::error) << "Failed to query number of NVIDIA GPUs";
+
+  return n_gpus;
 }
 
-Display *NV::DisplayWrapper::operator*() {
-  assert(connected());
-  return dp;
+string NV::LibXNvCtrl::get_gpu_product_name(NVID gpu_id) {
+  // GPU product name
+  char *name_buf = nullptr;
+  int ret =
+      QueryTargetStringAttribute(*xdisplay, NV_CTRL_TARGET_TYPE_GPU, gpu_id, 0,
+                                 NV_CTRL_STRING_PRODUCT_NAME, &name_buf);
+
+  if (!ret || name_buf == nullptr) {
+    LOG(llvl::error) << "Failed to query gpu: " << gpu_id << " product name";
+    return "";
+  }
+
+  string prod_name(name_buf);
+
+  // Move iterator past title(s), and space trailing it
+  vector<string> titles = {"GeForce", "GTX", "GRID", "Quadro"};
+  auto begIt = prod_name.begin();
+  for (const auto &t : titles) {
+    auto newBegIt =
+        search(begIt, prod_name.end(), t.begin(), t.end()) + t.size();
+    if (*newBegIt == ' ' && (newBegIt + 1) != prod_name.end())
+      begIt = ++newBegIt;
+  }
+
+  std::replace(begIt, prod_name.end(), ' ', '_');
+
+  return string(begIt, prod_name.end());
 }
 
-bool NV::supported() {
-  // Run InitThreads for threadsafe XDisplay access if it's the first fancon
-  // process
-  if (!Util::locked())
-    xlib.InitThreads();
+vector<uint> NV::LibXNvCtrl::from_binary_data(const unsigned char *data,
+                                              int len) {
+  vector<uint> v;
+  for (int i{0}; i < len && *(data + i) != '\0'; ++i) {
+    // Return an index (start at 0), where as binary data start at 1
+    v.push_back(static_cast<uint>(*(data + i)) - 1);
+  }
 
-  if (!dw.connected()) {
+  return v;
+}
+
+bool NV::LibXNvCtrl::check_support() {
+  if (!available())
+    return false;
+
+  if (!xdisplay.connected()) {
     LOG(llvl::debug) << "X11 display cannot be opened";
     return false;
   }
 
   int eventBase, errorBase;
-  if (!xnvlib.QueryExtension(*dw, &eventBase, &errorBase)) {
-    LOG(llvl::debug)
-        << "NVIDIA fan control not supported"; // NV-CONTROL X does not exist!
-    return false;
+  if (!QueryExtension(*xdisplay, &eventBase, &errorBase)) {
+    return false; // NV-CONTROL X doesn't exist
   } else if (errorBase)
     LOG(llvl::warning) << "NV-CONTROL X return error base: " << errorBase;
 
-  int major = 0, minor = 0;
-  if (!(xnvlib.QueryVersion(*dw, &major, &minor))) {
+  int major{0}, minor{0};
+  if (!(QueryVersion(*xdisplay, &major, &minor))) {
     LOG(llvl::error) << "Failed to query NV-CONTROL X version";
     return false;
-  } else if ((major < 1) ||
-             (major == 1 && minor < 9)) // XNVCTRL must be at least v1.9
-    LOG(llvl::warning) << "Update your NVIDIA driver for official support\n"
-          ">= v1.9 X NV_CONTROL is recommended";
+  } else if ((major < 1) || (major == 1 && minor < 9)) // v1.9 minimum
+    LOG(llvl::warning) << "NV-CONTROL X version too old (< 1.9), "
+                       << "update your NVIDIA driver";
 
-  // Enable fan control coolbit if run from a TTY - so user knows to reboot
-  if (isatty(STDERR_FILENO) && enableFanControlCoolbit()) {
+  // Enable fan control coolbit if start from a TTY - so user knows to reboot
+  if (isatty(STDERR_FILENO) && enable_fan_control_coolbit()) {
     LOG(llvl::warning)
-        << "RESTART system (or display server) to use NVIDIA fan control";
+        << "Enabling NVIDIA fan control coolbits flag, restart for NV support";
     return false;
   }
 
   return true;
 }
 
-// TODO find and set Coolbits value without 'nvidia-xconfig'
-/// \return True if the system's coolbit value has been changed
-bool NV::enableFanControlCoolbit() {
+bool NV::LibXNvCtrl::enable_fan_control_coolbit() {
   redi::ipstream ips("nvidia-xconfig -t | grep Coolbits");
   string l;
   std::getline(ips, l);
@@ -169,11 +218,12 @@ bool NV::enableFanControlCoolbit() {
   // Exit early with message if nvidia-xconfig isn't found
   if (l.empty()) {
     LOG(llvl::info) << "nvidia-xconfig could not be found, either install it, "
-          "or set the coolbits value manually";
+                       "or set the coolbits value manually";
     return false;
   }
 
-  auto initialv = Util::lastNum(l), curv = initialv;
+  const int initialv = Util::postfix_num(l);
+  int curv = initialv;
 
   const auto nBits = 5;
   const auto fcBit = 2;                // 4
@@ -200,212 +250,15 @@ bool NV::enableFanControlCoolbit() {
   if (newv != initialv) {
     LOG(llvl::info) << "Enabling NVIDIA fan control coolbit; value: " << newv;
 
-    const auto scb = string("nvidia-xconfig --cool-bits=") + to_string(newv);
+    const auto scb = string("nvidia-xconfig -a --cool-bits=") + to_string(newv);
     if (system(scb.c_str()) != 0)
       LOG(llvl::error)
-        << "Failed to write coolbits value, nvidia fan control may fail!";
+          << "Failed to write coolbits value, nvidia fan control may fail!";
 
     return true;
   }
 
   return false;
-}
-
-int NV::getNumGPUs() {
-  int nGPUs{0};
-  if (!NV::support)
-    return nGPUs;
-
-  // Query number of GPUs
-  if (!xnvlib.QueryTargetCount(*dw, NV_CTRL_TARGET_TYPE_GPU, &nGPUs))
-    LOG(llvl::error) << "Failed to query number of NVIDIA GPUs";
-
-  return nGPUs;
-}
-
-vector<int> NV::nvProcessBinaryData(const unsigned char *data, const int len) {
-  vector<int> v;
-  for (int i{0}; i < len; ++i) {
-    auto val = static_cast<int>(*(data + i));
-    if (val == 0) // Memory set to 0 when allocated
-      break;
-    v.push_back(
-        --val); // Return an index (start at 0), where as binary data start at 1
-  }
-
-  return v;
-}
-
-vector<UID> NV::getFans() {
-  vector<UID> uids;
-  auto nGPUs = getNumGPUs();
-
-  for (int i{0}; i < nGPUs; ++i) {
-    vector<int> fanIDs, tSensorIDs;
-
-    // GPU fans
-    unsigned char *coolersBuf = nullptr;
-    int len{}; // Buffer size allocated by NVCTRL
-    int ret = xnvlib.QueryTargetBinaryData(
-        *dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
-        NV_CTRL_BINARY_DATA_COOLERS_USED_BY_GPU, &coolersBuf, &len);
-    if (!ret || coolersBuf == nullptr) {
-      LOG(llvl::error) << "Failed to query number of fans for GPU: " << i;
-      continue;
-    }
-    fanIDs = nvProcessBinaryData(coolersBuf, len);
-
-    // GPU product name
-    char *productNameBuf = nullptr;
-    ret = xnvlib.QueryTargetStringAttribute(*dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
-                                            NV_CTRL_STRING_PRODUCT_NAME,
-                                            &productNameBuf);
-
-    if (!ret || productNameBuf == nullptr) {
-      LOG(llvl::error) << "Failed to query gpu: " << i << " product name";
-      continue;
-    }
-    string productName(productNameBuf); // TODO C++17: replace with string_view
-
-    // Move iterator past title(s), and space trailing it
-    vector<string> titles = {"GeForce", "GTX", "GRID", "Quadro"};
-    auto begIt = productName.begin();
-    for (const auto &t : titles) {
-      auto newBegIt =
-          search(begIt, productName.end(), t.begin(), t.end()) + t.size();
-      if (*newBegIt == ' ' &&
-          (newBegIt + 1) != productName.end()) // skip spaces
-        begIt = ++newBegIt;
-    }
-
-    std::replace(begIt, productName.end(), ' ', '_');
-
-    for (const auto &fi : fanIDs)
-      uids.emplace_back(
-          UID(Util::nvidia_label, fi, string(begIt, productName.end())));
-  }
-
-  return uids;
-}
-
-vector<UID> NV::getSensors() {
-  vector<UID> uids;
-  auto nGPUs = getNumGPUs();
-
-  for (auto i = 0; i < nGPUs; ++i) {
-    vector<int> tSensorIDs;
-
-    int len{};
-    // GPU temperature sensors
-    unsigned char *tSensors = nullptr;
-    int ret = xnvlib.QueryTargetBinaryData(
-        *dw, NV_CTRL_TARGET_TYPE_GPU, i, 0,
-        NV_CTRL_BINARY_DATA_THERMAL_SENSORS_USED_BY_GPU, &tSensors, &len);
-    if (!ret || tSensors == nullptr) {
-      LOG(llvl::error)
-          << "Failed to query number of temperature sensors for GPU: " << i;
-      continue;
-    }
-    tSensorIDs = nvProcessBinaryData(tSensors, len);
-
-    for (const auto &tsi : tSensorIDs)
-      uids.emplace_back(
-          UID(Util::nvidia_label, tsi, string(Util::temp_sensor_label)));
-  }
-
-  return uids;
-}
-
-#ifdef FANCON_NVML_SUPPORT_EXPERIMENTAL
-vector<nvmlDevice_t> NV::getDevices() {
-  uint nDevices{};
-  if (nvmlDeviceGetCount(&nDevices) != NVML_SUCCESS)
-    LOG(llvl::error) << "Failed to query number of NVIDIA GPUs";
-
-  vector<nvmlDevice_t> devices(nDevices);
-
-  for (uint i{0}; i < nDevices; ++i) {
-    nvmlDevice_t dev;
-    if (nvmlDeviceGetHandleByIndex(i, &dev) != NVML_SUCCESS)
-      LOG(llvl::error) << "Failed to get NVIDIA device " << i
-                       << "; GPU count = " << nDevices;
-    devices.emplace_back(std::move(dev));
-  }
-
-  return devices;
-}
-
-// TODO add support for cards with multiple fans
-vector<UID> NV::getFans() {
-  vector<UID> uids;
-  auto devices = getDevices();
-
-  for (uint i{0}, e = devices.size(); i < e; ++i) {
-    // Verify device fan is valid
-    uint speedPercent{};
-    if (nvmlDeviceGetFanSpeed(devices[i], &speedPercent) != NVML_SUCCESS) {
-      LOG(llvl::error) << "Failed to get GPU " << i << " fan";
-      continue;
-    }
-
-    // GPU product name
-    char productNameBuf[NVML_DEVICE_NAME_BUFFER_SIZE];
-    if (nvmlDeviceGetName(devices[i], &productNameBuf[0],
-                          NVML_DEVICE_NAME_BUFFER_SIZE) != NVML_SUCCESS) {
-      LOG(llvl::error) << "Failed to get GPU " << i << " product name";
-      continue;
-    }
-    string productName(productNameBuf);
-
-    // Move iterator past title(s), and space trailing it
-    vector<string> titles = {"GeForce", "GTX", "GRID", "Quadro"};
-    auto begIt = productName.begin();
-    for (const auto &t : titles) {
-      auto newBegIt =
-          search(begIt, productName.end(), t.begin(), t.end()) + t.size();
-      if (*newBegIt == ' ' &&
-          (newBegIt + 1) != productName.end()) // skip spaces
-        begIt = ++newBegIt;
-    }
-
-    std::replace(begIt, productName.end(), ' ', '_');
-
-    uids.emplace_back(
-        UID(Util::nvidia_label, i, string(begIt, productName.end())));
-  }
-
-  return uids;
-}
-
-vector<UID> NV::getSensors() {
-  vector<UID> uids;
-  auto devices = getDevices();
-
-  for (uint i{0}, e = devices.size(); i < e; ++i) {
-    // GPU temperature sensors
-    uint temp{};
-    if (nvmlDeviceGetTemperature(devices[i], NVML_TEMPERATURE_GPU, &temp) !=
-        NVML_SUCCESS) {
-      LOG(llvl::error) << "Failed to read GPU " << i << " temperature";
-      continue;
-    }
-
-    uids.emplace_back(
-        UID(Util::nvidia_label, i, string(Util::temp_sensor_label)));
-  }
-
-  return uids;
-}
-#endif // FANCON_NVML_SUPPORT_EXPERIMENTAL
-
-int NV::Data_R::read(const int hwID) const {
-  int val{};
-  if (!xnvlib.QueryTargetAttribute(*dw, target, hwID, 0, attribute, &val)) {
-    LOG(llvl::error) << "NVIDIA fan " << hwID << ": failed reading " << title;
-    val = 0;
-  }
-
-  return val;
 }
 
 #endif // FANCON_NVIDIA_SUPPORT

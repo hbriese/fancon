@@ -1,0 +1,12 @@
+[Unit]
+Description=fancon resume
+Documentation=man:fancon(1) https://github.com/hbriese/fancon
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/fancon reload
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

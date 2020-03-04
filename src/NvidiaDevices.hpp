@@ -1,40 +1,57 @@
 #ifdef FANCON_NVIDIA_SUPPORT
-#ifndef FANCON_NVDEVICES_HPP
-#define FANCON_NVDEVICES_HPP
+#ifndef FANCON_NVIDIADEVICES_HPP
+#define FANCON_NVIDIADEVICES_HPP
 
 #include "FanInterface.hpp"
 #include "NvidiaUtil.hpp"
 #include "SensorInterface.hpp"
 
-namespace fancon {
-using percent_t = int;
-
-class FanNV : public FanInterface {
+namespace fc {
+class FanNV : public fc::FanInterface {
 public:
-  explicit FanNV(const UID &fanUID, const fan::Config &conf = fan::Config(),
-                 bool dynamic = true);
-  ~FanNV() override { writeEnableMode(driver_enable_mode); }
+  FanNV() = default;
+  FanNV(string label, NVID id);
+  ~FanNV() override;
 
-  rpm_t readRPM() override { return NV::rpm.read(hw_id); };
-  pwm_t readPWM() override { return percentToPWM(NV::pwm_percent.read(hw_id)); }
-  bool writePWM(const pwm_t &pwm) override;
-  bool writeEnableMode(const enable_mode_t &mode) override;
+  void from(const fc_pb::Fan &f, const SensorMap &sensor_map) override;
+  void to(fc_pb::Fan &f) const override;
+  bool valid() const override;
+  string_view uid() const override;
+
+  static vector<unique_ptr<fc::FanInterface>> enumerate();
 
 private:
-  static percent_t pwmToPercent(const pwm_t &pwm);
-  static pwm_t percentToPWM(const percent_t &percent);
+  NVID id{0};
+
+  Rpm get_rpm() const override;
+  Pwm get_pwm() const override;
+  bool set_pwm(const Pwm pwm) const override;
+
+  bool enable_control() const override;
+  bool disable_control() const override;
+
+  static Percent pwm_to_percent(const Pwm pwm);
+  static Pwm percent_to_pwm(const Percent percent);
 };
 
-struct SensorNV : public SensorInterface {
-  explicit SensorNV(const UID &uid) : hw_id(uid.hw_id) {}
+class SensorNV : public SensorInterface {
+public:
+  SensorNV() = default;
+  SensorNV(string label, NVID id);
 
-  hwid_t hw_id;
+  Temp read() const override;
 
-  bool operator==(const UID &other) const override;
+  void from(const fc_pb::Sensor &s) override;
+  void to(fc_pb::Sensor &s) const override;
+  bool valid() const override;
+  string_view uid() const override;
 
-  temp_t read() const override { return NV::temp.read(hw_id); };
+  static SensorMap enumerate();
+
+private:
+  NVID id{0};
 };
-}
+} // namespace fc
 
-#endif // FANCON_NVDEVICES_HPP
+#endif // FANCON_NVIDIADEVICES_HPP
 #endif // FANCON_NVIDIA_SUPPORT

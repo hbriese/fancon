@@ -1,0 +1,26 @@
+Source: fancon
+Section: utils
+Priority: optional
+Standards-Version: 4.4.0
+Maintainer: Hayden Briese <haydenbriese@gmail.com>
+Homepage: https://github.com/hbriese/fancon
+Vcs-Browser: https://github.com/hbriese/fancon
+Vcs-Git: https://github.com/hbriese/fancon.git
+Build-Depends: debhelper (>= 11), clang (>= 9.0), cmake (>= 3.13),
+ libpthread-stubs0-dev, libboost-log-dev, libboost-thread-dev, 
+ libboost-system-dev, libboost-filesystem-dev, libboost-regex-dev,
+ libsensors4-dev, libprotobuf-dev, libgrpc++-dev, protobuf-compiler-grpc,
+ libxnvctrl-dev, libx11-dev, libpstreams-dev
+# libxnvctrl-dev, libx11-dev, libpstreams-dev  - only req. when NV support is on
+# nvidia-cuda-dev     WHEN NVML REPLACES XNVCtrl
+
+Package: fancon
+Architecture: any
+Description: Fan controller for system fans & NVIDIA GPUs.
+ The project can be found at https://github.com/hbriese/fancon
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.2-14),
+ libpthread-stubs0-dev, lm-sensors, libboost-log-dev, libboost-thread-dev,
+ libboost-system-dev, libboost-filesystem-dev, libboost-regex-dev,
+ libprotobuf-dev, libgrpc++1, libxnvctrl-dev, libx11-dev
+# libxnvctrl-dev, libx11-dev    - only req. when NV support is on
+# libnvidia-ml-dev       WHEN NVML REPLACES XNVCtrl

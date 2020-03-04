@@ -1,88 +1,57 @@
 #ifndef FANCON_MAIN_HPP
 #define FANCON_MAIN_HPP
 
-#include "Controller.hpp"
-#include "Devices.hpp"
-#include "Util.hpp"
-#include <algorithm> // transform, sort
-#include <boost/filesystem.hpp>
-#include <functional> // reference_wrapped
-#include <iomanip>    // setw, left
-#include <sys/ioctl.h>
-#include <sys/stat.h>
+#ifndef FANCON_SYSCONFDIR
+#define FANCON_SYSCONFDIR "/etc"
+#endif // FANCON_SYSCONFDIR
 
 #ifdef FANCON_PROFILE
 #include <gperftools/heap-profiler.h>
 #include <gperftools/profiler.h>
 #endif // FANCON_PROFILE
 
-using std::to_string;
-using std::setw;
-using std::left;
-using std::reference_wrapper;
-using std::function;
-using boost::filesystem::create_directory; // TODO C++17: std::create_directory
-using fancon::Controller;
-using fancon::ControllerState;
-using fancon::Devices;
-using fancon::TestResult;
+#include <boost/interprocess/sync/file_lock.hpp>
+#include <csignal>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <regex>
+#include <set>
+#include <sstream>
+#include <sys/wait.h>
+
+#include "Controller.hpp"
+#include "Service.hpp"
+
+using boost::interprocess::file_lock;
+using std::system;
+
+using args_map = std::map<string, string>;
 
 int main(int argc, char *argv[]);
 
-namespace fancon {
-/// \var 664 (rw-rw-r--) files; 775 (rwxrwxr-x) directories
-constexpr const __mode_t read_write_umask{002};
+namespace fc {
+const string config_path_default(FANCON_SYSCONFDIR "/fancon.conf");
+const path pid_path{"/run/fancon.pid"};
+const char *hardware_info_path_default = "fancon_system_info.txt";
 
-void help(const char *configPath);
-void suggestUsage(const char *fanconDir, const char *configPath);
-unsigned short getTerminalWidth();
-constexpr size_t strlength(const char *s) // TODO C++17 - remove
-{ return (*s == 0) ? 0 : strlength(s + 1) + 1; }
+args_map &read_args(int argc, char **argv, args_map &args);
+void print_args(args_map &args);
+bool to_bool(const string &str);
+void print_help();
 
-void listFans();
-void listSensors();
+bool is_root();
+void set_log_level(const string &log_lvl);
+tuple<file_lock, bool> instance_check();
+void stop_instances();
+void reload_instances();
+void offer_trailing_journal();
+void daemonize();
+void print_directory(const path &dir, std::ostream &os, uint depth = 0);
+bool save_system_info();
 
-void appendConfig(const string &configPath);
-
-void testFans(uint testRetries, const char *configPath, bool singleThreaded);
-void testFan(const UID &uid, unique_ptr<FanInterface> &&fan, uint retries);
-
-void forkOffParent();
-void start(const char *configPath, const bool fork);
-void signalState(ControllerState state);
-
-struct Command {
-  Command(const char *name, const char *shortName, function<void()> func,
-          bool lock = false, bool requireRoot = true, bool called = false)
-      : name(name), short_name(shortName), require_root(requireRoot),
-        lock(lock), called(called), func(move(func)) {}
-
-  const string name, short_name;
-  const bool require_root, lock;
-  bool called;
-  function<void()> func;
-
-  bool operator==(const string &other) {
-    return other == short_name || other == name;
-  }
-};
-
-struct Option {
-  Option(const char *name, const char *shortName, bool hasValue = false,
-         bool called = false)
-      : name(name), short_name(shortName), called(called), has_value(hasValue) {
-  }
-
-  const string name, short_name;
-  bool called, has_value;
-  uint val{};
-
-  bool operator==(const string &other) {
-    return other == short_name || other == name;
-  }
-
-  bool setIfValid(const string &str);
-};
-} // namespace fancon
+void signal_handler(int signal);
+void register_signal_handler();
+} // namespace fc
 
 #endif // FANCON_MAIN_HPP

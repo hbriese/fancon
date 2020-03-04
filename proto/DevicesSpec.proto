@@ -1,0 +1,89 @@
+syntax = "proto3";
+package fc_pb;
+
+message Controller {
+    ControllerConfig config = 1;
+    Devices devices = 2;
+}
+
+message ControllerConfig {
+    uint32 update_interval = 1;
+    bool dynamic = 2;
+    uint32 smoothing_intervals = 3;
+    uint32 top_stickiness_intervals = 4;
+    uint32 temp_averaging_intervals = 5;
+}
+
+message Devices {
+    repeated Fan fan = 1;
+    repeated Sensor sensor = 2;
+}
+
+enum DevType {
+    SYS = 0;
+    DELL = 1;
+    NVIDIA = 2;
+}
+
+message Fan {
+    DevType type = 1;
+    string label = 2;
+    string sensor = 3;
+    string temp_to_rpm = 4;
+    string rpm_to_pwm = 5;
+    uint32 start_pwm = 6;
+    uint64 interval = 7;
+    bool ignore = 8;
+
+    // SYS
+    string pwm_path = 10;
+    string rpm_path = 11;
+    string enable_path = 12;
+    int32 driver_flag = 13;
+
+    // NV
+    uint32 id = 20;
+}
+
+message Sensor {
+    DevType type = 1;
+    string label = 2;
+
+    // SYS
+    string input_path = 10;
+    string enable_path = 11;
+    string fault_path = 12;
+    string min_path = 13;
+    string max_path = 14;
+    string crit_path = 15;
+
+    // NV
+    int32 id = 20;
+}
+
+message DevicesRequest {
+    bool include_unsupported = 1;
+}
+
+message ControllerState {
+    enum State {
+        STOP = 0;
+        RUN = 1;
+        RESTART = 2;
+        TEST = 3;
+    }
+    State state = 1;
+}
+
+message Empty {}
+
+service DService {
+    rpc GetControllerState(Empty) returns (ControllerState) {}
+    rpc SetControllerState(ControllerState) returns (Empty) {}
+
+    rpc GetControllerConfig(Empty) returns (ControllerConfig) {}
+    rpc SetControllerConfig(ControllerConfig) returns (Empty) {}
+
+    rpc GetDevices(DevicesRequest) returns (Devices) {}
+    rpc SetDevices(Devices) returns (Empty) {}
+}

@@ -1,105 +1,37 @@
 #include "Util.hpp"
-#include <boost/filesystem/operations.hpp>
 
-namespace Util = fancon::Util;
-
-fancon::DeviceType fancon::operator|(fancon::DeviceType lhs,
-                                     fancon::DeviceType rhs) {
-  return static_cast<fancon::DeviceType>(
-      static_cast<std::underlying_type<fancon::DeviceType>::type>(lhs) |
-      static_cast<std::underlying_type<fancon::DeviceType>::type>(rhs));
-}
-
-fancon::DeviceType fancon::operator&(fancon::DeviceType lhs,
-                                     fancon::DeviceType rhs) {
-  return static_cast<fancon::DeviceType>(
-      static_cast<std::underlying_type<fancon::DeviceType>::type>(lhs) &
-      static_cast<std::underlying_type<fancon::DeviceType>::type>(rhs));
-}
-
-int Util::lastNum(const string &str) {
-  auto endRevIt = std::find_if(str.rbegin(), str.rend(),
-                               [](const char &c) { return std::isdigit(c); });
-
+int fc::Util::postfix_num(const string_view &s) {
   bool numFound = false;
-  auto begRevIt = std::find_if_not(endRevIt, str.rend(), [&](const char &c) {
-    if (std::isdigit(c))
-      return (numFound = true);
-
-    return !numFound;
+  auto begRevIt = std::find_if_not(s.rbegin(), s.rend(), [&](const char &c) {
+    return (std::isdigit(c)) ? (numFound = true) : !numFound;
   });
 
-  stringstream ss(string(begRevIt.base(), endRevIt.base()));
-  int num{};
-  ss >> num;
-  return num;
+  int num;
+  const auto res = std::from_chars(begRevIt.base(), s.data() + s.size(), num);
+  return (res.ec == std::errc()) ? num : -1;
 }
 
-bool Util::isNum(const string &str) {
-  return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
-}
+optional<string> fc::Util::read_line(const path &fpath, bool failed) {
+  std::ifstream ifs(fpath.string());
+  if (!ifs)
+    return std::nullopt;
 
-/// \return
-/// True if lock() has been called by a process that is currently running
-bool Util::locked() {
-  if (!exists(pid_path))
-    return false;
-
-  const auto pid = read<pid_t>(pid_path);
-  return exists(string("/proc/") + to_string(pid)) && pid != getpid();
-}
-
-void Util::lock() {
-  if (locked()) {
-    LOG(llvl::error)
-        << "A fancon process is already running, please close it to continue";
-    exit(EXIT_FAILURE);
-  }
-
-  write(pid_path, getpid());
-}
-
-/// \return True if lock is acquired
-bool Util::try_lock() {
-  if (locked())
-    return false;
-
-  lock();
-  return true;
-}
-
-string Util::getDir(const string &hwID, DeviceType devType, const bool sysFS) {
-  string d;
-  if (devType == DeviceType::fan)
-    d = string((sysFS) ? hwmon_path : fancon_hwmon_path);
-  else if (devType == DeviceType::fan_nv)
-    d = string(fancon_dir) + nvidia_label;
-
-  return (d += hwID + '/');
-}
-
-string Util::getPath(const string &path_pf, const string &hwID,
-                     DeviceType devType, const bool sysFS) {
-  return getDir(hwID, devType, sysFS) + path_pf;
-}
-
-string Util::readLine(string path, int nFailed) {
-  ifstream ifs(path);
   string line;
   std::getline(ifs, line);
   ifs.close();
 
   if (!ifs) {
-    auto exist = exists(path);
-    // Retry read 3 times if file exists, before failing
-    if (exist && nFailed <= 3)
-      return readLine(path, ++nFailed);
+    if (const bool fexists = exists(fpath); fexists && !failed)
+      return read_line(fpath, true);
 
-    const char *reason =
-        (exist) ? "filesystem or permission error" : "doesn't exist";
-    LOG(llvl::error) << "Failed to read from: " << path << " - " << reason
-                     << "; user id " << getuid();
+    return std::nullopt;
   }
 
   return line;
+}
+
+std::ostream &fc::Util::amp(std::ostream &os) {
+  if (os.tellp() != os.beg)
+    os << " & ";
+  return os;
 }

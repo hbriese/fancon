@@ -1,22 +1,40 @@
 #include "SensorInterface.hpp"
 
-using namespace fancon;
+fc::SensorInterface::SensorInterface(string label_) : label(move(label_)) {}
 
-void SensorInterface::refresh() {
-  temp_t newTemp{read()};
+Temp fc::SensorInterface::get_average_temp() {
+  std::scoped_lock lock(read_mutex);
+  if (fresh())
+    return last_avg_temp;
 
-  if (newTemp != temp) {
-    temp = newTemp;
-    update = true;
-  } else
-    update = false;
+  if (!temp_history.empty()) {
+    temp_history[temp_history_i] = read();
+    temp_history_i =
+        (temp_history_i < temp_history.size()) ? temp_history_i + 1 : 0;
+  } else {
+    temp_history.resize(fc::temp_averaging_intervals, read());
+  }
+
+  last_read_time = chrono::high_resolution_clock::now();
+  last_avg_temp = std::accumulate(temp_history.begin(), temp_history.end(), 0) /
+                  temp_history.size();
+
+  LOG(llvl::trace) << *this << ": " << last_avg_temp << "°" << fc::log::flush;
+
+  return last_avg_temp;
 }
 
-Sensor::Sensor(const UID &uid) : input_path(uid.getBasePath() + "_input") {
-  input_path.shrink_to_fit();
+void fc::SensorInterface::from(const fc_pb::Sensor &s) { label = s.label(); }
+
+void fc::SensorInterface::to(fc_pb::Sensor &s) const { s.set_label(label); }
+
+bool fc::SensorInterface::fresh() const {
+  const auto dur = chrono::duration_cast<milliseconds>(
+      chrono::high_resolution_clock::now() - last_read_time);
+  return dur <= milliseconds(200);
 }
 
-bool Sensor::operator==(const UID &other) const {
-  auto basep = (find(input_path.rbegin(), input_path.rend(), '_') + 1).base();
-  return other.getBasePath() == string(input_path.begin(), basep);
+std::ostream &fc::operator<<(std::ostream &os, const fc::SensorInterface &s) {
+  os << s.label;
+  return os;
 }

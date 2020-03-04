@@ -1,50 +1,47 @@
-#ifndef FANCON_FIND_HPP
-#define FANCON_FIND_HPP
+#ifndef FANCON_DEVICES_HPP
+#define FANCON_DEVICES_HPP
 
-#include "Config.hpp"
-#include "Fan.hpp"
+#include <sensors/sensors.h>
+
+#include "FanDell.hpp"
+#include "FanInterface.hpp"
+#include "FanSysfs.hpp"
 #include "NvidiaDevices.hpp"
 #include "SensorInterface.hpp"
-#include "UID.hpp"
+#include "SensorSysfs.hpp"
 #include "Util.hpp"
-#include <memory> // unique_ptr
-#include <sensors/sensors.h>
-#include <vector>
+#include "proto/DevicesSpec.pb.h"
 
-#ifdef FANCON_NVIDIA_SUPPORT
-using fancon::FanNV;
-using fancon::SensorNV;
-#endif
+using std::find_if;
+using std::make_move_iterator;
+using std::set;
 
-using fancon::Util::lastNum;
-using fancon::UID;
-using fancon::FanInterface;
-using fancon::Fan;
-using fancon::SensorInterface;
-using fancon::Sensor;
-
-namespace {
-/// \brief Wrapper for safely handling libsensor chips
-struct SensorsWrapper {
-  SensorsWrapper();
-  ~SensorsWrapper() { sensors_cleanup(); }
-  vector<const sensors_chip_name *> chips; 
-};
-}
-
-namespace fancon {
-class Devices {
+namespace fc {
+class SensorChips {
 public:
-  static unique_ptr<FanInterface>
-  getFan(const UID &uid, const Config &fanConf = Config(), bool dynamic = true);
-  static vector<UID> getFanUIDs();
+  SensorChips();
+  ~SensorChips();
 
-  static unique_ptr<SensorInterface> getSensor(const UID &uid);
-  static vector<UID> getSensorUIDs();
+  tuple<std::vector<unique_ptr<fc::FanInterface>>, SensorMap> enumerate();
 
 private:
-  static vector<UID> getHWMonUIDs(const char *devicePathSuffix);
+  vector<const sensors_chip_name *> chips;
 };
-}
 
-#endif // FANCON_FIND_HPP
+class Devices {
+public:
+  Devices() = default;
+  explicit Devices(bool dry_run);
+
+  vector<unique_ptr<FanInterface>> fans;
+  SensorMap sensor_map;
+
+  void from(const fc_pb::Devices &d);
+  void to(fc_pb::Devices &d) const;
+};
+
+bool operator==(const fc_pb::Fan &l, const fc_pb::Fan &r);
+bool operator==(const fc_pb::Sensor &l, const fc_pb::Sensor &r);
+} // namespace fc
+
+#endif // FANCON_DEVICES_HPP

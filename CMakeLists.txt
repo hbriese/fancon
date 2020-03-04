@@ -1,52 +1,57 @@
 cmake_minimum_required(VERSION 3.3)
-set(CMAKE_CXX_STANDARD 14)  # TODO: C++17 when gcc 7 & clang 4 debain testing release; cmake_minimum_required -> 3.8
-project(fancon)
+project(fancon LANGUAGES CXX)
 set(PACKAGE_AUTHOR "Hayden Briese <haydenbriese@gmail.com>")
 
-## Additional cmake modules provided in ./cmake/
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-## Optimization flag - lvl 2
-set(OPTIMIZATION_FLAG "-O2")
+## Clang must be used because of linking with Boost Threads
+set(CMAKE_C_COMPILER "clang")
+set(CMAKE_CXX_COMPILER "clang++")
+
+## Additional cmake modules provided in ./cmake/
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
+
+## Default to Release if not set
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif ()
+
+## Release flags
+set(OPTIMIZATION_FLAG "-O3")
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPTIMIZATION_FLAG}")
+endif ()
 
 ## Debug flags
 option(OPTIMIZE_DEBUG "Optimize debug build - useful for profiling" OFF)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wpedantic -Werror")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wpedantic")
     if (OPTIMIZE_DEBUG)
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${OPTIMIZATION_FLAG}")
     endif ()
 endif ()
 
-## Release flags
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPTIMIZATION_FLAG}")
-endif ()
-
+set(SRC "${PROJECT_SOURCE_DIR}/src")
+set(PSRC "${SRC}/proto")
 include_directories(src)
-set(SOURCE_FILES src/main.cpp src/main.hpp src/Util.cpp src/Util.hpp src/Logging.hpp src/Logging.cpp
-        src/UID.cpp src/UID.hpp src/Devices.cpp src/Devices.hpp src/Config.cpp src/Config.hpp
-        src/Fan.cpp src/Fan.hpp src/FanInterface.cpp src/FanInterface.hpp src/SensorInterface.cpp src/SensorInterface.hpp
-        src/NvidiaDevices.cpp src/NvidiaDevices.hpp src/NvidiaUtil.cpp src/NvidiaUtil.hpp src/Controller.cpp src/Controller.hpp)
+set(SOURCE_FILES ${SRC}/main.cpp ${SRC}/main.hpp
+        ${SRC}/Util.cpp ${SRC}/Util.hpp
+        ${SRC}/Logging.hpp ${SRC}/Logging.cpp
+        ${PSRC}/DevicesSpec.pb.cc ${PSRC}/DevicesSpec.pb.h
+        ${PSRC}/DevicesSpec.grpc.pb.cc ${PSRC}/DevicesSpec.grpc.pb.h
+        ${SRC}/Controller.cpp ${SRC}/Controller.hpp
+        ${SRC}/Devices.cpp ${SRC}/Devices.hpp
+        ${SRC}/FanInterface.cpp ${SRC}/FanInterface.hpp
+        ${SRC}/SensorInterface.cpp ${SRC}/SensorInterface.hpp
+        ${SRC}/FanSysfs.cpp ${SRC}/FanSysfs.hpp
+        ${SRC}/SensorSysfs.cpp ${SRC}/SensorSysfs.hpp
+        ${SRC}/NvidiaUtil.cpp ${SRC}/NvidiaUtil.hpp
+        ${SRC}/NvidiaDevices.cpp ${SRC}/NvidiaDevices.hpp
+        ${SRC}/NvidiaNvml.cpp ${SRC}/NvidiaNvml.hpp
+        ${SRC}/DellSMM.cpp ${SRC}/DellSMM.hpp
+        ${SRC}/FanDell.cpp ${SRC}/FanDell.hpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
-
-# Set system paths
-if (NOT DEFINED CMAKE_INSTALL_SYSCONFDIR)
-    set(CMAKE_INSTALL_SYSCONFDIR "/etc")
-endif ()
-add_definitions(-DFANCON_SYSCONFDIR="${CMAKE_INSTALL_SYSCONFDIR}")
-
-if (NOT DEFINED CMAKE_INSTALL_LOCALSTATEDIR)
-    set(CMAKE_INSTALL_LOCALSTATEDIR "/var")
-endif ()
-add_definitions(-DFANCON_LOCALSTATEDIR="${CMAKE_INSTALL_LOCALSTATEDIR}")
-
-## libstdc++ static linking
-option(STATIC_LIBSTDC++ "Statically link libstdc++" OFF)
-if (STATIC_LIBSTDC++)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
-    message("Statically linking libstdc++")
-endif ()
 
 ## Threads (pthread)
 find_package(Threads REQUIRED)
@@ -55,7 +60,7 @@ set(LIBS ${LIBS} ${CMAKE_THREAD_LIBS_INIT})
 ## Boost
 add_definitions("-DBoost_USE_MULTITHREADED")
 add_definitions("-DBOOST_ALL_DYN_LINK")
-find_package(Boost REQUIRED COMPONENTS thread system filesystem log)
+find_package(Boost REQUIRED COMPONENTS log thread system filesystem)
 include_directories(${Boost_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${Boost_LIBRARIES})
 
@@ -77,31 +82,62 @@ if (NVIDIA_SUPPORT)
         add_definitions("-DFANCON_NVIDIA_SUPPORT")
         message("NVIDIA support enabled")
     else ()
-        message("NVIDIA_SUPPORT=${NVIDIA_SUPPORT} but X11 and or NVCtrl headers weren't found!")
+        if (NOT X11_INCLUDE_DIR)
+            message("NVIDIA_SUPPORT enabled but X11lib headers weren't found!")
+        endif ()
+        if (NOT NVCTRL_INCLUDE_DIR)
+            message("NVIDIA_SUPPORT enabled but NVCtrl headers weren't found!")
+        endif ()
     endif ()
 endif ()
 
-## NVML
+## NVML - need to wait for device set speed support to replace XNVCtrl
 option(NVML_SUPPORT "Build with experimental NVML support" OFF)
 if (NVML_SUPPORT)
     find_package(NVML REQUIRED)
-    set(LIBS ${LIBS} ${NVML_LIBRARY})
-    add_definitions("-DFANCON_NVML_SUPPORT_EXPERIMENTAL")
+    include_directories(${NVML_INCLUDE_DIRS})
+    set(LIBS ${LIBS} ${NVML_LIBRARIES})
+    add_definitions("-DFANCON_NVIDIA_NVML_SUPPORT")
     message("Experimental NVML support enabled")
 endif ()
+
+## ProtoBuff
+find_package(Protobuf REQUIRED)
+include_directories(${Protobuf_INCLUDE_DIRS})
+set(LIBS ${LIBS} ${Protobuf_LIBRARIES})
+
+# gRPC
+find_package(GRPC REQUIRED)
+include_directories(${GRPC_INCLUDE_DIRS})
+set(LIBS ${LIBS} ${GRPC_LIBRARIES})
 
 ## Google Perf Tools profiling
 option(PROFILE "Build debug release with support for CPU and heap profiling - REQUIRES Google Perf Tools" OFF)
 if (PROFILE AND CMAKE_BUILD_TYPE STREQUAL "Debug")
     find_package(Profiler REQUIRED)
-    find_package(TCMalloc REQUIRED) # TCMalloc currently does not release memory
+    find_package(TCMalloc REQUIRED)
     set(LIBS ${LIBS} ${PROFILER_LIBRARY} ${TCMALLOC_LIBRARIES})
     add_definitions("-DFANCON_PROFILE")
-    message("Build with profiling")
+    message("Profiling enabled, warning: TCMalloc doesn't release memory!")
 endif ()
 
 ## Link libraries
 target_link_libraries(${PROJECT_NAME} ${LIBS})
+
+## Handle GNU CMAKE_INSTALL variables
+if (CMAKE_INSTALL_SYSCONFDIR)
+    message("Setting sysconfdir to ${CMAKE_INSTALL_SYSCONFDIR}")
+    message("Full sysnconfdir: ${CMAKE_INSTALL_FULL_SYSCONFDIR}")
+    add_definitions("-DFANCON_SYSCONFDIR=\"${CMAKE_INSTALL_SYSCONFDIR}\"")
+endif ()
+if (CMAKE_INSTALL_LOCALSTATEDIR)
+    add_definitions("-DFANCON_LOCALSTATEDIR=\"${CMAKE_INSTALL_LOCALSTATEDIR}\"")
+endif ()
+
+set(FANCON_BINDIR "bin")
+if (CMAKE_INSTALL_BINDIR)
+    set(FANCON_BINDIR ${CMAKE_INSTALL_BINDIR})
+endif ()
 
 ## Run lint if debug build
 option(LINT "Run linter with debug build" OFF)
@@ -115,4 +151,6 @@ endif ()
 
 ## Install
 install(TARGETS ${PROJECT_NAME}
-        RUNTIME DESTINATION bin)
+        RUNTIME DESTINATION ${FANCON_BINDIR})
+#install(FILES ${PROJECT_SOURCE_DIR}/debian/fancon.man.1
+#        DESTINATION share/man/man1)

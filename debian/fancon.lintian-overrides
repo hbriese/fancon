@@ -1,0 +1,5 @@
+# See dh_lintian(1)
+#   http://www.debian.org/doc/manuals/maint-guide/dother.en.html#lintian
+# cut and paste the lintian(1) outputs without leading "E: ", "W: ", ...
+# Systemd fancon-resume service is wanted by sleep, hibernate, hybrid-sleep & sleep-then-hibernate
+fancon: systemd-service-file-refers-to-unusual-wantedby-target
