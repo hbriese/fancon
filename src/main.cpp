@@ -27,8 +27,9 @@ int main(int argc, char *argv[]) {
   if (!is_root())
     return EXIT_FAILURE;
 
+  const path config_path(args["config"]);
   if (to_bool(args["system-info"])) {
-    return (save_system_info(<#initializer #>)) ? EXIT_SUCCESS : EXIT_FAILURE;
+    return (save_system_info(config_path)) ? EXIT_SUCCESS : EXIT_FAILURE;
   }
 
   // Only allow one instance
@@ -57,7 +58,7 @@ int main(int argc, char *argv[]) {
 
   register_signal_handler();
   try {
-    fc::Controller con(args["config"]);
+    fc::Controller con(config_path);
 
     if (const bool test_safely = to_bool(args["test_safely"]);
         to_bool(args["test"]) || test_safely) {
