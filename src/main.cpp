@@ -294,7 +294,7 @@ bool fc::save_system_info(const path &config_path) {
       ofs << "Failed to read";
     ofs << endl;
   } else {
-    ofs << "No user-generated config" << endl;
+    ofs << "No user config" << endl;
   }
 
   // Save devices info gathered
