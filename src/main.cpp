@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
 
   if (to_bool(args["system-info"])) {
-    return (save_system_info()) ? EXIT_SUCCESS : EXIT_FAILURE;
+    return (save_system_info(<#initializer #>)) ? EXIT_SUCCESS : EXIT_FAILURE;
   }
 
   // Only allow one instance
@@ -280,12 +280,22 @@ void fc::print_directory(const path &dir, std::ostream &os, uint depth) {
   }
 }
 
-bool fc::save_system_info() {
+bool fc::save_system_info(const path &config_path) {
   const path output_path = fs::current_path() / hardware_info_path_default;
   LOG(llvl::info) << "Saving hardware info to " << output_path;
   std::ofstream ofs(output_path.c_str());
   if (!ofs)
     return false;
+
+  if (exists(config_path)) {
+    std::ifstream config_ifs(config_path);
+    ofs << "User config" << endl << config_ifs.rdbuf();
+    if (!config_ifs)
+      ofs << "Failed to read";
+    ofs << endl;
+  } else {
+    ofs << "No user-generated config" << endl;
+  }
 
   // Save devices info gathered
   fc::Devices devices(true);
@@ -294,7 +304,7 @@ bool fc::save_system_info() {
 
   string out_s;
   google::protobuf::TextFormat::PrintToString(devices_pb, &out_s);
-  ofs << out_s << endl;
+  ofs << "Generated config" << endl << out_s << endl;
   if (!ofs)
     return false;
 

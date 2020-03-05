@@ -48,7 +48,7 @@ void reload_instances();
 void offer_trailing_journal();
 void daemonize();
 void print_directory(const path &dir, std::ostream &os, uint depth = 0);
-bool save_system_info();
+bool save_system_info(const path &config_path);
 
 void signal_handler(int signal);
 void register_signal_handler();
