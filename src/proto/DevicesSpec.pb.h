@@ -154,10 +154,8 @@ inline bool DevType_Parse(const ::std::string &name, DevType *value) {
 }
 // ===================================================================
 
-class Controller
-    : public ::google::protobuf::
-          Message /* @@protoc_insertion_point(class_definition:fc_pb.Controller)
-                   */
+class Controller : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:fc_pb.Controller)
+                                                       */
 {
 public:
   Controller();
@@ -276,10 +274,8 @@ private:
 };
 // -------------------------------------------------------------------
 
-class ControllerConfig
-    : public ::google::protobuf::
-          Message /* @@protoc_insertion_point(class_definition:fc_pb.ControllerConfig)
-                   */
+class ControllerConfig : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:fc_pb.ControllerConfig)
+                                                             */
 {
 public:
   ControllerConfig();
@@ -404,10 +400,8 @@ private:
 };
 // -------------------------------------------------------------------
 
-class Devices
-    : public ::google::protobuf::
-          Message /* @@protoc_insertion_point(class_definition:fc_pb.Devices)
-                   */
+class Devices : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:fc_pb.Devices)
+                                                    */
 {
 public:
   Devices();
@@ -749,10 +743,8 @@ private:
 };
 // -------------------------------------------------------------------
 
-class Sensor
-    : public ::google::protobuf::
-          Message /* @@protoc_insertion_point(class_definition:fc_pb.Sensor)
-                   */
+class Sensor : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:fc_pb.Sensor)
+                                                   */
 {
 public:
   Sensor();
@@ -956,10 +948,8 @@ private:
 };
 // -------------------------------------------------------------------
 
-class DevicesRequest
-    : public ::google::protobuf::
-          Message /* @@protoc_insertion_point(class_definition:fc_pb.DevicesRequest)
-                   */
+class DevicesRequest : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:fc_pb.DevicesRequest)
+                                                           */
 {
 public:
   DevicesRequest();
@@ -1056,10 +1046,8 @@ private:
 };
 // -------------------------------------------------------------------
 
-class ControllerState
-    : public ::google::protobuf::
-          Message /* @@protoc_insertion_point(class_definition:fc_pb.ControllerState)
-                   */
+class ControllerState : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:fc_pb.ControllerState)
+                                                            */
 {
 public:
   ControllerState();
