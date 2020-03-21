@@ -21,7 +21,7 @@
 #include <sys/wait.h>
 
 #include "Controller.hpp"
-#include "Service.hpp"
+//#include "Service.hpp"
 
 using boost::interprocess::file_lock;
 using std::system;
