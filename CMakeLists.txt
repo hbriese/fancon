@@ -32,6 +32,13 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     endif ()
 endif ()
 
+## Generate protobuf source files
+execute_process(COMMAND "./gen_proto.sh" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        RESULT_VARIABLE GENPROTO_RES OUTPUT_VARIABLE GENPROTO_OUT ERROR_VARIABLE GENPROTO_OUT)
+if (NOT ${GENPROTO_RES} STREQUAL "0")
+    message("Failed to generate protobuf files: ${GENPROTO_OUT}")
+endif ()
+
 set(SRC "${PROJECT_SOURCE_DIR}/src")
 set(PSRC "${SRC}/proto")
 include_directories(src)

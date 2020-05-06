@@ -133,8 +133,7 @@ Devices (fans & sensors) that:
 ```bash
 sudo apt install clang cmake lm-sensors libsensors5 libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libprotobuf-dev protobuf-compiler libgrpc++-dev protobuf-compiler protobuf-compiler-grpc libxnvctrl-dev libx11-dev
 
-git clone https://github.com/hbriese/fancon.git && cd fancon
-./gen_proto.sh; mkdir build; cd build
+git clone https://github.com/hbriese/fancon.git && cd fancon; mkdir build; cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DNVIDIA_SUPPORT=ON .. && make -j && sudo make install
 ```
 
@@ -142,8 +141,7 @@ cmake -DCMAKE_BUILD_TYPE=Release -DNVIDIA_SUPPORT=ON .. && make -j && sudo make 
 ```bash
 sudo apt install clang cmake lm-sensors libsensors5 libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libprotobuf-dev protobuf-compiler libgrpc++-dev protobuf-compiler protobuf-compiler-grpc
 
-git clone https://github.com/hbriese/fancon.git && cd fancon
-./gen_proto.sh; mkdir build; cd build
+git clone https://github.com/hbriese/fancon.git && cd fancon; mkdir build; cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DNVIDIA_SUPPORT=OFF .. && make -j && sudo make install
 ```
 
