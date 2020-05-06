@@ -19,25 +19,27 @@ protoc -I=./$SRC ./$FILE \
 
 # Silence compiler warnings from protoc generated code
 CLANG_DIAG_S=$(cat <<-END
-#ifdef __clang__
+#if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
-#elif __GNUC__
+#elif defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#endif //__clang__
+#endif // __clang__
 END
 )
 CLANG_DIAG_E=$(cat <<-END
-#ifdef __clang__
-#pragma clang diagnostic pop
-#elif __GNUC__
-#pragma GCC diagnostic pop
-#endif //__clang__
+#if defined(__clang__)
+#pragma clang diagnostic pop  // -Wunused-parameter
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop    // -Wunused-but-set-variable
+#endif // __clang__
 END
 )
-for filename in ./$CPP/*.h; do
-	echo "$CLANG_DIAG_S\n\n$(cat ./$filename)\n\n$CLANG_DIAG_E" > ./$filename
+for filename in ./"$CPP"/*.h; do
+	printf "%s\n\n%s\n\n%s\n" "$CLANG_DIAG_S" "$(cat "./$filename")" "$CLANG_DIAG_E" > "./$filename"
+	#printf "$CLANG_DIAG_S\n\n$(cat ./$filename)\n\n$CLANG_DIAG_E" > ./$filename
+
 done
 
 # fanconw
