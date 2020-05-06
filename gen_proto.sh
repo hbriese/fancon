@@ -42,16 +42,16 @@ done
 
 # fanconw
 #npm install -g grpc-tools protoc-gen-grpc-web
-mkdir -p ./$JS
-rm -f ./$JS/*
-
-protoc -I=./$SRC ./$FILE \
-    --js_out=import_style=commonjs:$JS \
-    --grpc-web_out=import_style=commonjs,mode=grpcwebtext:$JS \
-    --plugin=protoc-gen-grpc-web=`which protoc-gen-grpc-web`
-
-# Prepend /* eslint-disable */ to ignore compiler complaints
-for filename in ./$JS/*.js; do
-	echo "/* eslint-disable */\n$(cat ./$filename)" > ./$filename
-done
+#mkdir -p ./$JS
+#rm -f ./$JS/*
+#
+#protoc -I=./$SRC ./$FILE \
+#    --js_out=import_style=commonjs:$JS \
+#    --grpc-web_out=import_style=commonjs,mode=grpcwebtext:$JS \
+#    --plugin=protoc-gen-grpc-web=`which protoc-gen-grpc-web`
+#
+## Prepend /* eslint-disable */ to ignore compiler complaints
+#for filename in ./$JS/*.js; do
+#	echo "/* eslint-disable */\n$(cat ./$filename)" > ./$filename
+#done
 

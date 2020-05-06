@@ -28,7 +28,7 @@ public:
   virtual void from(const fc_pb::Sensor &s);
   virtual void to(fc_pb::Sensor &s) const;
   virtual bool valid() const = 0;
-  virtual string_view uid() const = 0;
+  virtual string uid() const = 0;
 
   friend std::ostream &operator<<(std::ostream &os, const SensorInterface &s);
 

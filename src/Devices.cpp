@@ -128,7 +128,7 @@ void fc::Devices::from(const fc_pb::Devices &d) {
 
     s->from(spb);
     if (s->valid()) {
-      const string_view uid = s->uid();
+      const string uid = s->uid();
       if (uids.count(uid) == 0) {
         uids.emplace(uid);
         string label = s->label;
@@ -168,7 +168,7 @@ void fc::Devices::from(const fc_pb::Devices &d) {
 
     f->from(fpb, sensor_map);
     if (f->valid()) {
-      const string_view uid = f->uid();
+      const string uid = f->uid();
       if (uids.count(uid) == 0) {
         uids.emplace(uid);
         fans.emplace_back(move(f));

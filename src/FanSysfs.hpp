@@ -21,7 +21,7 @@ public:
   void from(const fc_pb::Fan &f, const SensorMap &sensor_map) override;
   void to(fc_pb::Fan &f) const override;
   bool valid() const override;
-  string_view uid() const override;
+  string uid() const override;
 
 protected:
   path pwm_path, rpm_path, enable_path;

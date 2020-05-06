@@ -54,7 +54,7 @@ public:
   virtual void from(const fc_pb::Fan &f, const SensorMap &sensor_map);
   virtual void to(fc_pb::Fan &f) const = 0;
   virtual bool valid() const = 0;
-  virtual string_view uid() const = 0;
+  virtual string uid() const = 0;
 
   friend std::ostream &operator<<(std::ostream &os, const FanInterface &f);
 

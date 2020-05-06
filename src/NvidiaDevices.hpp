@@ -16,7 +16,7 @@ public:
   void from(const fc_pb::Fan &f, const SensorMap &sensor_map) override;
   void to(fc_pb::Fan &f) const override;
   bool valid() const override;
-  string_view uid() const override;
+  string uid() const override;
 
   static vector<unique_ptr<fc::FanInterface>> enumerate();
 
@@ -44,7 +44,7 @@ public:
   void from(const fc_pb::Sensor &s) override;
   void to(fc_pb::Sensor &s) const override;
   bool valid() const override;
-  string_view uid() const override;
+  string uid() const override;
 
   static SensorMap enumerate();
 

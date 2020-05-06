@@ -62,7 +62,7 @@ bool fc::FanSysfs::valid() const {
   return pe && re;
 }
 
-string_view fc::FanSysfs::uid() const { return pwm_path.c_str(); }
+string fc::FanSysfs::uid() const { return pwm_path.c_str(); }
 
 bool fc::FanSysfs::set_pwm(const Pwm pwm) const {
   if (!Util::write(pwm_path, pwm))

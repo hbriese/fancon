@@ -26,7 +26,7 @@ bool fc::FanNV::valid() const {
   return xnvlib->pwm_percent.read(id).has_value();
 }
 
-string_view fc::FanNV::uid() const { return "NV:f" + to_string(id); }
+string fc::FanNV::uid() const { return string("NV:f") + to_string(id); }
 
 vector<unique_ptr<fc::FanInterface>> fc::FanNV::enumerate() {
   vector<unique_ptr<fc::FanInterface>> fans;
@@ -118,7 +118,7 @@ void fc::SensorNV::to(fc_pb::Sensor &s) const {
 
 bool fc::SensorNV::valid() const { return xnvlib->temp.read(id).has_value(); }
 
-string_view fc::SensorNV::uid() const { return "NV:s" + to_string(id); }
+string fc::SensorNV::uid() const { return string("NV:s") + to_string(id); }
 
 SensorMap fc::SensorNV::enumerate() {
   SensorMap sensor_map;
