@@ -106,6 +106,7 @@ fancon argument=value ...
                    at once, avoiding high temps but significantly increasing duration
 -c  config       Configuration file (default: /etc/fancon.conf)
 -l  log-lvl      Sets the logging level: info, debug, trace, warning, error (default: info)
+-v  verbose      Same as log-lvl=debug
 -d  daemonize    Daemonize the process (default: false)
 -i  system-info  Save system info to the current directory
                    (file name default: fancon_system_info.txt)
@@ -133,6 +134,20 @@ Devices (fans & sensors) that:
 - Are reported as not having the required features but they do
 
 **May** be configurable by [altering their configuration](#configuration) 
+
+##### $XAUTHORITY and or $DISPLAY env variable(s) not set
+
+fancon requires X11 access due to LibNVCtrl (NVIDIA control)
+
+You will need to configure the unset environmental variable.
+
+Manually configure the unset environmental variable(s)
+
+Inside /etc/profile
+- ```export XAUTHORITY=...```; You can find the XAuthority file by running ```xauth info```
+- ```xhost si:localuser:root```; May be necessary on Wayland
+ 
+https://wiki.archlinux.org/index.php/Running_GUI_applications_as_root 
 
 ### Building from source:
 ##### With NVIDIA support:

@@ -2,7 +2,8 @@
 Description=fancon
 Documentation=man:fancon(1) https://github.com/hbriese/fancon
 # Start after display manager (due to XNVCtrl)
-After=display-manager.service
+After=graphical-session.target
+Requires=graphical-session.target
 
 [Service]
 Type=simple
@@ -17,4 +18,4 @@ RestartSec=2
 
 [Install]
 #WantedBy=multi-user.target
-WantedBy=default.target
+WantedBy=graphical-session.target

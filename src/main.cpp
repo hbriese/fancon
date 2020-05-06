@@ -13,9 +13,13 @@ int main(int argc, char *argv[]) {
                 {"test", "0"},
                 {"config", config_path_default},
                 {"log-lvl", "info"},
+                {"verbose", "0"},
                 {"daemonize", "0"},
                 {"system-info", "0"}};
   read_args(argc, argv, args);
+
+  if (to_bool(args["verbose"]))
+    args["log-lvl"] = "debug";
 
   set_log_level(args["log-lvl"]);
 
@@ -80,10 +84,11 @@ int main(int argc, char *argv[]) {
 }
 
 args_map &fc::read_args(int argc, char *argv[], args_map &args) {
-  args_map short_to_args{
-      {"h", "help"},    {"s", "stop"},         {"r", "reload"},
-      {"t", "test"},    {"ts", "test-safely"}, {"c", "config"},
-      {"l", "log-lvl"}, {"d", "daemonize"},    {"i", "system-info"}};
+  args_map short_to_args{{"h", "help"},         {"s", "stop"},
+                         {"r", "reload"},       {"t", "test"},
+                         {"ts", "test-safely"}, {"c", "config"},
+                         {"l", "log-lvl"},      {"v", "verbose"},
+                         {"d", "daemonize"},    {"i", "system-info"}};
 
   const std::regex arg_regex(R"(-*([^\s=]+)[='"]*([^\s='"]+)?['"]*)");
   for (int i = 1; i < argc; ++i) {
@@ -144,6 +149,7 @@ void fc::print_help() {
       << config_path_default << log::output_reset << ")" << endl
       << "-l  log-lvl      Sets the logging level: info, debug, trace,"
       << " warning, error (default: info)" << endl
+      << "-v  verbose      Same as log-lvl=debug" << endl
       << "-d  daemonize    Daemonize the process (default: false)" << endl
       << "-i  system-info  Save system info to the current directory" << endl
       << s << "(file name default: " << hardware_info_path_default << ")"

@@ -4,20 +4,22 @@ about: Create a report to help us improve
 title: ''
 labels: ''
 assignees: hbriese
-
 ---
 
-<!--Attach your hardware info file, created by running 'fancon -i' -->
 ### Describe the bug
+<!-- Ensure to run fancon with `--verbose` to produce a more detailed log -->
 
-### Steps to Reproduce    <!-- Remove section if unnecessary -->
+### Steps to Reproduce    
+<!-- Remove section if unnecessary -->
 
-### Expected behavior      <!-- Remove section if unnecessary -->
+### Expected behavior      
+<!-- Remove section if unnecessary -->
 
 ### Environment
  - Version: [e.g. 0.20.1]
- - OS: [e.g. Ubuntu 19.10]
- - Kernel: [e.g. 5.3.0-40]
+ - OS: [e.g. Ubuntu 20.04]
+ - Kernel: [e.g. 5.4.0-26]
 
-### Additional context       <!-- Remove section if unnecessary -->
-
+### Additional context
+<!-- Remove section if unnecessary -->
+<!-- Attach your hardware info file, created by running 'fancon -i' -->
