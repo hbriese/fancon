@@ -9,24 +9,30 @@ A Linux user-space fan control daemon
 
 ### Contents
 - [Installation](#installation)     
+- [Building from source](#building-from-source)
 - [Configuration](#configuration)
 - [Usage](#usage)
-- [Building from source](#building-from-source)
 - [FAQ](#faq)
 
 
 ### Installation
-[Download release package](https://github.com/hbriese/fancon/releases/latest)
-OR [build from source](#building-from-source)
 
 ##### Ubuntu, Debian (.deb)
 ```bash
+wget https://github.com/hbriese/fancon/releases/latest/download/fancon_amd64.deb
 sudo dpkg -i ./fancon*.deb; sudo apt install -f
 ```
 
 ##### Fedora, Red Hat, CentOS (.rpm)
 ```bash
+wget https://github.com/hbriese/fancon/releases/latest/download/fancon.x86_64.rpm
 sudo yum –nogpgcheck install ./fancon*.rpm
+```
+
+##### Arch Linux (AUR)
+```bash
+git clone https://aur.archlinux.org/fancon-git.git; cd fancon-git
+makepkg -sirc
 ```
 
 ### Configuration

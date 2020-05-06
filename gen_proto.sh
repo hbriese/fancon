@@ -38,8 +38,6 @@ END
 )
 for filename in ./"$CPP"/*.h; do
 	printf "%s\n\n%s\n\n%s\n" "$CLANG_DIAG_S" "$(cat "./$filename")" "$CLANG_DIAG_E" > "./$filename"
-	#printf "$CLANG_DIAG_S\n\n$(cat ./$filename)\n\n$CLANG_DIAG_E" > ./$filename
-
 done
 
 # fanconw
