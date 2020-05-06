@@ -113,6 +113,10 @@ void fc::Devices::from(const fc_pb::Devices &d) {
       break;
     case fc_pb::NVIDIA:
 #ifdef FANCON_NVIDIA_SUPPORT
+      if (!NV::xnvlib->supported)
+        LOG(llvl::warning) << "NVIDIA sensor configured but "
+                              "NVIDIA control is disabled at this time";
+
       s = make_shared<SensorNV>();
 #else
       LOG(llvl::warning) << "Skipping NVIDIA device, compile with flag: "
@@ -153,6 +157,10 @@ void fc::Devices::from(const fc_pb::Devices &d) {
       break;
     case fc_pb::NVIDIA:
 #ifdef FANCON_NVIDIA_SUPPORT
+      if (!NV::xnvlib->supported)
+        LOG(llvl::warning) << "NVIDIA fan is configured but "
+                              "NVIDIA control is disabled at this time";
+
       f = make_unique<FanNV>();
 #else
       LOG(llvl::warning) << "Skipping NVIDIA device, compile with flag: "

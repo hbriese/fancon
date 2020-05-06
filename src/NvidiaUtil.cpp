@@ -75,7 +75,8 @@ NV::X11Display::~X11Display() {
 
 Display *NV::X11Display::operator*() {
   if (!connected())
-    throw runtime_error("X11Display must be connected");
+    throw runtime_error("X11 display couldn't be opened "
+                        "but is being used anyway!");
 
   return dp;
 }
@@ -91,6 +92,11 @@ void NV::X11Display::init_display() {
   // If not found, attempt to find xauth, and or display from running X11 server
   bool found_xauth = getenv("XAUTHORITY") != nullptr;
   if (dsp.empty() || !found_xauth) {
+    if (dsp.empty())
+      LOG(llvl::debug) << "Guessing X11 env var $DISPLAY, consider setting";
+    if (!found_xauth)
+      LOG(llvl::debug) << "Guessing X11 env var $XAUTHORITY, consider setting";
+
     redi::ipstream ips(
         "echo \"$(ps wwaux 2>/dev/null | grep -wv PID | grep -v grep)\" "
         "| grep '/X.* :[0-9][0-9]* .*-auth' | egrep -v 'startx|xinit' "
@@ -114,14 +120,14 @@ void NV::X11Display::init_display() {
 
   // Open display with dsp or guess at display if not set
   InitThreads();
-  dp = OpenDisplay((!dsp.empty() ? dsp.c_str() : ":0"));
+  dp = OpenDisplay((!dsp.empty() ? dsp.c_str() : nullptr));
 
   if (!dp) {
-    LOG(llvl::warning)
-        << (!dsp.empty() ? "$DISPLAY" : "")
-        << (!dsp.empty() && !found_xauth ? " & " : "")
-        << (!found_xauth ? "$XAUTHORITY" : "")
-        << " env variable(s) not set, set to enable NVIDIA support";
+    LOG(llvl::warning) << (!dsp.empty() ? "$DISPLAY" : "")
+                       << (!dsp.empty() && !found_xauth ? " & " : "")
+                       << (!found_xauth ? "$XAUTHORITY" : "")
+                       << " env variable(s) not set, set explicitly to "
+                          "enable NVIDIA control";
   }
 }
 
@@ -259,6 +265,11 @@ bool NV::LibXNvCtrl::enable_fan_control_coolbit() {
   }
 
   return false;
+}
+
+void NV::init() {
+  if (!NV::xnvlib)
+    NV::xnvlib = make_unique<NV::LibXNvCtrl>();
 }
 
 #endif // FANCON_NVIDIA_SUPPORT

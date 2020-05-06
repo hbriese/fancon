@@ -29,10 +29,8 @@ bool fc::FanNV::valid() const {
 string fc::FanNV::uid() const { return string("NV:f") + to_string(id); }
 
 vector<unique_ptr<fc::FanInterface>> fc::FanNV::enumerate() {
+  NV::init();
   vector<unique_ptr<fc::FanInterface>> fans;
-
-  if (!NV::xnvlib)
-    NV::xnvlib = make_unique<NV::LibXNvCtrl>();
 
   int n_gpus = NV::xnvlib->get_num_GPUs();
   for (int i = 0; i < n_gpus; ++i) {
@@ -121,10 +119,8 @@ bool fc::SensorNV::valid() const { return xnvlib->temp.read(id).has_value(); }
 string fc::SensorNV::uid() const { return string("NV:s") + to_string(id); }
 
 SensorMap fc::SensorNV::enumerate() {
+  NV::init();
   SensorMap sensor_map;
-
-  if (!NV::xnvlib)
-    NV::xnvlib = make_unique<NV::LibXNvCtrl>();
 
   int n_gpus = NV::xnvlib->get_num_GPUs();
   for (int i = 0; i < n_gpus; ++i) {

@@ -102,6 +102,8 @@ private:
 };
 
 extern unique_ptr<LibXNvCtrl> xnvlib;
+
+void init();
 } // namespace fc::NV
 
 //----------------------//

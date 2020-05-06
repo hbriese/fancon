@@ -9,6 +9,7 @@ ControllerState controller_state = ControllerState::RUN;
 } // namespace fc
 
 fc::Controller::Controller(path conf_path_) : config_path(move(conf_path_)) {
+  NV::init();
   load_devices();
 }
 
