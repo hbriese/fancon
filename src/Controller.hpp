@@ -46,6 +46,7 @@ public:
   static void stop();
   static void reload();
   static bool reloading();
+  static void reload_nvidia();
 
 private:
   fs::file_time_type config_write_time;

@@ -1,2 +1,2 @@
 debian/fancon-resume.service /lib/systemd/system/
-
+debian/fancon-nvidia.service /lib/systemd/system/

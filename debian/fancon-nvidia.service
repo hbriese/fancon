@@ -1,0 +1,14 @@
+[Unit]
+Description=Reload fancon once NVIDIA control is possible
+Documentation=man:fancon(1) https://github.com/hbriese/fancon
+# NVIDIA control requires X11, therefore start it after the graphical session
+After=graphical.target
+Requires=graphical.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/fancon reload-nv
+
+[Install]
+WantedBy=graphical.target

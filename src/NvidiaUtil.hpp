@@ -103,7 +103,7 @@ private:
 
 extern unique_ptr<LibXNvCtrl> xnvlib;
 
-void init();
+void init(bool redo = false);
 } // namespace fc::NV
 
 //----------------------//

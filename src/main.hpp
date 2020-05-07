@@ -23,6 +23,9 @@
 #include "Controller.hpp"
 //#include "Service.hpp"
 
+#define RELOAD_SIG SIGUSR1
+#define RELOAD_NV_SIG SIGUSR2
+
 using boost::interprocess::file_lock;
 using std::system;
 
@@ -45,6 +48,7 @@ void set_log_level(const string &log_lvl);
 tuple<file_lock, bool> instance_check();
 void stop_instances();
 void reload_instances();
+void reload_nvidia();
 void offer_trailing_journal();
 void daemonize();
 void print_directory(const path &dir, std::ostream &os, uint depth = 0);

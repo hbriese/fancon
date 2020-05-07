@@ -140,6 +140,11 @@ bool fc::Controller::reloading() {
   return controller_state == ControllerState::RELOAD;
 }
 
+void fc::Controller::reload_nvidia() {
+  NV::init(true); // Redo NV init - should suceed now
+  reload();
+}
+
 void fc::Controller::from(const fc_pb::Controller &c) {
   from(c.config());
   fc::Devices import_devices;

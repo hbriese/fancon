@@ -7,15 +7,11 @@ int main(int argc, char *argv[]) {
   HeapProfilerStart("fancon_main");
 #endif // FANCON_PROFILE
 
-  args_map args{{"help", "0"},
-                {"stop", "0"},
-                {"reload", "0"},
-                {"test", "0"},
-                {"config", config_path_default},
-                {"log-lvl", "info"},
-                {"verbose", "0"},
-                {"daemonize", "0"},
-                {"system-info", "0"}};
+  args_map args{{"help", "0"},       {"stop", "0"},
+                {"reload", "0"},     {"reload-nv", "0"},
+                {"test", "0"},       {"config", config_path_default},
+                {"log-lvl", "info"}, {"verbose", "0"},
+                {"daemonize", "0"},  {"system-info", "0"}};
   read_args(argc, argv, args);
 
   if (to_bool(args["verbose"]))
@@ -38,13 +34,16 @@ int main(int argc, char *argv[]) {
 
   // Only allow one instance
   auto [lock, only_instance] = instance_check();
-  const bool stop = to_bool(args["stop"]), reload = to_bool(args["reload"]);
+  const bool stop = to_bool(args["stop"]), reload = to_bool(args["reload"]),
+             reload_nv = to_bool(args["reload-nv"]);
 
   if (!only_instance) {
     if (stop) {
       stop_instances();
     } else if (reload) {
       reload_instances();
+    } else if (reload_nv) {
+      reload_nvidia();
     } else {
       LOG(llvl::warning) << "Only one instance can be run" << fc::log::flush;
       sleep_for(milliseconds(50)); // Allow time for the warning to flush
@@ -137,9 +136,11 @@ void fc::print_help() {
   LOG(llvl::info)
       << "fancon argument=value ..." << endl
       << "-h  help         Show this help" << endl
-      << "    start        Start the fan controller (default: true)" << endl
+      << "    start        Start the controller (default: true)" << endl
       << "-s  stop         Stop the fan controller" << endl
-      << "-r  reload       Forces the fan controller to reload all data" << endl
+      << "-r  reload       Forces the controller to reload all data" << endl
+      << "    reload-nv    Forces the controller to reload NVIDIA devices"
+      << endl
       << "-t  test         Force tests of all fans found" << endl
       << "-ts test-safely  Test fans one at a time to avoid stopping all "
       << "fans at once (default: false)" << endl
@@ -204,7 +205,13 @@ void fc::stop_instances() {
 void fc::reload_instances() {
   const auto pid = Util::read_<pid_t>(pid_path);
   if (pid)
-    kill(*pid, SIGUSR1);
+    kill(*pid, RELOAD_SIG);
+}
+
+void fc::reload_nvidia() {
+  const auto pid = Util::read_<pid_t>(pid_path);
+  if (pid)
+    kill(*pid, RELOAD_NV_SIG);
 }
 
 void fc::offer_trailing_journal() {
@@ -338,8 +345,11 @@ void fc::signal_handler(int signal) {
   case SIGTERM:
     fc::Controller::stop();
     break;
-  case SIGUSR1:
+  case RELOAD_SIG:
     fc::Controller::reload();
+    break;
+  case RELOAD_NV_SIG:
+    fc::Controller::reload_nvidia();
     break;
   default:
     LOG(llvl::warning) << "Unhandled signal (" << signal

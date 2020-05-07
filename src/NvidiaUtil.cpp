@@ -267,8 +267,8 @@ bool NV::LibXNvCtrl::enable_fan_control_coolbit() {
   return false;
 }
 
-void NV::init() {
-  if (!NV::xnvlib)
+void NV::init(bool redo) {
+  if (!NV::xnvlib || redo)
     NV::xnvlib = make_unique<NV::LibXNvCtrl>();
 }
 
