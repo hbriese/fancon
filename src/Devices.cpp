@@ -102,7 +102,7 @@ fc::Devices::Devices(bool dry_run) {
 }
 
 void fc::Devices::from(const fc_pb::Devices &d) {
-  std::set<string_view> uids;
+  std::set<string> uids;
   for (const fc_pb::Sensor &spb : d.sensor()) {
     shared_ptr<SensorInterface> s;
 
