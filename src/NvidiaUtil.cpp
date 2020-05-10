@@ -202,7 +202,7 @@ bool NV::LibXNvCtrl::check_support() {
     LOG(llvl::warning) << "NV-CONTROL X return error base: " << errorBase;
 
   int major{0}, minor{0};
-  if (!(QueryVersion(*xdisplay, &major, &minor))) {
+  if (!QueryVersion(*xdisplay, &major, &minor)) {
     LOG(llvl::error) << "Failed to query NV-CONTROL X version";
     return false;
   } else if ((major < 1) || (major == 1 && minor < 9)) // v1.9 minimum

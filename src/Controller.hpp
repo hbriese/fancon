@@ -53,8 +53,8 @@ private:
 
   void from(const fc_pb::Controller &c);
   void from(const fc_pb::ControllerConfig &c);
-  void to(fc_pb::Controller &c);
-  void to(fc_pb::ControllerConfig &c);
+  void to(fc_pb::Controller &c) const;
+  void to(fc_pb::ControllerConfig &c) const;
 
   void load_devices();
   void to_file(path file, bool backup = true);

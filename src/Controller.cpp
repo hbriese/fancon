@@ -9,7 +9,6 @@ ControllerState controller_state = ControllerState::RUN;
 } // namespace fc
 
 fc::Controller::Controller(path conf_path_) : config_path(move(conf_path_)) {
-  NV::init();
   load_devices();
 }
 
@@ -180,12 +179,12 @@ void fc::Controller::from(const fc_pb::ControllerConfig &c) {
   temp_averaging_intervals = c.temp_averaging_intervals();
 }
 
-void fc::Controller::to(fc_pb::Controller &c) {
+void fc::Controller::to(fc_pb::Controller &c) const {
   to(*c.mutable_config());
   devices.to(*c.mutable_devices());
 }
 
-void fc::Controller::to(fc_pb::ControllerConfig &c) {
+void fc::Controller::to(fc_pb::ControllerConfig &c) const {
   c.set_update_interval(update_interval.count());
   c.set_dynamic(dynamic);
   c.set_smoothing_intervals(smoothing_intervals);
