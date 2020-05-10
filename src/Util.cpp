@@ -30,8 +30,20 @@ optional<string> fc::Util::read_line(const path &fpath, bool failed) {
   return line;
 }
 
-std::ostream &fc::Util::amp(std::ostream &os) {
-  if (os.tellp() != os.beg)
-    os << " & ";
-  return os;
+string fc::Util::join(std::initializer_list<pair<bool, string>> args,
+                      string join_with) {
+  vector<decltype(args.begin())> to_join;
+  for (auto it = args.begin(); it != args.end(); ++it) {
+    if (it->first)
+      to_join.push_back(it);
+  }
+
+  std::stringstream ss;
+  for (size_t i = 0; i < to_join.size(); ++i) {
+    ss << to_join[i]->second;
+    if (i < to_join.size() - 1)
+      ss << join_with;
+  }
+
+  return ss.str();
 }

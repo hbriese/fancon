@@ -12,7 +12,7 @@ A Linux user-space fan control daemon
 - [Building from source](#building-from-source)
 - [Configuration](#configuration)
 - [Usage](#usage)
-- [FAQ](#faq)
+- [Debugging issues](#debugging-issues)
 
 
 ### Installation
@@ -112,7 +112,11 @@ fancon argument=value ...
                    (file name default: fancon_system_info.txt)
 ```
 
-#### FAQ
+#### Debugging issues
+
+##### Run in verbose mode: 
+
+```fancon -v```
 
 ##### My fans aren't detected
 

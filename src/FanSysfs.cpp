@@ -56,8 +56,8 @@ bool fc::FanSysfs::valid() const {
   if (pe && re)
     return true;
 
-  LOG(llvl::warning) << *this << ": invalid, " << ((!pe) ? "pwm_path" : "")
-                     << ((!pe && !re) ? " & " : "") << ((!re) ? "rpm_path" : "")
+  LOG(llvl::warning) << *this << ": invalid, "
+                     << Util::join({{!pe, "pwm_path"}, {!re, "rpm_path"}})
                      << " not configured or doesn't exist";
   return pe && re;
 }

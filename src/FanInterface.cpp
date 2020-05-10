@@ -43,13 +43,11 @@ bool fc::FanInterface::tested() const {
 bool fc::FanInterface::configured() const {
   const bool ce = temp_to_rpm.empty(), se = !sensor,
              si = (sensor && sensor->ignore);
-  if (ce || se) {
-    std::stringstream ss;
-    ss << (ce ? "curve not configured" : "") << Util::amp
-       << (se ? "sensor not configured" : "") << Util::amp
-       << (si ? "sensor ignored" : "");
-
-    LOG(llvl::warning) << *this << ": skipping - " << ss.str();
+  if (ce || se || si) {
+    LOG(llvl::warning) << *this << ": skipping - "
+                       << Util::join({{ce, "curve not configured"},
+                                      {se, "sensor not configured"},
+                                      {si, "sensor ignored"}});
     return false;
   }
 

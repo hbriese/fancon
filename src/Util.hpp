@@ -41,6 +41,7 @@ using std::move;
 using std::next;
 using std::nullopt;
 using std::optional;
+using std::pair;
 using std::prev;
 using std::runtime_error;
 using std::shared_ptr;
@@ -60,7 +61,8 @@ template <typename T> T read(const path &fpath, bool failed = false);
 template <typename T> optional<T> read_(const path &fpath, bool failed = false);
 template <typename T> bool write(const path &fpath, T val, bool failed = false);
 template <typename K, typename T> string map_str(const std::map<K, T> m);
-std::ostream &amp(std::ostream &os);
+string join(std::initializer_list<pair<bool, string>> args,
+            string join_with = " & ");
 } // namespace fc::Util
 
 //----------------------//

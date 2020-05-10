@@ -123,11 +123,10 @@ void NV::X11Display::init_display() {
   dp = OpenDisplay((!dsp.empty() ? dsp.c_str() : nullptr));
 
   if (!dp) {
-    LOG(llvl::warning) << (!dsp.empty() ? "$DISPLAY" : "")
-                       << (!dsp.empty() && !found_xauth ? " & " : "")
-                       << (!found_xauth ? "$XAUTHORITY" : "")
-                       << " env variable(s) not set, set explicitly to "
-                          "enable NVIDIA control";
+    LOG(llvl::debug) << Util::join({{!dsp.empty(), "$DISPLAY"},
+                                    {!found_xauth, "$XAUTHORITY"}})
+                     << " env variable(s) not set, set explicitly to "
+                        "enable NVIDIA control";
   }
 }
 
@@ -137,8 +136,10 @@ uint NV::LibXNvCtrl::get_num_GPUs() {
 
   // Query number of GPUs
   int n_gpus{0};
-  if (QueryTargetCount(*xdisplay, NV_CTRL_TARGET_TYPE_GPU, &n_gpus))
+  if (!QueryTargetCount(*xdisplay, NV_CTRL_TARGET_TYPE_GPU, &n_gpus)) {
     LOG(llvl::error) << "Failed to query number of NVIDIA GPUs";
+    return 0;
+  }
 
   return n_gpus;
 }
@@ -184,8 +185,10 @@ vector<uint> NV::LibXNvCtrl::from_binary_data(const unsigned char *data,
 }
 
 bool NV::LibXNvCtrl::check_support() {
-  if (!available())
+  if (!available()) {
+    LOG(llvl::debug) << "libXNVCtrl unavailable";
     return false;
+  }
 
   if (!xdisplay.connected()) {
     LOG(llvl::debug) << "X11 display cannot be opened";
@@ -223,8 +226,8 @@ bool NV::LibXNvCtrl::enable_fan_control_coolbit() {
 
   // Exit early with message if nvidia-xconfig isn't found
   if (l.empty()) {
-    LOG(llvl::info) << "nvidia-xconfig could not be found, either install it, "
-                       "or set the coolbits value manually";
+    LOG(llvl::debug) << "Couldn't find nvidia-xconfig. NVIDIA coolbits bit (4) "
+                        "may or may not be set";
     return false;
   }
 
@@ -234,7 +237,7 @@ bool NV::LibXNvCtrl::enable_fan_control_coolbit() {
   const auto nBits = 5;
   const auto fcBit = 2;                // 4
   int cbVal[nBits] = {1, 2, 4, 8, 16}; // bit^2
-  bool cbSet[nBits]{0};
+  bool cbSet[nBits]{false};
 
   // Determine set coolbit values
   for (auto i = nBits - 1; i >= 0; --i)
@@ -267,8 +270,8 @@ bool NV::LibXNvCtrl::enable_fan_control_coolbit() {
   return false;
 }
 
-void NV::init(bool redo) {
-  if (!NV::xnvlib || redo)
+void NV::init(bool force) {
+  if (!NV::xnvlib || force)
     NV::xnvlib = make_unique<NV::LibXNvCtrl>();
 }
 
