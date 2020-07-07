@@ -182,6 +182,7 @@ void fc::Devices::from(const fc_pb::Devices &d) {
     if (f->valid()) {
       const string uid = f->uid();
       if (uids.count(uid) == 0) {
+        LOG(llvl::debug) << *f << ": imported";
         uids.emplace(uid);
         fans.emplace_back(move(f));
       } else {

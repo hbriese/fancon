@@ -62,7 +62,7 @@ private:
   void update_config_write_time();
   bool config_file_modified() const;
   static void shutdown_threads(vector<thread> &threads);
-  string date_time_now() const;
+  static string date_time_now();
 
   static bool tests_running(const vector<shared_ptr<double>> &test_completion);
   static double sum(const vector<shared_ptr<double>> &numbers);

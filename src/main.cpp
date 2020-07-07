@@ -7,11 +7,12 @@ int main(int argc, char *argv[]) {
   HeapProfilerStart("fancon_main");
 #endif // FANCON_PROFILE
 
-  args_map args{{"help", "0"},       {"stop", "0"},
-                {"reload", "0"},     {"reload-nv", "0"},
-                {"test", "0"},       {"config", config_path_default},
-                {"log-lvl", "info"}, {"verbose", "0"},
-                {"daemonize", "0"},  {"system-info", "0"}};
+  args_map args{{"help", "0"},        {"start", "1"},
+                {"stop", "0"},        {"reload", "0"},
+                {"reload-nv", "0"},   {"test", "0"},
+                {"test-safely", "0"}, {"config", config_path_default},
+                {"log-lvl", "info"},  {"verbose", "0"},
+                {"daemonize", "0"},   {"system-info", "0"}};
   read_args(argc, argv, args);
 
   if (to_bool(args["verbose"]))
@@ -318,7 +319,7 @@ bool fc::save_system_info(const path &config_path) {
 
   string out_s;
   google::protobuf::TextFormat::PrintToString(devices_pb, &out_s);
-  ofs << "Generated config" << endl << out_s << endl;
+  ofs << "Generated devices" << endl << out_s << endl;
   if (!ofs)
     return false;
 

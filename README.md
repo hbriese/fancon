@@ -63,12 +63,13 @@ devices {
     rpm_to_pwm: "0: 0, 3206: 128, 4954: 180, 7281: 255"    # Mappings of RPM to PWM
     start_pwm: 128                  # PWM at which the fan starts
     interval: 500                   # Milliseconds taken for the fan to reach a new speed, 
-                                      → increasing improves testing accuracy but makes the test take longer
+                                    # increasing improves testing accuracy but increases testing time
     ignore: false                   # Don't control or test device; may be excluded if false
     # Following only applicable to SYS & DELL devices
     driver_flag: 2                  # Driver flag to enable manual control
-    pwm_path: "/sys/class/hwmon/hwmon3/pwm1"        # Path to read/write PWM
-    rpm_path: "/sys/class/hwmon/hwmon3/fan1_input"  # Path to read RPM
+    pwm_path: "/sys/class/hwmon/hwmon3/pwm1"            # Path to read/write PWM
+    rpm_path: "/sys/class/hwmon/hwmon3/fan1_input"      # Path to read RPM
+    enable_path: "/sys/class/hwmon/hwmon3/pwm1_enable"  # Path to enable PWM control
   }
   fan {
     type: NVIDIA

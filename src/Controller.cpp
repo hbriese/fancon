@@ -95,6 +95,7 @@ void fc::Controller::test(bool force, bool safely) {
     for (auto it = to_test.begin(); it != to_test.end();) {
       auto completed = make_shared<double>(0.0);
       auto &f = **it;
+      LOG(llvl::info) << *f << ": testing";
       threads.emplace_back([&f, completed] { f->test(completed); });
       test_completion.emplace_back(completed);
 
@@ -140,8 +141,10 @@ bool fc::Controller::reloading() {
 }
 
 void fc::Controller::reload_nvidia() {
-  NV::init(true); // Redo NV init - should suceed now
+#ifdef FANCON_NVIDIA_SUPPORT
+  NV::init(true);
   reload();
+#endif // FANCON_NVIDIA_SUPPORT
 }
 
 void fc::Controller::from(const fc_pb::Controller &c) {
@@ -195,8 +198,10 @@ void fc::Controller::to(fc_pb::ControllerConfig &c) const {
 void fc::Controller::load_devices() {
   devices = fc::Devices(false);
 
-  if (config_path.empty() || !exists(config_path))
+  if (config_path.empty() || !exists(config_path)) {
+    LOG(llvl::debug) << "No config found";
     return;
+  }
 
   std::ifstream ifs(config_path);
   std::stringstream ss;
@@ -259,7 +264,7 @@ void fc::Controller::shutdown_threads(vector<thread> &threads) {
   }
 }
 
-string fc::Controller::date_time_now() const {
+string fc::Controller::date_time_now() {
   std::time_t tt = chrono::system_clock::to_time_t(chrono::system_clock::now());
   std::tm tm{};
   gmtime_r(&tt, &tm);
