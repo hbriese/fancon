@@ -47,3 +47,12 @@ string fc::Util::join(std::initializer_list<pair<bool, string>> args,
 
   return ss.str();
 }
+
+bool fc::Util::is_root() { return getuid() == 0; }
+
+bool fc::Util::is_atty() { return isatty(STDOUT_FILENO); }
+
+std::chrono::high_resolution_clock::time_point fc::Util::deadline(long ms) {
+  return std::chrono::high_resolution_clock::now() +
+         std::chrono::milliseconds(ms);
+}

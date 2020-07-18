@@ -29,9 +29,9 @@ bool fc::FanSysfs::disable_control() const {
   return true;
 }
 
-void fc::FanSysfs::test(shared_ptr<double> completed) {
+void fc::FanSysfs::test(Observable<int> &status) {
   test_driver_enable_flag();
-  fc::FanInterface::test(move(completed));
+  fc::FanInterface::test(status);
 }
 
 void fc::FanSysfs::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
@@ -62,7 +62,7 @@ bool fc::FanSysfs::valid() const {
   return pe && re;
 }
 
-string fc::FanSysfs::uid() const { return pwm_path.c_str(); }
+string fc::FanSysfs::hw_id() const { return pwm_path.c_str(); }
 
 bool fc::FanSysfs::set_pwm(const Pwm pwm) const {
   if (!Util::write(pwm_path, pwm))

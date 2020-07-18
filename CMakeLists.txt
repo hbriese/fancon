@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.3)
 project(fancon LANGUAGES CXX)
 set(PACKAGE_AUTHOR "Hayden Briese <haydenbriese@gmail.com>")
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ## Clang must be used because of linking with Boost Threads
@@ -35,7 +35,9 @@ endif ()
 ## Generate protobuf source files
 execute_process(COMMAND "./gen_proto.sh" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         RESULT_VARIABLE GENPROTO_RES OUTPUT_VARIABLE GENPROTO_OUT ERROR_VARIABLE GENPROTO_OUT)
-if (NOT ${GENPROTO_RES} STREQUAL "0")
+if (${GENPROTO_RES} STREQUAL "0")
+    message("Generated protobuf files ${GENPROTO_OUT}")
+else ()
     message("Failed to generate protobuf files: ${GENPROTO_OUT}")
 endif ()
 
@@ -47,6 +49,9 @@ set(SOURCE_FILES ${SRC}/main.cpp ${SRC}/main.hpp
         ${SRC}/Logging.hpp ${SRC}/Logging.cpp
         ${PSRC}/DevicesSpec.pb.cc ${PSRC}/DevicesSpec.pb.h
         ${PSRC}/DevicesSpec.grpc.pb.cc ${PSRC}/DevicesSpec.grpc.pb.h
+        ${SRC}/Service.cpp ${SRC}/Service.hpp
+        ${SRC}/Args.hpp ${SRC}/Args.cpp
+        ${SRC}/Client.cpp ${SRC}/Client.hpp
         ${SRC}/Controller.cpp ${SRC}/Controller.hpp
         ${SRC}/Devices.cpp ${SRC}/Devices.hpp
         ${SRC}/FanInterface.cpp ${SRC}/FanInterface.hpp

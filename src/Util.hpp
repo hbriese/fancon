@@ -2,8 +2,6 @@
 #define FANCON_UTIL_HPP
 
 #include <algorithm>
-#include <boost/chrono.hpp>
-#include <boost/thread.hpp>
 #include <charconv>
 #include <exception>
 #include <filesystem>
@@ -14,11 +12,14 @@
 #include <memory>
 #include <set>
 #include <string>
-#include <sys/ioctl.h>
 #include <tuple>
 #include <utility>
 #include <vector>
 //#include <chrono>
+#include <boost/chrono.hpp>
+#include <boost/thread.hpp>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "Logging.hpp"
 
@@ -33,11 +34,14 @@ using fs::path;
 using std::cout;
 using std::endl;
 using std::from_chars;
+using std::function;
+using std::lock_guard;
 using std::make_shared;
 using std::make_tuple;
 using std::make_unique;
 using std::map;
 using std::move;
+using std::mutex;
 using std::next;
 using std::nullopt;
 using std::optional;
@@ -55,14 +59,35 @@ using std::unique_ptr;
 using std::vector;
 
 namespace fc::Util {
+static const string SERVICE_ADDR = "0.0.0.0:5820";
+
 int postfix_num(const string_view &s);
 optional<string> read_line(const path &fpath, bool failed = false);
 template <typename T> T read(const path &fpath, bool failed = false);
 template <typename T> optional<T> read_(const path &fpath, bool failed = false);
 template <typename T> bool write(const path &fpath, T val, bool failed = false);
-template <typename K, typename T> string map_str(const std::map<K, T> m);
+template <typename K, typename T> string map_str(std::map<K, T> m);
 string join(std::initializer_list<pair<bool, string>> args,
             string join_with = " & ");
+bool is_root();
+bool is_atty();
+std::chrono::high_resolution_clock::time_point deadline(long ms);
+
+template <class T> class Observable {
+public:
+  explicit Observable(T &&value) : value(value) {}
+
+  void register_observer(function<void(T &)> callback);
+  void notify_observers();
+
+  Observable<T> &operator=(T other);
+  Observable<T> &operator+=(const T &other);
+
+private:
+  T value;
+  vector<function<void(T &)>> observers;
+  mutex update_mutex;
+};
 } // namespace fc::Util
 
 //----------------------//
@@ -153,6 +178,33 @@ string fc::Util::map_str(const std::map<K, T> m) {
       ss << ", ";
   }
   return ss.str();
+}
+
+template <class T>
+void fc::Util::Observable<T>::register_observer(
+    std::function<void(T &)> callback) {
+  observers.emplace_back(move(callback));
+}
+
+template <class T> void fc::Util::Observable<T>::notify_observers() {
+  for (auto &f : observers)
+    f(value);
+}
+
+template <class T>
+fc::Util::Observable<T> &fc::Util::Observable<T>::operator+=(const T &other) {
+  const lock_guard<mutex> lock(update_mutex);
+  value += other;
+  notify_observers();
+  return *this;
+}
+
+template <class T>
+fc::Util::Observable<T> &fc::Util::Observable<T>::operator=(T other) {
+  const lock_guard<mutex> lock(update_mutex);
+  value = move(other);
+  notify_observers();
+  return *this;
 }
 
 #endif // FANCON_UTIL_HPP

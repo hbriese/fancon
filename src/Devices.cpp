@@ -10,11 +10,7 @@ fc::SensorChips::SensorChips() {
 
 fc::SensorChips::~SensorChips() { sensors_cleanup(); }
 
-tuple<std::vector<unique_ptr<fc::FanInterface>>, SensorMap>
-fc::SensorChips::enumerate() {
-  std::vector<unique_ptr<fc::FanInterface>> fans;
-  SensorMap sensor_map;
-
+void fc::SensorChips::enumerate(FanMap &fans, SensorMap &sensors) {
   for (const auto &sc : chips) {
     const path adapter_path(sc->path);
 
@@ -55,13 +51,13 @@ fc::SensorChips::enumerate() {
         const int id = Util::postfix_num(dev_name);
         unique_ptr<FanInterface> fan;
         if (is_dell) {
-          fan = make_unique<FanDell>(move(label), adapter_path, id);
+          fan = make_unique<FanDell>(label, adapter_path, id);
         } else {
-          fan = make_unique<FanSysfs>(move(label), adapter_path, id);
+          fan = make_unique<FanSysfs>(label, adapter_path, id);
         }
 
         if (fan->valid()) {
-          fans.emplace_back(move(fan));
+          fans.insert_or_assign(move(label), move(fan));
         } else {
           LOG(llvl::info) << *fan << ": mis-configured or unsupported";
         }
@@ -71,32 +67,26 @@ fc::SensorChips::enumerate() {
             make_unique<SensorSysfs>(label, move(dev_path));
 
         if (sensor->valid()) {
-          sensor_map.emplace(move(label), move(sensor));
+          sensors.insert_or_assign(move(label), move(sensor));
         } else {
           LOG(llvl::info) << *sensor << ": mis-configured or unsupported";
         }
       }
     }
   }
-
-  return make_tuple(move(fans), move(sensor_map));
 }
 
 fc::Devices::Devices(bool dry_run) {
-  tie(fans, sensor_map) = SensorChips().enumerate();
+  SensorChips().enumerate(fans, sensors);
 
 #ifdef FANCON_NVIDIA_SUPPORT
-  vector<unique_ptr<FanInterface>> fans_nv = fc::FanNV::enumerate();
-  move(fans_nv.begin(), fans_nv.end(), std::back_inserter(fans));
-
-  SensorMap sm_nv = fc::SensorNV::enumerate();
-  for (auto &[label, s] : sm_nv)
-    sensor_map.emplace(label, s);
+  fc::FanNV::enumerate(fans);
+  fc::SensorNV::enumerate(sensors);
 #endif // FANCON_NVIDIA_SUPPORT
 
   // Ignore all fans on dry run
   if (dry_run) {
-    for (const auto &f : fans)
+    for (const auto &[key, f] : fans)
       f->ignore = true;
   }
 }
@@ -134,11 +124,11 @@ void fc::Devices::from(const fc_pb::Devices &d) {
 
     s->from(spb);
     if (s->valid()) {
-      const string uid = s->uid();
+      const string uid = s->hw_id();
       if (uids.count(uid) == 0) {
         uids.emplace(uid);
         string label = s->label;
-        sensor_map.emplace(move(label), move(s));
+        sensors.emplace(move(label), move(s));
       } else {
         LOG(llvl::warning) << *s << ": skipping duplicate sensor in config";
       }
@@ -178,13 +168,13 @@ void fc::Devices::from(const fc_pb::Devices &d) {
       continue;
     }
 
-    f->from(fpb, sensor_map);
+    f->from(fpb, sensors);
     if (f->valid()) {
-      const string uid = f->uid();
+      const string uid = f->hw_id(), label = f->label;
       if (uids.count(uid) == 0) {
         LOG(llvl::debug) << *f << ": imported";
         uids.emplace(uid);
-        fans.emplace_back(move(f));
+        fans.insert_or_assign(label, move(f));
       } else {
         LOG(llvl::warning) << *f << ": skipping duplicate fan in config";
       }
@@ -195,10 +185,10 @@ void fc::Devices::from(const fc_pb::Devices &d) {
 }
 
 void fc::Devices::to(fc_pb::Devices &d) const {
-  for (const auto &f : fans)
+  for (const auto &[label, f] : fans)
     f->to(*d.mutable_fan()->Add());
 
-  for (const auto &[label, s] : sensor_map)
+  for (const auto &[label, s] : sensors)
     s->to(*d.mutable_sensor()->Add());
 }
 

@@ -8,7 +8,7 @@ Requires=graphical.target
 [Service]
 Type=oneshot
 User=root
-ExecStart=/usr/bin/fancon reload-nv
+ExecStart=/usr/bin/fancon nv-init
 
 [Install]
 WantedBy=graphical.target

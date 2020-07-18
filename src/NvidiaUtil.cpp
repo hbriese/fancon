@@ -210,7 +210,7 @@ bool NV::LibXNvCtrl::check_support() {
                        << "update your NVIDIA driver";
 
   // Enable fan control coolbit if start from a TTY - so user knows to reboot
-  if (isatty(STDERR_FILENO) && enable_fan_control_coolbit()) {
+  if (Util::is_atty() && enable_fan_control_coolbit()) {
     LOG(llvl::warning)
         << "Enabling NVIDIA fan control coolbits flag, restart for NV support";
     return false;
@@ -270,9 +270,11 @@ bool NV::LibXNvCtrl::enable_fan_control_coolbit() {
   return false;
 }
 
-void NV::init(bool force) {
+bool NV::init(bool force) {
   if (!NV::xnvlib || force)
     NV::xnvlib = make_unique<NV::LibXNvCtrl>();
+
+  return bool(NV::xnvlib);
 }
 
 #endif // FANCON_NVIDIA_SUPPORT

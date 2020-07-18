@@ -39,7 +39,7 @@ optional<Temp> fc::SensorSysfs::max_temp() const {
 
 bool fc::SensorSysfs::valid() const { return exists(input_path); }
 
-string fc::SensorSysfs::uid() const { return input_path.c_str(); }
+string fc::SensorSysfs::hw_id() const { return input_path.c_str(); }
 
 void fc::SensorSysfs::from(const fc_pb::Sensor &s) {
   fc::SensorInterface::from(s);

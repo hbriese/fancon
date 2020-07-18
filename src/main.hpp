@@ -1,10 +1,6 @@
 #ifndef FANCON_MAIN_HPP
 #define FANCON_MAIN_HPP
 
-#ifndef FANCON_SYSCONFDIR
-#define FANCON_SYSCONFDIR "/etc"
-#endif // FANCON_SYSCONFDIR
-
 #ifdef FANCON_PROFILE
 #include <gperftools/heap-profiler.h>
 #include <gperftools/profiler.h>
@@ -13,6 +9,8 @@
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <csignal>
 #include <future>
+#include <grpcpp/channel.h>
+#include <grpcpp/grpcpp.h>
 #include <iostream>
 #include <memory>
 #include <regex>
@@ -20,42 +18,29 @@
 #include <sstream>
 #include <sys/wait.h>
 
-#include "Controller.hpp"
-//#include "Service.hpp"
-
-#define RELOAD_SIG SIGUSR1
-#define RELOAD_NV_SIG SIGUSR2
+#include "Args.hpp"
+#include "Client.hpp"
+#include "Service.hpp"
 
 using boost::interprocess::file_lock;
+using fc::Args;
+using fc::Client;
+using fc::Util::is_root;
 using std::system;
-
-using args_map = std::map<string, string>;
 
 int main(int argc, char *argv[]);
 
 namespace fc {
-const string config_path_default(FANCON_SYSCONFDIR "/fancon.conf");
-const path pid_path{"/run/fancon.pid"};
-const char *hardware_info_path_default = "fancon_system_info.txt";
+Args &read_args(int argc, char **argv, Args &args);
+void print_args(Args &args);
 
-args_map &read_args(int argc, char **argv, args_map &args);
-void print_args(args_map &args);
-bool to_bool(const string &str);
-void print_help();
-
-bool is_root();
-void set_log_level(const string &log_lvl);
-tuple<file_lock, bool> instance_check();
-void stop_instances();
-void reload_instances();
-void reload_nvidia();
-void offer_trailing_journal();
-void daemonize();
-void print_directory(const path &dir, std::ostream &os, uint depth = 0);
-bool save_system_info(const path &config_path);
-
-void signal_handler(int signal);
-void register_signal_handler();
+// tuple<file_lock, bool> instance_check();
+// void stop_instances();
+// void reload_instances();
+// void nv_init();
+// void offer_trailing_journal();
+// void print_directory(const path &dir, std::ostream &os, uint depth = 0);
+// bool save_system_info(const path &config_path);
 } // namespace fc
 
 #endif // FANCON_MAIN_HPP

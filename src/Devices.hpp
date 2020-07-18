@@ -22,7 +22,7 @@ public:
   SensorChips();
   ~SensorChips();
 
-  tuple<std::vector<unique_ptr<fc::FanInterface>>, SensorMap> enumerate();
+  void enumerate(FanMap &fans, SensorMap &sensors);
 
 private:
   vector<const sensors_chip_name *> chips;
@@ -33,8 +33,8 @@ public:
   Devices() = default;
   explicit Devices(bool dry_run);
 
-  vector<unique_ptr<FanInterface>> fans;
-  SensorMap sensor_map;
+  FanMap fans;
+  SensorMap sensors;
 
   void from(const fc_pb::Devices &d);
   void to(fc_pb::Devices &d) const;

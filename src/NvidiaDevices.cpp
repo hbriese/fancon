@@ -26,11 +26,10 @@ bool fc::FanNV::valid() const {
   return xnvlib->pwm_percent.read(id).has_value();
 }
 
-string fc::FanNV::uid() const { return string("NV:f") + to_string(id); }
+string fc::FanNV::hw_id() const { return string("NV:f") + to_string(id); }
 
-vector<unique_ptr<fc::FanInterface>> fc::FanNV::enumerate() {
+void fc::FanNV::enumerate(FanMap &fans) {
   NV::init();
-  vector<unique_ptr<fc::FanInterface>> fans;
 
   int n_gpus = NV::xnvlib->get_num_GPUs();
   for (int i = 0; i < n_gpus; ++i) {
@@ -46,13 +45,12 @@ vector<unique_ptr<fc::FanInterface>> fc::FanNV::enumerate() {
 
     const vector<NVID> fan_ids = NV::LibXNvCtrl::from_binary_data(buf, len);
     for (const auto &id : fan_ids) {
-      const string id_str = (fan_ids.size() > 1) ? to_string(id) : "";
-      fans.emplace_back(make_unique<fc::FanNV>(
-          NV::xnvlib->get_gpu_product_name(i) + id_str, id));
+      const string label = NV::xnvlib->get_gpu_product_name(i) +
+                           ((fan_ids.size() > 1) ? to_string(id) : "");
+      //      const auto [it, inserted] =
+      fans.insert_or_assign(label, make_unique<fc::FanNV>(label, id));
     }
   }
-
-  return fans;
 }
 
 Rpm fc::FanNV::get_rpm() const {
@@ -116,11 +114,10 @@ void fc::SensorNV::to(fc_pb::Sensor &s) const {
 
 bool fc::SensorNV::valid() const { return xnvlib->temp.read(id).has_value(); }
 
-string fc::SensorNV::uid() const { return string("NV:s") + to_string(id); }
+string fc::SensorNV::hw_id() const { return string("NV:s") + to_string(id); }
 
-SensorMap fc::SensorNV::enumerate() {
+void fc::SensorNV::enumerate(SensorMap &sensors) {
   NV::init();
-  SensorMap sensor_map;
 
   int n_gpus = NV::xnvlib->get_num_GPUs();
   for (int i = 0; i < n_gpus; ++i) {
@@ -140,11 +137,9 @@ SensorMap fc::SensorNV::enumerate() {
     for (const auto &id : sensor_ids) {
       const string id_str = (sensor_ids.size() > 1) ? to_string(id) : "";
       const string l = NV::xnvlib->get_gpu_product_name(i) + id_str + "_temp";
-      sensor_map.emplace(l, make_unique<fc::SensorNV>(l, id));
+      sensors.insert_or_assign(l, make_shared<fc::SensorNV>(l, id));
     }
   }
-
-  return sensor_map;
 }
 
 #endif // FANCON_NVIDIA_SUPPORT

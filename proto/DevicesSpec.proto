@@ -61,16 +61,20 @@ message Sensor {
     int32 id = 20;
 }
 
-message DevicesRequest {
-    bool include_unsupported = 1;
+message TestRequest {
+    string device_label = 1;
+    bool forced = 2;
+}
+
+message TestResponse {
+    int32 status = 1;
 }
 
 message ControllerState {
     enum State {
-        STOP = 0;
-        RUN = 1;
-        RESTART = 2;
-        TEST = 3;
+        ENABLED = 0;
+        DISABLED = 1;
+        RELOAD = 2;
     }
     State state = 1;
 }
@@ -78,12 +82,19 @@ message ControllerState {
 message Empty {}
 
 service DService {
-    rpc GetControllerState(Empty) returns (ControllerState) {}
-    rpc SetControllerState(ControllerState) returns (Empty) {}
+    rpc StopService(Empty) returns (Empty) {}
+    rpc Enable(Empty) returns (Empty) {}
+    rpc Disable(Empty) returns (Empty) {}
+    rpc Reload(Empty) returns (Empty) {}
+    rpc NvInit(Empty) returns (Empty) {}
+    rpc ControllerStatus(Empty) returns (ControllerState) {}
 
+    rpc GetDevices(Empty) returns (Devices) {}
+    rpc SetDevices(Devices) returns (Empty) {}
+    rpc GetEnumeratedDevices(Empty) returns (Devices) {}
+    rpc Test(TestRequest) returns (stream TestResponse) {}
+    
     rpc GetControllerConfig(Empty) returns (ControllerConfig) {}
     rpc SetControllerConfig(ControllerConfig) returns (Empty) {}
 
-    rpc GetDevices(DevicesRequest) returns (Devices) {}
-    rpc SetDevices(Devices) returns (Empty) {}
 }

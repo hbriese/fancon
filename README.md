@@ -97,27 +97,34 @@ devices {
 ### Usage
 
 ```text
-fancon argument=value ...
--h  help         Show this help
-    start        Start the fan controller (default: true)
--s  stop         Stop the fan controller
--r  reload       Forces the fan controller to reload all data
--t  test         Force tests of all fans found
--ts test-safely  Test fans one at a time to avoid stopping all fans at once (default: false)
-                   at once, avoiding high temps but significantly increasing duration
--c  config       Configuration file (default: /etc/fancon.conf)
--l  log-lvl      Sets the logging level: info, debug, trace, warning, error (default: info)
--v  verbose      Same as log-lvl=debug
--d  daemonize    Daemonize the process (default: false)
--i  system-info  Save system info to the current directory
-                   (file name default: fancon_system_info.txt)
+fancon arg [value] ...
+h  help           Show this help
+s  status         Status of the controller
+   enable         Enable controller (default: true)
+   disable        Disable  controller
+   reload         Reload config
+t  test           Test ALL (untested) fans
+t  test   [fan]   Test the given fan
+f  force          Test even already tested fans (default: false)
+c  config [file]  Config path (default: /etc/fancon.conf)
+   service        Start as service
+d  daemon         Daemonize the process (default: false)
+   stop-service   Stop the service
+i  sysinfo [file] Save system info to file: fancon_sysinfo.txt
+   nv-init        Init nvidia devices
+v  verbose        Debug logging level
+a  trace          Trace logging level
 ```
 
-#### Debugging issues
+### Debugging issues
 
 ##### Run in verbose mode: 
 
 ```fancon -v```
+
+##### Reading logs
+
+```journalctl -u fancon```
 
 ##### My fans aren't detected
 

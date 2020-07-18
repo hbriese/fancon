@@ -19,7 +19,7 @@ public:
   optional<Temp> min_temp() const override;
   optional<Temp> max_temp() const override;
   bool valid() const override;
-  string uid() const override;
+  string hw_id() const override;
 
   void from(const fc_pb::Sensor &s) override;
   void to(fc_pb::Sensor &s) const override;

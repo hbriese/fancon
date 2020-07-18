@@ -10,6 +10,7 @@
 
 using std::abs;
 using std::min;
+using std::min;
 using std::next;
 using std::stoi;
 
@@ -44,9 +45,9 @@ public:
   bool ignore{false};
 
   bool update();
-  virtual void test(shared_ptr<double> completed);
+  virtual void test(Observable<int> &status);
   bool tested() const;
-  bool configured() const;
+  bool pre_start_check() const;
 
   virtual bool enable_control() const = 0;
   virtual bool disable_control() const = 0;
@@ -54,7 +55,7 @@ public:
   virtual void from(const fc_pb::Fan &f, const SensorMap &sensor_map);
   virtual void to(fc_pb::Fan &f) const = 0;
   virtual bool valid() const = 0;
-  virtual string uid() const = 0;
+  virtual string hw_id() const = 0;
 
   friend std::ostream &operator<<(std::ostream &os, const FanInterface &f);
 
@@ -92,5 +93,7 @@ protected:
 
 std::ostream &operator<<(std::ostream &os, const fc::FanInterface &f);
 } // namespace fc
+
+using FanMap = std::unordered_map<string, unique_ptr<fc::FanInterface>>;
 
 #endif // FANCON_FANINTERFACE_HPP

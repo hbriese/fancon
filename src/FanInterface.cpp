@@ -40,18 +40,23 @@ bool fc::FanInterface::tested() const {
          !rpm_to_pwm.empty();
 }
 
-bool fc::FanInterface::configured() const {
-  const bool ce = temp_to_rpm.empty(), se = !sensor,
+bool fc::FanInterface::pre_start_check() const {
+  if (ignore) {
+    LOG(llvl::debug) << *this << ": ignored";
+  } else if (const bool ce = temp_to_rpm.empty(), se = !sensor,
              si = (sensor && sensor->ignore);
-  if (ce || se || si) {
+             ce || se || si) {
     LOG(llvl::warning) << *this << ": skipping - "
                        << Util::join({{ce, "curve not configured"},
                                       {se, "sensor not configured"},
                                       {si, "sensor ignored"}});
-    return false;
+  } else if (!enable_control()) {
+    LOG(llvl::error) << *this << ": failed to enable";
+  } else {
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 bool fc::FanInterface::set_rpm(Rpm rpm) {
@@ -124,30 +129,29 @@ void fc::FanInterface::sleep_for_interval() const {
   sleep_for((interval.count() > 0) ? interval : milliseconds(500));
 }
 
-void fc::FanInterface::test(shared_ptr<double> completed) {
+void fc::FanInterface::test(Observable<int> &status) {
   const Pwm pre_pwm = get_pwm();
 
   // Fail early if can't write enable mode or pwm
-  if (!enable_control() || !set_pwm_test()) {
+  const bool ec = enable_control(), spt = set_pwm_test();
+  if (!ec || !spt) {
     LOG(llvl::error) << *this << ": failed to take control";
     disable_control();
-    *completed = 1.0;
+    status += 100;
     return;
   }
 
+  // 100 (%) should be added to status over the series of tests
   Pwm_to_Rpm_Map pwm_to_rpm;
 
   test_stopped(pwm_to_rpm);
-  *completed += 0.1;
+  status += 10;
   test_start(pwm_to_rpm);
-  *completed += 0.25;
+  status += 30;
   test_running_min(pwm_to_rpm);
-  *completed += 0.25;
+  status += 30;
   test_mapping(pwm_to_rpm);
-  *completed += 0.4;
-
-  if (*completed != 1.0)
-    throw runtime_error("Tests completed but not set to 1.0");
+  status += 30;
 
   rpm_to_pwm_from(pwm_to_rpm);
 
@@ -177,8 +181,12 @@ optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) const {
 }
 
 bool fc::FanInterface::set_pwm_test() const {
-  const Pwm target = (get_pwm() != pwm_min_abs) ? pwm_min_abs : pwm_max_abs;
-  return set_stabilised_pwm(target).has_value();
+  for (int i = 0; i < 3; ++i) {
+    const Pwm target = (get_pwm() != pwm_min_abs) ? pwm_min_abs : pwm_max_abs;
+    if (set_stabilised_pwm(target).has_value())
+      return true;
+  }
+  return false;
 }
 
 void fc::FanInterface::test_stopped(Pwm_to_Rpm_Map &pwm_to_rpm) {

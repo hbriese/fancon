@@ -36,7 +36,8 @@ bool is_systemd();
 
 namespace log {
 extern llvl logging_level;
-extern const char *output_reset, *output_bold, *output_red, *output_bold_red;
+extern const char *fmt_reset, *fmt_bold, *fmt_red,
+    *fmt_red_bold, *fmt_green, *fmt_green_bold;
 
 std::vector<boost::shared_ptr<boost::log::sinks::sink>> generate_sinks();
 std::ostream &flush(std::ostream &os);

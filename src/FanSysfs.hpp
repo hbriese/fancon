@@ -14,14 +14,14 @@ public:
   FanSysfs(string label_, const path &adapter_path_, int id_);
   ~FanSysfs() override;
 
-  void test(shared_ptr<double> completed) override;
+  void test(Observable<int> &status) override;
   bool enable_control() const override;
   bool disable_control() const override;
 
   void from(const fc_pb::Fan &f, const SensorMap &sensor_map) override;
   void to(fc_pb::Fan &f) const override;
   bool valid() const override;
-  string uid() const override;
+  string hw_id() const override;
 
 protected:
   path pwm_path, rpm_path, enable_path;

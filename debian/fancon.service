@@ -6,10 +6,8 @@ After=multi-user.target
 [Service]
 Type=simple
 User=root
-PIDFile=/run/fancon.pid
-ExecStart=/usr/bin/fancon -l=info
-ExecStop=/usr/bin/fancon stop
-KillSignal=SIGQUIT
+ExecStart=/usr/bin/fancon service
+ExecStop=/usr/bin/fancon stop-service
 ExecReload=/usr/bin/fancon reload
 Restart=on-failure
 RestartSec=2

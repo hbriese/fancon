@@ -9,12 +9,14 @@
 #include <map>
 #include <sstream>
 #include <thread>
+#include <utility>
 
 #include "Devices.hpp"
 #include "proto/DevicesSpec.pb.h"
 
 using boost::thread;
 using fc::FanInterface;
+using fc::Util::Observable;
 using std::find_if;
 using std::future;
 using std::istringstream;
@@ -25,47 +27,67 @@ extern uint smoothing_intervals;
 extern uint top_stickiness_intervals;
 extern uint temp_averaging_intervals;
 
-enum class ControllerState : sig_atomic_t {
-  RUN,
-  STOP,
-  RELOAD
-} extern controller_state;
+enum class ControllerState {
+  ENABLED = fc_pb::ControllerState_State_ENABLED,
+  DISABLED = fc_pb::ControllerState_State_DISABLED,
+  RELOAD = fc_pb::ControllerState_State_RELOAD
+};
+
+struct FanThread {
+  explicit FanThread(thread &&t,
+                     shared_ptr<Observable<int>> testing_status = nullptr)
+      : t(move(t)), test_status(move(testing_status)) {}
+  ~FanThread() { t.interrupt(); } // Interrupt thread when unwound
+
+  thread t;
+  shared_ptr<Observable<int>> test_status;
+
+  bool is_testing() const { return bool(test_status); }
+  void join() { t.join(); }
+
+  FanThread &operator=(FanThread &&other) noexcept;
+};
 
 class Controller {
 public:
-  Controller(path conf_path_);
+  explicit Controller(path conf_path_);
+  ~Controller();
 
-  path config_path;
-  milliseconds update_interval{1000};
+  ControllerState state;
   Devices devices;
 
-  void start();
-  void test(bool force = false, bool safely = false);
+  void control(fc::FanInterface &fan);
+  void test(fc::FanInterface &fan, bool forced, function<void(int &)> cb);
+  bool testing(const string &label) const;
+  size_t tests_running() const;
 
-  static bool running();
-  static void stop();
-  static void reload();
-  static bool reloading();
-  static void reload_nvidia();
-
-private:
-  fs::file_time_type config_write_time;
+  void enable();
+  bool enabled() const;
+  void disable();
+  bool disabled() const;
+  void reload();
+  void reload_added();
+  bool reloading() const;
+  void nv_init();
 
   void from(const fc_pb::Controller &c);
   void from(const fc_pb::ControllerConfig &c);
   void to(fc_pb::Controller &c) const;
   void to(fc_pb::ControllerConfig &c) const;
 
-  void load_devices();
-  void to_file(path file, bool backup = true);
+private:
+  path config_path;
+  milliseconds update_interval{1000};
+  std::map<string, FanThread> threads;
+  fs::file_time_type config_write_time;
+
+  void load_conf_and_enumerated();
+  void to_file(bool backup = true);
 
   void update_config_write_time();
   bool config_file_modified() const;
-  static void shutdown_threads(vector<thread> &threads);
+  void join_threads();
   static string date_time_now();
-
-  static bool tests_running(const vector<shared_ptr<double>> &test_completion);
-  static double sum(const vector<shared_ptr<double>> &numbers);
 };
 } // namespace fc
 

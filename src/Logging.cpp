@@ -9,8 +9,9 @@ namespace expr = boost::log::expressions;
 
 namespace fc::log {
 llvl logging_level = llvl::info;
-const char *output_reset = "\033[0m", *output_bold = "\033[1m",
-           *output_red = "\033[31m", *output_bold_red = "\033[1;31m";
+const char *fmt_reset = "\033[0m", *fmt_bold = "\033[1m",
+           *fmt_red = "\033[31m", *fmt_red_bold = "\033[1;31m",
+           *fmt_green = "\033[32m", *fmt_green_bold = "\033[1;32m";
 } // namespace fc::log
 
 template <typename T>
@@ -19,18 +20,18 @@ void set_formatter(boost::shared_ptr<sinks::synchronous_sink<T>> sink,
   const auto severity = expr::attr<trivial::severity_level>(
       aux::default_attribute_names::severity());
 
-  const char *red = (print_red) ? fc::log::output_red : "",
-             *reset = (print_red) ? fc::log::output_reset : "";
+  const char *red = (print_red) ? fc::log::fmt_red : "",
+             *reset = (print_red) ? fc::log::fmt_reset : "";
 
   if (!systemd) {
     const auto datetime = expr::format_date_time<boost::posix_time::ptime>(
         aux::default_attribute_names::timestamp(), "%y/%m/%d %H:%M");
 
-    sink->set_formatter(expr::format("%1%%2% [%3%] <%4%> %5%%6%") % red %
+    sink->set_formatter(expr::format("%1%%2% [%3%] %4%: %5%%6%") % red %
                         datetime % getpid() % severity % expr::smessage %
                         reset);
   } else {
-    sink->set_formatter(expr::format("%1%<%2%> %3%%4%") % red % severity %
+    sink->set_formatter(expr::format("%1%%2%: %3%%4%") % red % severity %
                         expr::smessage % reset);
   }
 }
