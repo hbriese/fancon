@@ -13,6 +13,7 @@ using std::min;
 using std::min;
 using std::next;
 using std::stoi;
+using fc::Util::Observable;
 
 using Pwm = int;
 using Rpm = int;
