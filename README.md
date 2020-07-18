@@ -110,7 +110,7 @@ c  config [file]  Config path (default: /etc/fancon.conf)
    service        Start as service
 d  daemon         Daemonize the process (default: false)
    stop-service   Stop the service
-i  sysinfo [file] Save system info to file: fancon_sysinfo.txt
+i  sysinfo [file] Save system info to file (default: fancon_sysinfo.txt)
    nv-init        Init nvidia devices
 v  verbose        Debug logging level
 a  trace          Trace logging level
