@@ -35,10 +35,12 @@ message Fan {
     uint64 interval = 7;
     bool ignore = 8;
 
-    // SYS
+    // SYS & DELL
     string pwm_path = 10;
     string rpm_path = 11;
-    string enable_path = 12;
+    
+    // SYS
+    string enable_path = 12;    
     int32 driver_flag = 13;
 
     // NV

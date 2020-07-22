@@ -167,7 +167,7 @@ https://wiki.archlinux.org/index.php/Running_GUI_applications_as_root
 sudo apt install clang cmake lm-sensors libsensors5 libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libprotobuf-dev protobuf-compiler libgrpc++-dev protobuf-compiler protobuf-compiler-grpc libxnvctrl-dev libx11-dev
 
 git clone https://github.com/hbriese/fancon.git && cd fancon; mkdir build; cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DNVIDIA_SUPPORT=ON .. && make -j && sudo make install
+cmake -DNVIDIA_SUPPORT=ON .. && make -j && sudo make install
 ```
 
 ##### Without NVIDIA support:
@@ -175,12 +175,11 @@ cmake -DCMAKE_BUILD_TYPE=Release -DNVIDIA_SUPPORT=ON .. && make -j && sudo make 
 sudo apt install clang cmake lm-sensors libsensors5 libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libprotobuf-dev protobuf-compiler libgrpc++-dev protobuf-compiler protobuf-compiler-grpc
 
 git clone https://github.com/hbriese/fancon.git && cd fancon; mkdir build; cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DNVIDIA_SUPPORT=OFF .. && make -j && sudo make install
+cmake -DNVIDIA_SUPPORT=OFF .. && make -j && sudo make install
 ```
 
-| CMake Option     | Default | Description                                                                                 |
-|:-----------------|:-------:| :-------------------------------------------------------------------------------------------|
-| NVIDIA_SUPPORT   | ON      | Support for NVIDIA GPUs                                                                     |
-| OPTIMIZE_DEBUG   | OFF     | Enable compiler optimizations on debug build                                                |
-| PROFILE          | OFF     | Support for Google Perf Tools CPU & heap profilers; only recommended for debug builds       |
-| LINT             | OFF     | Run lint checker (Clang-Tidy)                                                               |
+| CMake Option     | Default | Description                                        |
+|:-----------------|:-------:| :--------------------------------------------------|
+| NVIDIA_SUPPORT   | ON      | Support for NVIDIA GPUs                            |
+| PROFILE          | OFF     | Support for Google Perf Tools CPU & heap profilers |
+| LINT             | OFF     | Run Clang-Tidy                                     |

@@ -159,13 +159,6 @@ bool fc::Client::Test(bool forced) {
   }
 
   return true;
-
-  //  for (auto &t : threads) {
-  //    if (t.joinable())
-  //      t.join();
-  //  }
-  //
-  //  return true;
 }
 
 bool fc::Client::Test(const string &fan_label, bool forced) {

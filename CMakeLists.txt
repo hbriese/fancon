@@ -17,6 +17,8 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif ()
 
+message("Build type: ${CMAKE_BUILD_TYPE}")
+
 ## Release flags
 set(OPTIMIZATION_FLAG "-O3")
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -24,19 +26,15 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
 endif ()
 
 ## Debug flags
-option(OPTIMIZE_DEBUG "Optimize debug build - useful for profiling" OFF)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wpedantic")
-    if (OPTIMIZE_DEBUG)
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${OPTIMIZATION_FLAG}")
-    endif ()
 endif ()
 
 ## Generate protobuf source files
 execute_process(COMMAND "./gen_proto.sh" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         RESULT_VARIABLE GENPROTO_RES OUTPUT_VARIABLE GENPROTO_OUT ERROR_VARIABLE GENPROTO_OUT)
 if (${GENPROTO_RES} STREQUAL "0")
-    message("Generated protobuf files ${GENPROTO_OUT}")
+    message("Protobuf files generated ${GENPROTO_OUT}")
 else ()
     message("Failed to generate protobuf files: ${GENPROTO_OUT}")
 endif ()
@@ -82,7 +80,7 @@ include_directories(${SENSORS_INCLUDE_DIR})
 set(LIBS ${LIBS} ${SENSORS_LIBRARY})
 
 ## NVIDIA Support
-option(NVIDIA_SUPPORT "Build with NVIDIA GPU support" ON)
+option(NVIDIA_SUPPORT "Support for NVIDIA GPUs" ON)
 if (NVIDIA_SUPPORT)
     find_package(X11)
     find_package(NVCtrl)
@@ -124,7 +122,7 @@ include_directories(${GRPC_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${GRPC_LIBRARIES})
 
 ## Google Perf Tools profiling
-option(PROFILE "Build debug release with support for CPU and heap profiling - REQUIRES Google Perf Tools" OFF)
+option(PROFILE "Support for Google Perf Tools CPU & heap profilers" OFF)
 if (PROFILE AND CMAKE_BUILD_TYPE STREQUAL "Debug")
     find_package(Profiler REQUIRED)
     find_package(TCMalloc REQUIRED)
@@ -152,7 +150,7 @@ if (CMAKE_INSTALL_BINDIR)
 endif ()
 
 ## Run lint if debug build
-option(LINT "Run linter with debug build" OFF)
+option(LINT "Run Clang-Tidy" OFF)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND LINT)
     set(LINT_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -std=c++${CMAKE_CXX_STANDARD}")
     set(LINT_CHECKS "*,-clang-diagnostic-unused-command-line-argument,\
