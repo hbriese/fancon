@@ -247,6 +247,13 @@ void fc::Client::print_help(const string &conf) {
                   << "a  trace          Trace logging level" << endl;
 }
 
+bool fc::Client::service_running() {
+  auto creds = grpc::InsecureChannelCredentials();
+  auto channel = grpc::CreateChannel(Util::SERVICE_ADDR, creds);
+  channel->WaitForConnected(Util::deadline(200));
+  return channel->GetState(true) == GRPC_CHANNEL_READY;
+}
+
 fc::Client::operator bool() const { return bool(client); }
 
 bool fc::Client::connected(long timeout_ms) const {

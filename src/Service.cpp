@@ -14,11 +14,6 @@ fc::Service::~Service() {
 
 void fc::Service::run() {
   try {
-    if (service_running()) {
-      LOG(llvl::fatal) << "Only 1 instance may be run";
-      return;
-    }
-
     // TODO: use SSL
     // auto ssl_options = grpc::SslServerCredentialsOptions();
     // ...
@@ -190,13 +185,6 @@ void fc::Service::daemonize() {
   // Set working dir to /
   if (chdir("/") < 0)
     LOG(llvl::error) << "Failed to set working directory to '/'";
-}
-
-bool fc::Service::service_running() {
-  auto creds = grpc::InsecureChannelCredentials();
-  auto channel = grpc::CreateChannel(Util::SERVICE_ADDR, creds);
-  channel->WaitForConnected(Util::deadline(200));
-  return channel->GetState(true) == GRPC_CHANNEL_READY;
 }
 
 // void fc::Service::signal_handler(int signal) {

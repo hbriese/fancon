@@ -19,8 +19,13 @@ int main(int argc, char *argv[]) {
   // SERVICE
   if (args.service) {
     if (!is_root()) {
-      LOG(llvl::error) << "Service must be run as root";
+      LOG(llvl::fatal) << "Service must be run as root";
       return EXIT_FAILURE;
+    }
+
+    if (Client::service_running()) {
+      LOG(llvl::fatal) << "Only 1 instance may be run";
+      return EXIT_SUCCESS;
     }
 
     fc::Service service(config_path, args.daemon);

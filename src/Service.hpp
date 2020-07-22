@@ -1,7 +1,6 @@
 #ifndef FANCON_SERVICE_HPP
 #define FANCON_SERVICE_HPP
 
-#include "Controller.hpp"
 #include <csignal>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/server.h>
@@ -9,6 +8,7 @@
 #include <mutex>
 #include <sys/stat.h>
 
+#include "Controller.hpp"
 #include "proto/DevicesSpec.grpc.pb.h"
 #include "proto/DevicesSpec.pb.h"
 
@@ -71,8 +71,6 @@ private:
   void enable_controller();
   void disable_controller();
   static void daemonize();
-
-  static bool service_running();
 
   //  static void signal_handler(int signal);
   //  static void register_signal_handler();

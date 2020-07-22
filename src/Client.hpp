@@ -35,6 +35,7 @@ public:
   bool Sysinfo(const string &p);
 
   static void print_help(const string &conf);
+  static bool service_running();
 
   explicit operator bool() const;
 
