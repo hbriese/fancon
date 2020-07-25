@@ -99,18 +99,20 @@ devices {
 ```text
 fancon arg [value] ...
 h  help           Show this help
-s  status         Status of the controller
-   enable         Enable controller (default: true)
-   disable        Disable  controller
-   reload         Reload config
-t  test           Test ALL (untested) fans
-t  test   [fan]   Test the given fan
+s  status         Status of all fans
+e  enable         Enable control of all fans
+e  enable  [fan]  Enable control of the fan
+d  disable        Disable control of all fans
+d  disable [fan]  Disable control of the fans
+t  test           Test all (untested) fans
+t  test    [fan]  Test the fan if untested
 f  force          Test even already tested fans (default: false)
-c  config [file]  Config path (default: /etc/fancon.conf)
+r  reload         Reload config
+c  config  [file] Config path (default: /etc/fancon.conf)
    service        Start as service
-d  daemon         Daemonize the process (default: false)
+   daemon         Daemonize the process (default: false)
    stop-service   Stop the service
-i  sysinfo [file] Save system info to file (default: fancon_sysinfo.txt)
+i  sysinfo [file] Save system info to file (default: sysinfo.txt)
    nv-init        Init nvidia devices
 v  verbose        Debug logging level
 a  trace          Trace logging level

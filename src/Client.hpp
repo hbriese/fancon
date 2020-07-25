@@ -2,19 +2,16 @@
 #define FANCON_SRC_CLIENT_HPP
 
 #include "Args.hpp"
-#include "Devices.hpp"
 #include "Util.hpp"
 #include "proto/DevicesSpec.grpc.pb.h"
 #include "proto/DevicesSpec.pb.h"
 #include <grpcpp/grpcpp.h>
 
 using fc::Args;
-using fc_pb::ControllerState;
 using fc_pb::Empty;
-using grpc::ClientAsyncResponseReader;
 using grpc::ClientContext;
-using grpc::CompletionQueue;
 using grpc::Status;
+using grpc::StatusCode;
 
 namespace fc {
 class Client {
@@ -22,17 +19,21 @@ public:
   Client();
 
   void run(Args &args);
-  optional<ControllerState> Status();
-  bool Enable();
-  bool Disable();
-  bool Reload();
-  bool NvInit();
-  optional<fc::Devices> GetDevices();
-  optional<fc::Devices> GetEnumeratedDevices();
-  bool Test(bool forced);
-  bool Test(const string &fan_label, bool forced);
-  bool StopService();
-  bool Sysinfo(const string &p);
+
+  void stop_service();
+  optional<fc_pb::Devices> get_devices();
+  optional<fc_pb::Devices> get_enumerated_devices();
+
+  void status();
+  void enable(const string &flabel);
+  void enable();
+  void disable(const string &flabel);
+  void disable();
+  void test(bool forced);
+  void test(const string &flabel, bool forced);
+  void reload();
+  void nv_init();
+  void sysinfo(const string &p);
 
   static void print_help(const string &conf);
   static bool service_running();
@@ -49,6 +50,8 @@ private:
   static void log_service_unavailable();
   static void enumerate_directory(const path &dir, std::ostream &os,
                                   uint depth = 0);
+  static string status_text(fc_pb::FanStatus_Status status);
+  static fc_pb::FanLabel from(const string &flabel);
 };
 } // namespace fc
 

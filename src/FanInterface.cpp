@@ -79,7 +79,7 @@ bool fc::FanInterface::set_rpm(Rpm rpm) {
 }
 
 bool fc::FanInterface::recover_control() const {
-  for (auto i = 1; i <= 3; ++i, sleep_for(interval))
+  for (auto i = 1; i <= 3; ++i, sleep_for_interval())
     if (enable_control())
       return true;
 

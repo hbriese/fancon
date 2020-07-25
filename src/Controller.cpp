@@ -7,22 +7,26 @@ uint top_stickiness_intervals = 2;
 uint temp_averaging_intervals = 3;
 } // namespace fc
 
-fc::FanThread &fc::FanThread::operator=(fc::FanThread &&other) noexcept {
-  t = move(other.t);
-  test_status = other.test_status;
-  return *this;
-}
-
-fc::Controller::Controller(path conf_path_)
-    : state(ControllerState::DISABLED), config_path(move(conf_path_)) {
+fc::Controller::Controller(path conf_path_) : config_path(move(conf_path_)) {
   load_conf_and_enumerated();
+
+  watcher = spawn_watcher();
 }
 
-fc::Controller::~Controller() { disable(); }
+fc::Controller::~Controller() { disable_all(); }
 
-void fc::Controller::control(fc::FanInterface &f) {
-  if (threads.count(f.label) > 0) {
-    LOG(llvl::debug) << f << ": duplicate thread";
+FanStatus fc::Controller::status(const string &flabel) const {
+  const auto it = fthreads.find(flabel);
+  if (it == fthreads.end())
+    return FanStatus::FanStatus_Status_DISABLED;
+
+  return (it->second.is_testing()) ? FanStatus::FanStatus_Status_TESTING
+                                   : FanStatus::FanStatus_Status_ENABLED;
+}
+
+void fc::Controller::enable(fc::FanInterface &f) {
+  if (fthreads.count(f.label) > 0) {
+    LOG(llvl::trace) << f << ": already enabled";
     return;
   }
 
@@ -30,124 +34,57 @@ void fc::Controller::control(fc::FanInterface &f) {
     return;
 
   auto update_func = [this, &f]() {
-    while (enabled()) {
+    while (true) {
       f.update();
       sleep_for(update_interval);
     }
-    threads.erase(f.label);
   };
 
-  threads.try_emplace(f.label, thread(update_func), nullptr);
+  LOG(llvl::trace) << f.label << ": enabled";
+  fthreads.try_emplace(f.label, thread(update_func), nullptr);
 }
 
-void fc::Controller::test(fc::FanInterface &fan, bool forced,
-                          function<void(int &)> cb) {
-  if (fan.ignore || (fan.tested() && !forced))
-    return;
-
-  // If a test is already running for the device then just join onto it
-  if (auto it = threads.find(fan.label); it->second.is_testing()) {
-    it->second.test_status->register_observer(cb);
-    it->second.join();
-    return;
+void fc::Controller::enable_all() {
+  for (auto &[key, f] : devices.fans) {
+    if (!fthreads.contains(f->label))
+      enable(*f);
   }
-
-  LOG(llvl::info) << fan << ": testing";
-
-  // Remove any running thread before testing
-  if (auto it = threads.find(fan.label); it != threads.end())
-    threads.erase(it);
-
-  auto test_status = make_shared<Observable<int>>(0);
-  test_status->register_observer(cb);
-
-  auto test_func = [&] {
-    // Test fan, then remove thread from map
-    fan.test(*test_status);
-    threads.erase(fan.label);
-    LOG(llvl::info) << fan << ": test complete";
-
-    // TODO: use locks to avoid race condition
-    if (tests_running() == 0)
-      to_file();
-
-    control(fan);
-  };
-
-  auto [it, success] =
-      threads.try_emplace(fan.label, thread(test_func), test_status);
-
-  if (!success)
-    test(fan, forced, cb);
-
-  it->second.join();
 }
 
-bool fc::Controller::testing(const string &label) const {
-  auto it = threads.find(label);
-  return (it != threads.end()) && it->second.is_testing();
+void fc::Controller::disable(const string &flabel) {
+  const auto it = fthreads.find(flabel);
+  if (it != fthreads.end()) {
+    fthreads.erase(it);
+    if (const auto fit = devices.fans.find(flabel); fit != devices.fans.end())
+      fit->second->disable_control();
+    LOG(llvl::trace) << flabel << ": disabled";
+  } else {
+    LOG(llvl::error) << flabel << ": failed to find to disable";
+  }
 }
 
-size_t fc::Controller::tests_running() const {
-  auto f = [](const size_t sum, const auto &p) {
-    return sum + int(p.second.is_testing());
-  };
-  return std::accumulate(threads.begin(), threads.end(), 0, f);
-}
-
-void fc::Controller::enable() {
-  state = ControllerState::ENABLED;
-  do {
-    for (auto &[key, f] : devices.fans)
-      control(*f);
-
-    if (threads.empty())
-      LOG(llvl::info) << "Awaiting configuration";
-
-    while (enabled()) {
-      if (config_file_modified()) {
-        reload();
-      } else {
-        sleep_for(update_interval);
-      }
-    }
-
-    if (reloading()) {
-      state = ControllerState::ENABLED;
-      LOG(llvl::info) << "Reloading changes";
-      load_conf_and_enumerated();
-    }
-  } while (enabled());
-}
-
-bool fc::Controller::enabled() const {
-  return state == ControllerState::ENABLED;
-}
-
-void fc::Controller::disable() {
-  state = ControllerState::DISABLED;
-
-  // Interrupt all threads, and wait for them to finish
-  threads.clear();
-  join_threads();
-}
-
-bool fc::Controller::disabled() const {
-  return state == ControllerState::DISABLED;
+void fc::Controller::disable_all() {
+  fthreads.clear();
+  LOG(llvl::trace) << "Disabling all";
 }
 
 void fc::Controller::reload() {
-  state = ControllerState::RELOAD;
-
-  // Interrupt all threads not testing, and don't wait
-  vector<string> to_remove;
-  for (auto &[key, fthread] : threads) {
-    if (!fthread.is_testing())
-      to_remove.push_back(key);
+  // Remove all threads not testing
+  vector<string> stopped;
+  for (auto &[key, fthread] : fthreads) {
+    if (!fthread.is_testing()) {
+      //      fthread.running = false;
+      stopped.push_back(key);
+    }
   }
 
-  for (const string &key : to_remove)
-    threads.erase(key);
+  for (const string &key : stopped)
+    fthreads.erase(key);
+
+  // Restart
+  LOG(llvl::info) << "Reloading changes";
+  load_conf_and_enumerated();
+  enable_all();
 }
 
 void fc::Controller::reload_added() {
@@ -157,21 +94,67 @@ void fc::Controller::reload_added() {
   // Compare new devices to old
   // Interrupt and enable ed
   // Interrupt all threads not testing, and don't wait
-  for (auto &[key, fthread] : threads) {
+  for (auto &[key, fthread] : fthreads) {
     if (!fthread.is_testing())
       fthread.t.interrupt();
   }
 }
 
-bool fc::Controller::reloading() const {
-  return state == ControllerState::RELOAD;
-}
-
 void fc::Controller::nv_init() {
 #ifdef FANCON_NVIDIA_SUPPORT
   if (NV::init(true))
-    reload(); // TODO: just reload added devices
+    reload(); // TODO: reload only added devices
 #endif        // FANCON_NVIDIA_SUPPORT
+}
+
+void fc::Controller::test(fc::FanInterface &fan, bool forced,
+                          function<void(int &)> cb) {
+  if (fan.ignore || (fan.tested() && !forced))
+    return;
+
+  // If a test is already running for the device then just join onto it
+  if (auto it = fthreads.find(fan.label); it->second.is_testing()) {
+    it->second.test_status->register_observer(cb);
+    it->second.join();
+    return;
+  }
+
+  LOG(llvl::info) << fan << ": testing";
+
+  // Remove any running thread before testing
+  if (const auto it = fthreads.find(fan.label); it != fthreads.end())
+    fthreads.erase(it);
+
+  auto test_status = make_shared<Observable<int>>(0);
+  test_status->register_observer(cb);
+
+  auto test_func = [&] {
+    // Test fan, then remove thread from map
+    fan.test(*test_status);
+    fthreads.erase(fan.label);
+    LOG(llvl::info) << fan << ": test complete";
+
+    // Only write to file when no other fan are still testing
+    if (tests_running() == 0)
+      to_file();
+
+    enable(fan);
+  };
+
+  auto [it, success] =
+      fthreads.try_emplace(fan.label, thread(test_func), test_status);
+
+  if (!success)
+    test(fan, forced, cb);
+
+  it->second.join();
+}
+
+size_t fc::Controller::tests_running() const {
+  auto f = [](const size_t sum, const auto &p) {
+    return sum + int(p.second.is_testing());
+  };
+  return std::accumulate(fthreads.begin(), fthreads.end(), 0, f);
 }
 
 void fc::Controller::from(const fc_pb::Controller &c) {
@@ -223,7 +206,7 @@ void fc::Controller::to(fc_pb::ControllerConfig &c) const {
 }
 
 void fc::Controller::load_conf_and_enumerated() {
-  devices = fc::Devices(false);
+  devices = fc::Devices(true);
 
   if (config_path.empty() || !exists(config_path)) {
     LOG(llvl::debug) << "No config found";
@@ -240,6 +223,7 @@ void fc::Controller::load_conf_and_enumerated() {
   if (ifs) {
     from(c);
     update_config_write_time();
+    notify_devices_observers();
   } else {
     LOG(llvl::error) << "Failed to read config from: " << config_path;
   }
@@ -263,6 +247,7 @@ void fc::Controller::to_file(bool backup) {
 
   if (ofs) {
     update_config_write_time();
+    notify_devices_observers();
   } else {
     LOG(llvl::error) << "Failed to write config to: " << config_path;
   }
@@ -280,11 +265,19 @@ bool fc::Controller::config_file_modified() const {
   return config_write_time != fs::last_write_time(config_path);
 }
 
-void fc::Controller::join_threads() {
-  for (auto &[key, ft] : threads) { // Wait for all threads to shutdown
-    if (ft.t.joinable())
-      ft.t.join();
-  }
+thread fc::Controller::spawn_watcher() {
+  return thread([this] {
+    while (true) {
+      if (config_file_modified())
+        reload();
+      sleep_for(update_interval);
+    }
+  });
+}
+
+void fc::Controller::notify_devices_observers() const {
+  for (const auto &f : devices_observers)
+    f(devices);
 }
 
 string fc::Controller::date_time_now() {

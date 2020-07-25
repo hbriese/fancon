@@ -183,6 +183,7 @@ string fc::Util::map_str(const std::map<K, T> m) {
 template <class T>
 void fc::Util::Observable<T>::register_observer(
     std::function<void(T &)> callback) {
+  callback(value);
   observers.emplace_back(move(callback));
 }
 

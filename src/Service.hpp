@@ -22,7 +22,8 @@ using grpc::ServerContext;
 using grpc::ServerReader;
 using grpc::ServerReaderWriter;
 using grpc::ServerWriter;
-using grpc::Status;
+using GStatus = grpc::Status;
+using GStatusCode = grpc::StatusCode;
 using std::lock_guard;
 using std::mutex;
 
@@ -34,42 +35,43 @@ public:
 
   void run();
 
-  Status StopService(ServerContext *context, const fc_pb::Empty *e,
-                     fc_pb::Empty *resp) override;
-  Status Enable(ServerContext *context, const fc_pb::Empty *e,
-                fc_pb::Empty *resp) override;
-  Status Disable(ServerContext *context, const fc_pb::Empty *e,
+  GStatus StopService(ServerContext *context, const fc_pb::Empty *e,
+                      fc_pb::Empty *resp) override;
+  GStatus GetDevices(ServerContext *context, const fc_pb::Empty *e,
+                     fc_pb::Devices *devices) override;
+  GStatus SetDevices(ServerContext *context, const fc_pb::Devices *devices,
+                     fc_pb::Empty *e) override;
+  GStatus SubscribeDevices(ServerContext *context, const fc_pb::Empty *e,
+                           ServerWriter<fc_pb::Devices> *writer) override;
+  GStatus GetEnumeratedDevices(ServerContext *context, const fc_pb::Empty *req,
+                               fc_pb::Devices *devices) override;
+  GStatus GetControllerConfig(ServerContext *context, const fc_pb::Empty *e,
+                              fc_pb::ControllerConfig *config) override;
+  GStatus SetControllerConfig(ServerContext *context,
+                              const fc_pb::ControllerConfig *config,
+                              fc_pb::Empty *e) override;
+
+  GStatus Status(ServerContext *context, const fc_pb::FanLabel *l,
+                 fc_pb::FanStatus *status) override;
+  GStatus Enable(ServerContext *context, const fc_pb::FanLabel *l,
                  fc_pb::Empty *resp) override;
-  Status Reload(ServerContext *context, const fc_pb::Empty *e,
-                fc_pb::Empty *resp) override;
-  Status NvInit(ServerContext *context, const fc_pb::Empty *e,
-                fc_pb::Empty *resp) override;
-  Status ControllerStatus(ServerContext *context, const fc_pb::Empty *e,
-                          fc_pb::ControllerState *resp) override;
-
-  Status GetDevices(ServerContext *context, const fc_pb::Empty *e,
-                    fc_pb::Devices *devices) override;
-  Status SetDevices(ServerContext *context, const fc_pb::Devices *devices,
-                    fc_pb::Empty *e) override;
-  Status GetEnumeratedDevices(ServerContext *context, const fc_pb::Empty *req,
-                              fc_pb::Devices *devices) override;
-  Status Test(ServerContext *context, const fc_pb::TestRequest *e,
-              ServerWriter<fc_pb::TestResponse> *writer) override;
-
-  Status GetControllerConfig(ServerContext *context, const fc_pb::Empty *e,
-                             fc_pb::ControllerConfig *config) override;
-  Status SetControllerConfig(ServerContext *context,
-                             const fc_pb::ControllerConfig *config,
-                             fc_pb::Empty *e) override;
+  GStatus EnableAll(ServerContext *context, const fc_pb::Empty *e,
+                    fc_pb::Empty *resp) override;
+  GStatus Disable(ServerContext *context, const fc_pb::FanLabel *l,
+                  fc_pb::Empty *resp) override;
+  GStatus DisableAll(ServerContext *context, const fc_pb::Empty *e,
+                     fc_pb::Empty *resp) override;
+  GStatus Test(ServerContext *context, const fc_pb::TestRequest *e,
+               ServerWriter<fc_pb::TestResponse> *writer) override;
+  GStatus Reload(ServerContext *context, const fc_pb::Empty *e,
+                 fc_pb::Empty *resp) override;
+  GStatus NvInit(ServerContext *context, const fc_pb::Empty *e,
+                 fc_pb::Empty *resp) override;
 
 private:
   fc::Controller controller;
   unique_ptr<Server> server;
-  thread controller_thread;
-  mutex test_writer_mutex;
 
-  void enable_controller();
-  void disable_controller();
   static void daemonize();
 
   //  static void signal_handler(int signal);

@@ -76,7 +76,10 @@ void fc::SensorChips::enumerate(FanMap &fans, SensorMap &sensors) {
   }
 }
 
-fc::Devices::Devices(bool dry_run) {
+fc::Devices::Devices(bool enumerate, bool dry_run) {
+  if (!enumerate)
+    return;
+
   SensorChips().enumerate(fans, sensors);
 
 #ifdef FANCON_NVIDIA_SUPPORT
@@ -172,7 +175,6 @@ void fc::Devices::from(const fc_pb::Devices &d) {
     if (f->valid()) {
       const string uid = f->hw_id(), label = f->label;
       if (uids.count(uid) == 0) {
-        LOG(llvl::debug) << *f << ": imported";
         uids.emplace(uid);
         fans.insert_or_assign(label, move(f));
       } else {

@@ -31,7 +31,7 @@ private:
 class Devices {
 public:
   Devices() = default;
-  explicit Devices(bool dry_run);
+  explicit Devices(bool enumerate, bool dry_run = false);
 
   FanMap fans;
   SensorMap sensors;

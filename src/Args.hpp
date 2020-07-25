@@ -11,7 +11,7 @@ using fc::Util::is_root;
 
 namespace fc {
 static const char *DEFAULT_CONF_PATH(FANCON_SYSCONFDIR "/fancon.conf"),
-    *DEFAULT_SYSINFO_PATH = "fancon_sysinfo.txt";
+    *DEFAULT_SYSINFO_PATH = "sysinfo.txt";
 
 class Arg {
 public:
@@ -27,11 +27,13 @@ public:
 
 class Args {
 public:
-  Arg help = {"help", "h"}, status = {"status", "s"}, enable = {"enable"},
-      disable = {"disable"}, reload = {"reload"},
+  Arg help = {"help", "h"}, status = {"status", "s"},
+      enable = {"enable", "e", true, false},
+      disable = {"disable", "d", true, false},
       test = {"test", "t", true, false}, force = {"force", "f"},
+      reload = {"reload", "r"},
       config = {"config", "c", true, true, DEFAULT_CONF_PATH, true},
-      service = {"service"}, daemon = {"daemon", "d"},
+      service = {"service"}, daemon = {"daemon"},
       stop_service = {"stop-service"},
       sysinfo = {"sysinfo", "i", true, true, DEFAULT_SYSINFO_PATH},
       nv_init = {"nv-init"}, verbose = {"verbose", "v"}, trace = {"trace", "a"};
@@ -40,9 +42,9 @@ public:
                                  {status.key, status},
                                  {enable.key, enable},
                                  {disable.key, disable},
-                                 {reload.key, reload},
                                  {test.key, test},
                                  {force.key, force},
+                                 {reload.key, reload},
                                  {config.key, config},
                                  {service.key, service},
                                  {daemon.key, daemon},

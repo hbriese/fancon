@@ -47,6 +47,10 @@ message Fan {
     uint32 id = 20;
 }
 
+message FanLabel {
+    string label = 1;
+}
+
 message Sensor {
     DevType type = 1;
     string label = 2;
@@ -72,31 +76,32 @@ message TestResponse {
     int32 status = 1;
 }
 
-message ControllerState {
-    enum State {
+message FanStatus {
+    enum Status {
         ENABLED = 0;
         DISABLED = 1;
-        RELOAD = 2;
+        TESTING = 2;
     }
-    State state = 1;
+    Status status = 1;
 }
 
 message Empty {}
 
 service DService {
     rpc StopService(Empty) returns (Empty) {}
-    rpc Enable(Empty) returns (Empty) {}
-    rpc Disable(Empty) returns (Empty) {}
-    rpc Reload(Empty) returns (Empty) {}
-    rpc NvInit(Empty) returns (Empty) {}
-    rpc ControllerStatus(Empty) returns (ControllerState) {}
-
     rpc GetDevices(Empty) returns (Devices) {}
     rpc SetDevices(Devices) returns (Empty) {}
+    rpc SubscribeDevices(Empty) returns (stream Devices) {}
     rpc GetEnumeratedDevices(Empty) returns (Devices) {}
-    rpc Test(TestRequest) returns (stream TestResponse) {}
-    
     rpc GetControllerConfig(Empty) returns (ControllerConfig) {}
     rpc SetControllerConfig(ControllerConfig) returns (Empty) {}
-
+    
+    rpc Status(FanLabel) returns (FanStatus) {}
+    rpc Enable(FanLabel) returns (Empty) {}
+    rpc EnableAll(Empty) returns (Empty) {}
+    rpc Disable(FanLabel) returns (Empty) {}
+    rpc DisableAll(Empty) returns (Empty) {}
+    rpc Test(TestRequest) returns (stream TestResponse) {}
+    rpc Reload(Empty) returns (Empty) {}
+    rpc NvInit(Empty) returns (Empty) {}
 }
