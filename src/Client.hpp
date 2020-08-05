@@ -6,12 +6,15 @@
 #include "proto/DevicesSpec.grpc.pb.h"
 #include "proto/DevicesSpec.pb.h"
 #include <grpcpp/grpcpp.h>
+#include <sstream>
 
 using fc::Args;
 using fc_pb::Empty;
 using grpc::ClientContext;
 using grpc::Status;
 using grpc::StatusCode;
+using std::setw;
+using std::stringstream;
 
 namespace fc {
 class Client {

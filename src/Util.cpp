@@ -40,7 +40,7 @@ string fc::Util::join(std::initializer_list<pair<bool, string>> args,
 
   std::stringstream ss;
   for (size_t i = 0; i < to_join.size(); ++i) {
-    ss << to_join[i]->second;
+    ss << to_join.at(i)->second;
     if (i < to_join.size() - 1)
       ss << join_with;
   }

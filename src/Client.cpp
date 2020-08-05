@@ -63,7 +63,7 @@ void fc::Client::run(Args &args) {
 void fc::Client::stop_service() {
   ClientContext context;
   if (check(client->StopService(&context, empty, &empty)))
-    LOG(llvl::info) << "Stopped service";
+    LOG(llvl::info) << "Service stopped";
   else
     LOG(llvl::error) << "Failed to stop service";
 }
@@ -71,7 +71,6 @@ void fc::Client::stop_service() {
 optional<fc_pb::Devices> fc::Client::get_devices() {
   ClientContext context;
   fc_pb::Devices devices;
-
   if (!check(client->GetDevices(&context, empty, &devices)))
     return nullopt;
 
@@ -81,7 +80,6 @@ optional<fc_pb::Devices> fc::Client::get_devices() {
 optional<fc_pb::Devices> fc::Client::get_enumerated_devices() {
   ClientContext context;
   fc_pb::Devices devices;
-
   if (!check(client->GetEnumeratedDevices(&context, empty, &devices)))
     return nullopt;
 
@@ -95,21 +93,34 @@ void fc::Client::status() {
     return;
   }
 
+  // Find the status of all devices
+  size_t longest_label = 0;
+  vector<fc_pb::FanStatus> statuses;
   for (const auto &f : devices->fan()) {
     ClientContext context;
-    fc_pb::FanLabel req = from(f.label());
-
     fc_pb::FanStatus status;
-    if (check(client->Status(&context, req, &status)))
-      LOG(llvl::info) << f.label() << ": " << status_text(status.status());
+    if (check(client->GetFanStatus(&context, from(f.label()), &status))) {
+      if (const auto l = status.label().length(); l > longest_label)
+        longest_label = l;
+      statuses.push_back(move(status));
+    }
+  }
+
+  // Write out all the collected status, width adjusting the outputs
+  for (const auto &s : statuses) {
+    stringstream extras;
+    if (s.status() != FanStatus::FanStatus_Status_DISABLED)
+      extras << " " << setw(5) << s.rpm() << "rpm " << setw(3) << s.pwm()
+             << "pwm";
+
+    cout << setw(longest_label) << s.label() << ": " << setw(8)
+         << status_text(s.status()) << extras.rdbuf() << endl;
   }
 }
 
 void fc::Client::enable(const string &flabel) {
   ClientContext context;
-  fc_pb::FanLabel req = from(flabel);
-
-  if (check(client->Enable(&context, req, &empty)))
+  if (check(client->Enable(&context, from(flabel), &empty)))
     LOG(llvl::info) << flabel << ": enabled";
 }
 
@@ -121,9 +132,7 @@ void fc::Client::enable() {
 
 void fc::Client::disable(const string &flabel) {
   ClientContext context;
-  fc_pb::FanLabel req = from(flabel);
-
-  if (check(client->Disable(&context, req, &empty)))
+  if (check(client->Disable(&context, from(flabel), &empty)))
     LOG(llvl::info) << flabel << ": disabled";
 }
 

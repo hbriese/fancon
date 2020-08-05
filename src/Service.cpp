@@ -34,37 +34,30 @@ void fc::Service::run() {
   }
 }
 
-GStatus fc::Service::StopService([[maybe_unused]] ServerContext *context,
-                                 [[maybe_unused]] const fc_pb::Empty *e,
-                                 [[maybe_unused]] fc_pb::Empty *resp) {
-  thread([&] { server->Shutdown(); }).detach();
-  return GStatus::OK;
-}
-
-GStatus fc::Service::GetDevices([[maybe_unused]] ServerContext *context,
+Status fc::Service::StopService([[maybe_unused]] ServerContext *context,
                                 [[maybe_unused]] const fc_pb::Empty *e,
-                                fc_pb::Devices *devices) {
+                                [[maybe_unused]] fc_pb::Empty *resp) {
+  thread([&] { server->Shutdown(); }).detach();
+  return Status::OK;
+}
+
+Status fc::Service::GetDevices([[maybe_unused]] ServerContext *context,
+                               [[maybe_unused]] const fc_pb::Empty *e,
+                               fc_pb::Devices *devices) {
   controller.devices.to(*devices);
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus fc::Service::SetDevices([[maybe_unused]] ServerContext *context,
-                                const fc_pb::Devices *devices,
-                                [[maybe_unused]] fc_pb::Empty *e) {
-  controller.devices = fc::Devices();
-  controller.devices.from(*devices);
-  return GStatus::OK;
+Status fc::Service::SetDevices([[maybe_unused]] ServerContext *context,
+                               const fc_pb::Devices *devices,
+                               [[maybe_unused]] fc_pb::Empty *e) {
+  controller.set_devices(*devices);
+  return Status::OK;
 }
 
-GStatus fc::Service::SubscribeDevices([[maybe_unused]] ServerContext *context,
-                                      [[maybe_unused]] const fc_pb::Empty *e,
-                                      ServerWriter<fc_pb::Devices> *writer) {
-  { // Send the initial state
-    fc_pb::Devices resp;
-    controller.devices.to(resp);
-    writer->Write(resp);
-  }
-
+Status fc::Service::SubscribeDevices([[maybe_unused]] ServerContext *context,
+                                     [[maybe_unused]] const fc_pb::Empty *e,
+                                     ServerWriter<fc_pb::Devices> *writer) {
   bool still_receiving = true;
   auto cb = [&](const fc::Devices &devices) {
     if (still_receiving) {
@@ -75,95 +68,135 @@ GStatus fc::Service::SubscribeDevices([[maybe_unused]] ServerContext *context,
     }
   };
 
+  // Send the initial state
+  cb(controller.devices);
+
   // Register the listener
   const auto it = controller.devices_observers.insert(
       controller.devices_observers.end(), move(cb));
 
   while (still_receiving)
-    sleep_for(milliseconds(200));
+    sleep_for(sleep_interval);
 
   // Remove the listener once the client is no longer receiving
   controller.devices_observers.erase(it);
 
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus
+Status
 fc::Service::GetEnumeratedDevices([[maybe_unused]] ServerContext *context,
                                   [[maybe_unused]] const fc_pb::Empty *req,
                                   fc_pb::Devices *devices) {
   Devices(true, true).to(*devices);
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus
-fc::Service::GetControllerConfig([[maybe_unused]] ServerContext *context,
-                                 [[maybe_unused]] const fc_pb::Empty *e,
-                                 fc_pb::ControllerConfig *config) {
+Status fc::Service::GetControllerConfig([[maybe_unused]] ServerContext *context,
+                                        [[maybe_unused]] const fc_pb::Empty *e,
+                                        fc_pb::ControllerConfig *config) {
   controller.to(*config);
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus
-fc::Service::SetControllerConfig([[maybe_unused]] ServerContext *context,
-                                 const fc_pb::ControllerConfig *config,
-                                 [[maybe_unused]] fc_pb::Empty *e) {
+Status fc::Service::SetControllerConfig([[maybe_unused]] ServerContext *context,
+                                        const fc_pb::ControllerConfig *config,
+                                        [[maybe_unused]] fc_pb::Empty *e) {
   controller.from(*config);
   controller.reload();
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus fc::Service::Status([[maybe_unused]] ServerContext *context,
-                            const fc_pb::FanLabel *l,
-                            fc_pb::FanStatus *status) {
-  if (!controller.devices.fans.contains(l->label()))
-    return GStatus(GStatusCode::NOT_FOUND, l->label());
+Status fc::Service::GetFanStatus([[maybe_unused]] ServerContext *context,
+                                 const fc_pb::FanLabel *l,
+                                 fc_pb::FanStatus *status) {
+  const auto fit = controller.devices.fans.find(l->label());
+  if (fit == controller.devices.fans.end())
+    return Status(StatusCode::NOT_FOUND, l->label());
 
+  status->set_label(l->label());
   status->set_status(controller.status(l->label()));
-  return GStatus::OK;
+  status->set_rpm(fit->second->get_rpm());
+  status->set_pwm(fit->second->get_pwm());
+  return Status::OK;
 }
 
-GStatus fc::Service::Enable([[maybe_unused]] ServerContext *context,
-                            const fc_pb::FanLabel *l,
-                            [[maybe_unused]] fc_pb::Empty *e) {
+Status fc::Service::SubscribeFanStatus([[maybe_unused]] ServerContext *context,
+                                       [[maybe_unused]] const fc_pb::Empty *e,
+                                       ServerWriter<fc_pb::FanStatus> *writer) {
+  mutex m;
+  bool still_receiving = true;
+  auto cb = [&](const FanInterface &f, const FanStatus status) {
+    if (still_receiving) {
+      fc_pb::FanStatus resp;
+      resp.set_label(f.label);
+      resp.set_status(status);
+      resp.set_rpm(f.get_rpm());
+      resp.set_pwm(f.get_pwm());
+      const lock_guard<mutex> lg(m);
+      if (!writer->Write(resp))
+        still_receiving = false;
+    }
+  };
+
+  // Send the initial status
+  for (const auto &[flabel, f] : controller.devices.fans)
+    cb(*f, controller.status(flabel));
+
+  // Register the listener, sending status on changes
+  const auto it = controller.status_observers.insert(
+      controller.status_observers.end(), move(cb));
+
+  while (still_receiving)
+    sleep_for(sleep_interval);
+
+  // Remove the listener once the client is no longer receiving
+  controller.status_observers.erase(it);
+
+  return Status::OK;
+}
+
+Status fc::Service::Enable([[maybe_unused]] ServerContext *context,
+                           const fc_pb::FanLabel *l,
+                           [[maybe_unused]] fc_pb::Empty *e) {
   auto it = controller.devices.fans.find(l->label());
   if (it == controller.devices.fans.end())
-    return GStatus(GStatusCode::NOT_FOUND, l->label());
+    return Status(StatusCode::NOT_FOUND, l->label());
 
   controller.enable(*it->second);
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus fc::Service::EnableAll([[maybe_unused]] ServerContext *context,
-                               [[maybe_unused]] const fc_pb::Empty *e,
-                               [[maybe_unused]] fc_pb::Empty *resp) {
+Status fc::Service::EnableAll([[maybe_unused]] ServerContext *context,
+                              [[maybe_unused]] const fc_pb::Empty *e,
+                              [[maybe_unused]] fc_pb::Empty *resp) {
   controller.enable_all();
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus fc::Service::Disable([[maybe_unused]] ServerContext *context,
-                             const fc_pb::FanLabel *l,
-                             [[maybe_unused]] fc_pb::Empty *resp) {
+Status fc::Service::Disable([[maybe_unused]] ServerContext *context,
+                            const fc_pb::FanLabel *l,
+                            [[maybe_unused]] fc_pb::Empty *resp) {
   if (!controller.devices.fans.contains(l->label()))
-    return GStatus(GStatusCode::NOT_FOUND, l->label());
+    return Status(StatusCode::NOT_FOUND, l->label());
 
   controller.disable(l->label());
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus fc::Service::DisableAll([[maybe_unused]] ServerContext *context,
-                                [[maybe_unused]] const fc_pb::Empty *e,
-                                [[maybe_unused]] fc_pb::Empty *resp) {
+Status fc::Service::DisableAll([[maybe_unused]] ServerContext *context,
+                               [[maybe_unused]] const fc_pb::Empty *e,
+                               [[maybe_unused]] fc_pb::Empty *resp) {
   controller.disable_all();
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus fc::Service::Test([[maybe_unused]] ServerContext *context,
-                          const fc_pb::TestRequest *e,
-                          ServerWriter<fc_pb::TestResponse> *writer) {
+Status fc::Service::Test([[maybe_unused]] ServerContext *context,
+                         const fc_pb::TestRequest *e,
+                         ServerWriter<fc_pb::TestResponse> *writer) {
   auto it = controller.devices.fans.find(e->device_label());
   if (it == controller.devices.fans.end())
-    return GStatus(GStatusCode::NOT_FOUND, e->device_label());
+    return Status(StatusCode::NOT_FOUND, e->device_label());
 
   auto cb = [&](int &status) {
     fc_pb::TestResponse resp;
@@ -176,21 +209,21 @@ GStatus fc::Service::Test([[maybe_unused]] ServerContext *context,
 
   controller.test(*it->second, e->forced(), cb);
 
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus fc::Service::Reload([[maybe_unused]] ServerContext *context,
-                            [[maybe_unused]] const fc_pb::Empty *e,
-                            [[maybe_unused]] fc_pb::Empty *resp) {
+Status fc::Service::Reload([[maybe_unused]] ServerContext *context,
+                           [[maybe_unused]] const fc_pb::Empty *e,
+                           [[maybe_unused]] fc_pb::Empty *resp) {
   controller.reload();
-  return GStatus::OK;
+  return Status::OK;
 }
 
-GStatus fc::Service::NvInit([[maybe_unused]] ServerContext *context,
-                            [[maybe_unused]] const fc_pb::Empty *e,
-                            [[maybe_unused]] fc_pb::Empty *resp) {
+Status fc::Service::NvInit([[maybe_unused]] ServerContext *context,
+                           [[maybe_unused]] const fc_pb::Empty *e,
+                           [[maybe_unused]] fc_pb::Empty *resp) {
   controller.nv_init();
-  return GStatus::OK;
+  return Status::OK;
 }
 
 void fc::Service::daemonize() {

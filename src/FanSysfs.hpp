@@ -17,21 +17,22 @@ public:
   void test(Observable<int> &status) override;
   bool enable_control() const override;
   bool disable_control() const override;
+  Pwm get_pwm() const override;
+  Rpm get_rpm() const override;
+  bool valid() const override;
+  string hw_id() const override;
+  virtual DevType type() const override;
 
   void from(const fc_pb::Fan &f, const SensorMap &sensor_map) override;
   void to(fc_pb::Fan &f) const override;
-  bool valid() const override;
-  string hw_id() const override;
 
 protected:
   path pwm_path, rpm_path, enable_path;
   control_flag_t manual_flag = 1, driver_flag = 2;
 
   bool set_pwm(const Pwm pwm) const override;
-  Pwm get_pwm() const override;
-  Rpm get_rpm() const override;
-
   virtual void test_driver_enable_flag();
+
   static path get_pwm_path(const path &adapter_path, int dev_id);
   static path get_rpm_path(const path &adapter_path, int dev_id);
   static path get_enable_path(const path &adapter_path, int dev_id);

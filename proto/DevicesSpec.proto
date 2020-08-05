@@ -36,12 +36,12 @@ message Fan {
     bool ignore = 8;
 
     // SYS & DELL
-    string pwm_path = 10;
-    string rpm_path = 11;
+    int32 driver_flag = 10;
+    string pwm_path = 11;
+    string rpm_path = 12;
     
     // SYS
-    string enable_path = 12;    
-    int32 driver_flag = 13;
+    string enable_path = 13;    
 
     // NV
     uint32 id = 20;
@@ -82,7 +82,10 @@ message FanStatus {
         DISABLED = 1;
         TESTING = 2;
     }
-    Status status = 1;
+    string label = 1;
+    Status status = 2;
+    uint32 rpm = 3;
+    uint32 pwm = 4;
 }
 
 message Empty {}
@@ -96,7 +99,8 @@ service DService {
     rpc GetControllerConfig(Empty) returns (ControllerConfig) {}
     rpc SetControllerConfig(ControllerConfig) returns (Empty) {}
     
-    rpc Status(FanLabel) returns (FanStatus) {}
+    rpc GetFanStatus(FanLabel) returns (FanStatus) {}
+    rpc SubscribeFanStatus(Empty) returns (stream FanStatus) {}
     rpc Enable(FanLabel) returns (Empty) {}
     rpc EnableAll(Empty) returns (Empty) {}
     rpc Disable(FanLabel) returns (Empty) {}

@@ -8,13 +8,12 @@
 #include "Util.hpp"
 #include "proto/DevicesSpec.pb.h"
 
+using fc::Util::Observable;
+using fc_pb::DevType;
 using std::abs;
-using std::min;
 using std::min;
 using std::next;
 using std::stoi;
-using fc::Util::Observable;
-
 using Pwm = int;
 using Rpm = int;
 using Percent = uint;
@@ -23,13 +22,14 @@ using Pwm_to_Rpm_Map = std::map<Pwm, Rpm>;
 using Temp_to_Rpm_Map = std::map<Temp, Rpm>;
 
 namespace fc {
+extern milliseconds update_interval;
 extern bool dynamic;
 extern uint smoothing_intervals;
 extern uint top_stickiness_intervals;
 enum class ControllerState;
 extern ControllerState controller_state;
 
-const Pwm pwm_min_abs = 0, pwm_max_abs = 255;
+const Pwm PWM_MIN = 0, PWM_MAX = 255;
 
 class FanInterface {
 public:
@@ -45,18 +45,21 @@ public:
   milliseconds interval{0};
   bool ignore{false};
 
-  bool update();
+  void update();
   virtual void test(Observable<int> &status);
   bool tested() const;
   bool pre_start_check() const;
 
   virtual bool enable_control() const = 0;
   virtual bool disable_control() const = 0;
+  virtual Pwm get_pwm() const = 0;
+  virtual Rpm get_rpm() const = 0;
+  virtual bool valid() const = 0;
+  virtual string hw_id() const = 0;
+  virtual DevType type() const = 0;
 
   virtual void from(const fc_pb::Fan &f, const SensorMap &sensor_map);
   virtual void to(fc_pb::Fan &f) const = 0;
-  virtual bool valid() const = 0;
-  virtual string hw_id() const = 0;
 
   friend std::ostream &operator<<(std::ostream &os, const FanInterface &f);
 
@@ -69,9 +72,7 @@ protected:
   } smoothing;
 
   virtual bool set_pwm(const Pwm pwm) const = 0;
-  virtual Pwm get_pwm() const = 0;
-  bool set_rpm(Rpm rpm);
-  virtual Rpm get_rpm() const = 0;
+  Pwm find_closest_pwm(Rpm rpm);
   bool recover_control() const;
   Rpm smooth_rpm(const Rpm rpm);
   void sleep_for_interval() const;

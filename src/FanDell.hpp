@@ -13,10 +13,10 @@ public:
 
   bool enable_control() const override;
   bool disable_control() const override;
+  bool valid() const override;
+  virtual DevType type() const override;
 
   void to(fc_pb::Fan &f) const override;
-
-  bool valid() const override;
 
 private:
   void test_driver_enable_flag() override;

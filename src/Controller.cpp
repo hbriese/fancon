@@ -1,15 +1,15 @@
 #include "Controller.hpp"
 
 namespace fc {
+milliseconds update_interval(500);
 bool dynamic = true;
-uint smoothing_intervals = 3;
-uint top_stickiness_intervals = 2;
-uint temp_averaging_intervals = 3;
+uint smoothing_intervals = 4;
+uint top_stickiness_intervals = 4;
+uint temp_averaging_intervals = 8;
 } // namespace fc
 
 fc::Controller::Controller(path conf_path_) : config_path(move(conf_path_)) {
   load_conf_and_enumerated();
-
   watcher = spawn_watcher();
 }
 
@@ -24,24 +24,28 @@ FanStatus fc::Controller::status(const string &flabel) const {
                                    : FanStatus::FanStatus_Status_ENABLED;
 }
 
-void fc::Controller::enable(fc::FanInterface &f) {
+void fc::Controller::enable(fc::FanInterface &f, bool enable_all_dell) {
   if (fthreads.count(f.label) > 0) {
     LOG(llvl::trace) << f << ": already enabled";
     return;
   }
 
+  // Dell fans can only be enabled/disabled togther
+  if (f.type() == DevType::DELL && enable_all_dell)
+    return enable_dell_fans();
+
   if (!f.pre_start_check())
     return;
 
-  auto update_func = [this, &f]() {
+  auto update_func = [&f]() {
     while (true) {
       f.update();
-      sleep_for(update_interval);
     }
   };
 
   LOG(llvl::trace) << f.label << ": enabled";
   fthreads.try_emplace(f.label, thread(update_func), nullptr);
+  notify_status_observers(f.label);
 }
 
 void fc::Controller::enable_all() {
@@ -51,20 +55,34 @@ void fc::Controller::enable_all() {
   }
 }
 
-void fc::Controller::disable(const string &flabel) {
+void fc::Controller::disable(const string &flabel, bool disable_all_dell) {
   const auto it = fthreads.find(flabel);
-  if (it != fthreads.end()) {
-    fthreads.erase(it);
-    if (const auto fit = devices.fans.find(flabel); fit != devices.fans.end())
-      fit->second->disable_control();
-    LOG(llvl::trace) << flabel << ": disabled";
-  } else {
+  if (it == fthreads.end()) {
     LOG(llvl::error) << flabel << ": failed to find to disable";
+    return;
   }
+
+  // Dell fans can only be enabled/disabled togther
+  if (devices.fans.at(flabel)->type() == DevType::DELL && disable_all_dell)
+    return disable_dell_fans();
+
+  fthreads.erase(it);
+  if (const auto fit = devices.fans.find(flabel); fit != devices.fans.end())
+    fit->second->disable_control();
+
+  LOG(llvl::trace) << flabel << ": disabled";
+  notify_status_observers(flabel);
 }
 
 void fc::Controller::disable_all() {
+  vector<string> disabled_fans;
+  for (const auto &[flabel, fthread] : fthreads)
+    disabled_fans.push_back(flabel);
+
   fthreads.clear();
+  for (const auto &flabel : disabled_fans)
+    notify_status_observers(flabel);
+
   LOG(llvl::trace) << "Disabling all";
 }
 
@@ -72,10 +90,8 @@ void fc::Controller::reload() {
   // Remove all threads not testing
   vector<string> stopped;
   for (auto &[key, fthread] : fthreads) {
-    if (!fthread.is_testing()) {
-      //      fthread.running = false;
+    if (!fthread.is_testing())
       stopped.push_back(key);
-    }
   }
 
   for (const string &key : stopped)
@@ -136,7 +152,7 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced,
 
     // Only write to file when no other fan are still testing
     if (tests_running() == 0)
-      to_file();
+      to_file(false);
 
     enable(fan);
   };
@@ -147,6 +163,7 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced,
   if (!success)
     test(fan, forced, cb);
 
+  notify_status_observers(fan.label);
   it->second.join();
 }
 
@@ -155,6 +172,14 @@ size_t fc::Controller::tests_running() const {
     return sum + int(p.second.is_testing());
   };
   return std::accumulate(fthreads.begin(), fthreads.end(), 0, f);
+}
+
+void fc::Controller::set_devices(const fc_pb::Devices &devices_) {
+  disable_all();
+  devices = fc::Devices(false);
+  devices.from(devices_);
+  to_file(false);
+  enable_all();
 }
 
 void fc::Controller::from(const fc_pb::Controller &c) {
@@ -205,6 +230,20 @@ void fc::Controller::to(fc_pb::ControllerConfig &c) const {
   c.set_temp_averaging_intervals(temp_averaging_intervals);
 }
 
+void fc::Controller::enable_dell_fans() {
+  for (const auto &[fl, f] : devices.fans) {
+    if (f->type() == DevType::DELL)
+      enable(*f, false);
+  }
+}
+
+void fc::Controller::disable_dell_fans() {
+  for (const auto &[fl, f] : devices.fans) {
+    if (f->type() == DevType::DELL)
+      disable(fl, false);
+  }
+}
+
 void fc::Controller::load_conf_and_enumerated() {
   devices = fc::Devices(true);
 
@@ -242,7 +281,10 @@ void fc::Controller::to_file(bool backup) {
   to(c);
 
   string out_s;
-  google::protobuf::TextFormat::PrintToString(c, &out_s);
+  google::protobuf::TextFormat::Printer printer;
+  printer.SetUseShortRepeatedPrimitives(true);
+
+  printer.PrintToString(c, &out_s);
   ofs << out_s;
 
   if (ofs) {
@@ -278,6 +320,16 @@ thread fc::Controller::spawn_watcher() {
 void fc::Controller::notify_devices_observers() const {
   for (const auto &f : devices_observers)
     f(devices);
+}
+
+void fc::Controller::notify_status_observers(const string &flabel) {
+  const auto fit = devices.fans.find(flabel);
+  if (fit == devices.fans.end())
+    return;
+
+  const FanStatus fstatus = status(flabel);
+  for (const auto &f : status_observers)
+    f(*fit->second, fstatus);
 }
 
 string fc::Controller::date_time_now() {

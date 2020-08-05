@@ -13,22 +13,23 @@ public:
   FanNV(string label, NVID id);
   ~FanNV() override;
 
-  void from(const fc_pb::Fan &f, const SensorMap &sensor_map) override;
-  void to(fc_pb::Fan &f) const override;
+  bool enable_control() const override;
+  bool disable_control() const override;
+  Pwm get_pwm() const override;
+  Rpm get_rpm() const override;
   bool valid() const override;
   string hw_id() const override;
+  virtual DevType type() const override;
+
+  void from(const fc_pb::Fan &f, const SensorMap &sensor_map) override;
+  void to(fc_pb::Fan &f) const override;
 
   static void enumerate(FanMap &fans);
 
 private:
   NVID id{0};
 
-  Rpm get_rpm() const override;
-  Pwm get_pwm() const override;
   bool set_pwm(const Pwm pwm) const override;
-
-  bool enable_control() const override;
-  bool disable_control() const override;
 
   static Percent pwm_to_percent(const Pwm pwm);
   static Pwm percent_to_pwm(const Percent percent);

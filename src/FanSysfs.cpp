@@ -44,7 +44,7 @@ void fc::FanSysfs::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
 
 void fc::FanSysfs::to(fc_pb::Fan &f) const {
   fc::FanInterface::to(f);
-  f.set_type(fc_pb::SYS);
+  f.set_type(type());
   f.set_pwm_path(pwm_path);
   f.set_rpm_path(rpm_path);
   f.set_enable_path(enable_path);
@@ -63,6 +63,8 @@ bool fc::FanSysfs::valid() const {
 }
 
 string fc::FanSysfs::hw_id() const { return pwm_path.c_str(); }
+
+DevType fc::FanSysfs::type() const { return DevType::SYS; }
 
 bool fc::FanSysfs::set_pwm(const Pwm pwm) const {
   if (!Util::write(pwm_path, pwm))

@@ -2,42 +2,56 @@
 
 fc::FanInterface::FanInterface(string label_) : label(move(label_)) {}
 
-bool fc::FanInterface::update() {
+void fc::FanInterface::update() {
+  const auto set = [&](Rpm rpm) {
+    rpm = smooth_rpm(rpm);
+    const Pwm target = find_closest_pwm(rpm);
+    set_pwm(target);
+
+    // Recover control if the PWM changes (after sleeping) from the target
+    sleep_for_interval();
+    //    if (get_pwm() != target) {
+    //      LOG(llvl::debug) << *this << ": mismatch (t, a) = (" << target
+    //                       << ", " << get_pwm() << ")";
+    //      return recover_control();
+    //    }
+  };
+
   const Temp temp = sensor->get_average_temp();
 
   // Lower bound is >=; Upper bound is >
   auto floor_it = temp_to_rpm.lower_bound(temp); // Floor now >= temp
 
-  // temp >= max temp
+  // temp >= max temp; set to the highest RPM
   if (floor_it == temp_to_rpm.end())
-    return set_rpm(next(floor_it, -1)->second);
+    return set(next(floor_it, -1)->second);
 
-  // temp <= min temp || temp == floor temp
+  // temp <= min temp || temp == floor temp; set to the lowest RPM
   if (floor_it == temp_to_rpm.begin() || floor_it->first == temp)
-    return set_rpm(floor_it->second);
+    return set(floor_it->second);
 
   // min temp < temp < max temp
   if (floor_it->first > temp) // Make floor <= temp
     --floor_it;
 
+  // Static; set to the closest RPM <= temp
   if (!fc::dynamic)
-    return set_rpm(floor_it->second);
+    return set(floor_it->second);
 
+  // Dynamic: find the RPM between the floor & ceiling
   const auto ceil_it = next(floor_it); // ceil > target
-
-  // Find the RPM between the floor & ceiling
   const Rpm rpm_range = ceil_it->second - floor_it->second;
+
   const double temp_range_weight =
       static_cast<double>(temp) / (floor_it->first + ceil_it->first);
   const Rpm dynamic_rpm =
       floor_it->second + std::floor(temp_range_weight * rpm_range);
 
-  return set_rpm(dynamic_rpm);
+  set(dynamic_rpm);
 }
 
 bool fc::FanInterface::tested() const {
-  return (pwm_min_abs <= start_pwm && start_pwm <= pwm_max_abs) &&
-         !rpm_to_pwm.empty();
+  return (PWM_MIN <= start_pwm && start_pwm <= PWM_MAX) && !rpm_to_pwm.empty();
 }
 
 bool fc::FanInterface::pre_start_check() const {
@@ -59,29 +73,28 @@ bool fc::FanInterface::pre_start_check() const {
   return false;
 }
 
-bool fc::FanInterface::set_rpm(Rpm rpm) {
-  rpm = smooth_rpm(rpm);
-
+Pwm fc::FanInterface::find_closest_pwm(Rpm rpm) {
   // Find RPM closest to rpm
   const auto ge_it = rpm_to_pwm.lower_bound(rpm); // >= rpm
   if (ge_it == rpm_to_pwm.begin())                // rpm < the min point
-    return set_pwm(ge_it->second);
+    return ge_it->second;
 
   const auto le_it = next(ge_it, -1); // <= rpm
 
   // Choose the closer of two points, choosing the lower point if tied
-  const Pwm target = ((rpm - le_it->first) <= (ge_it->first - rpm))
-                         ? le_it->second
-                         : ge_it->second;
+  Pwm pwm = ((rpm - le_it->first) <= (ge_it->first - rpm)) ? le_it->second
+                                                           : ge_it->second;
 
-  const bool req_starting = target > 0 && target < start_pwm && get_rpm() == 0;
-  return set_pwm((req_starting) ? start_pwm : target);
+  const bool needs_starting = pwm > 0 && pwm < start_pwm && get_rpm() == 0;
+  return (needs_starting) ? start_pwm : pwm;
 }
 
 bool fc::FanInterface::recover_control() const {
-  for (auto i = 1; i <= 3; ++i, sleep_for_interval())
-    if (enable_control())
+  for (auto i = 1; i <= 5; ++i, sleep_for_interval())
+    if (enable_control()) {
+      LOG(llvl::debug) << *this << ": recovering control";
       return true;
+    }
 
   LOG(llvl::warning) << *this << ": lost control";
   return false;
@@ -126,7 +139,7 @@ Rpm fc::FanInterface::smooth_rpm(const Rpm rpm) {
 }
 
 void fc::FanInterface::sleep_for_interval() const {
-  sleep_for((interval.count() > 0) ? interval : milliseconds(500));
+  sleep_for((interval.count() > 0) ? interval : fc::update_interval);
 }
 
 void fc::FanInterface::test(Observable<int> &status) {
@@ -182,7 +195,7 @@ optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) const {
 
 bool fc::FanInterface::set_pwm_test() const {
   for (int i = 0; i < 3; ++i) {
-    const Pwm target = (get_pwm() != pwm_min_abs) ? pwm_min_abs : pwm_max_abs;
+    const Pwm target = (get_pwm() != PWM_MIN) ? PWM_MIN : PWM_MAX;
     if (set_stabilised_pwm(target).has_value())
       return true;
   }
@@ -190,20 +203,20 @@ bool fc::FanInterface::set_pwm_test() const {
 }
 
 void fc::FanInterface::test_stopped(Pwm_to_Rpm_Map &pwm_to_rpm) {
-  set_stabilised_pwm(pwm_min_abs);
+  set_stabilised_pwm(PWM_MIN);
   pwm_to_rpm[get_pwm()] = get_rpm(); // Ideally RPM will now be 0
 }
 
 void fc::FanInterface::test_start(Pwm_to_Rpm_Map &pwm_to_rpm) {
-  Pwm target_pwm = fc::pwm_min_abs;
+  Pwm target_pwm = fc::PWM_MIN;
   optional<Rpm> cur_rpm = 0;
-  while ((!cur_rpm || *cur_rpm == 0) && target_pwm <= fc::pwm_max_abs) {
+  while ((!cur_rpm || *cur_rpm == 0) && target_pwm <= fc::PWM_MAX) {
     cur_rpm = set_stabilised_pwm(target_pwm);
     target_pwm += 2;
   }
 
   // Driver may have altered the PWM from that set, also be conservative
-  target_pwm = min(target_pwm + 6, pwm_max_abs);
+  target_pwm = min(target_pwm + 6, PWM_MAX);
   sleep_for_interval();
   start_pwm = get_pwm();
   pwm_to_rpm[start_pwm] = *cur_rpm;
@@ -213,15 +226,15 @@ void fc::FanInterface::test_interval(Pwm_to_Rpm_Map &pwm_to_rpm) {
   if (interval > milliseconds(0)) // Use user's set interval if configured
     return;
 
-  set_stabilised_pwm(pwm_min_abs);
+  set_stabilised_pwm(PWM_MIN);
 
   // Method 1: time taken from min pwm (stopped) to start RPM
   // Method 2: if fan can't stop - time taken from min pwm to max pwm
   const auto start =
       (!pwm_to_rpm.empty()) ? next(pwm_to_rpm.begin()) : pwm_to_rpm.end();
-  const Pwm target_pwm = (start_pwm != pwm_min_abs && start != pwm_to_rpm.end())
+  const Pwm target_pwm = (start_pwm != PWM_MIN && start != pwm_to_rpm.end())
                              ? start->first
-                             : pwm_max_abs;
+                             : PWM_MAX;
 
   const auto pre = chrono::high_resolution_clock::now();
   if (!set_stabilised_pwm(target_pwm))
@@ -237,7 +250,7 @@ void fc::FanInterface::test_running_min(Pwm_to_Rpm_Map &pwm_to_rpm) {
   vector<tuple<Pwm, Rpm>> results;
   Pwm target_pwm = start_pwm;
 
-  for (optional<Rpm> cur_rpm; target_pwm >= pwm_min_abs; target_pwm -= 2) {
+  for (optional<Rpm> cur_rpm; target_pwm >= PWM_MIN; target_pwm -= 2) {
     cur_rpm = set_stabilised_pwm(target_pwm);
     if (!cur_rpm)
       continue;
@@ -257,10 +270,10 @@ void fc::FanInterface::test_running_min(Pwm_to_Rpm_Map &pwm_to_rpm) {
 }
 
 void fc::FanInterface::test_mapping(Pwm_to_Rpm_Map &pwm_to_rpm) {
-  // Record points from start PWM to pwm_max_abs
+  // Record points from start PWM to PWM_MAX
   // Ensure target hits 128 (even) && 255 (odd)
-  Pwm target = min(start_pwm + ((start_pwm % 2 != 0) ? 1 : 2), pwm_max_abs);
-  for (; target <= pwm_max_abs; target += (target < pwm_max_abs - 1) ? 2 : 1) {
+  Pwm target = min(start_pwm + ((start_pwm % 2 != 0) ? 1 : 2), PWM_MAX);
+  for (; target <= PWM_MAX; target += (target < PWM_MAX - 1) ? 2 : 1) {
     if (const auto cur_rpm = set_stabilised_pwm(target); cur_rpm)
       pwm_to_rpm[target] = *cur_rpm;
   }
@@ -312,10 +325,10 @@ Rpm fc::FanInterface::pwm_to_rpm(Pwm pwm) const {
   if (rpm_to_pwm.empty())
     throw runtime_error("RPM to PWM can't be empty!");
 
-  if (pwm < pwm_min_abs || pwm > pwm_max_abs) {
+  if (pwm < PWM_MIN || pwm > PWM_MAX) {
     LOG(llvl::warning) << *this << " temp_to_rpm: " << pwm
                        << " PWM is invalid, valid values are between 0-255";
-    pwm = std::clamp(pwm, pwm_min_abs, pwm_max_abs);
+    pwm = std::clamp(pwm, PWM_MIN, PWM_MAX);
   }
 
   auto it = rpm_to_pwm.begin();
@@ -338,14 +351,14 @@ void fc::FanInterface::temp_to_rpm_from(const string &src) {
   if (rpm_to_pwm.empty()) // Fan needs to be tested first
     return;
 
-  // 1: temp, 2: is_fahrenheit, 3: rpm, 4: is_percent, 5: is_pwm
-  const std::regex reg(R"(\s*(\d+)([fF])?[cC]?:\s*(\d+)\s*(%)?(PWM)?)");
-  string::const_iterator start_it = src.begin(), next_it = src.end();
-  std::smatch m;
-
   const optional<Temp> min_temp = (sensor) ? sensor->min_temp() : nullopt,
                        max_temp = (sensor) ? sensor->max_temp() : nullopt;
 
+  string::const_iterator start_it = src.begin(), next_it = src.end();
+  std::smatch m;
+
+  // 1: temp, 2: is_fahrenheit, 3: rpm, 4: is_percent, 5: is_pwm
+  const std::regex reg(R"((\d+)\s*([fF])?[cC]?\s*[:]\s*(\d+)\s*(%)?(PWM)?)");
   while (std::regex_search(start_it, next_it, m, reg)) {
     const bool is_fahrenheit = m[2].matched, is_percent = m[4].matched,
                is_pwm = m[5].matched;
@@ -355,11 +368,10 @@ void fc::FanInterface::temp_to_rpm_from(const string &src) {
       temp = (5.0 / 9) * (temp - 32);
 
     auto rpm = stoi(m[3]);
-    if (is_percent) {
+    if (is_percent)
       rpm = percent_to_rpm(rpm);
-    } else if (is_pwm) {
+    else if (is_pwm)
       rpm = pwm_to_rpm(rpm);
-    }
 
     temp_to_rpm[temp] = rpm;
 
@@ -378,11 +390,11 @@ void fc::FanInterface::temp_to_rpm_from(const string &src) {
 }
 
 void fc::FanInterface::rpm_to_pwm_from(const string &src) {
-  // 1: rpm, 2: pwm
-  const std::regex reg(R"((\d+):\s*(\d{1,3}))");
   string::const_iterator start_it = src.begin(), next_it = src.end();
   std::smatch m;
 
+  // 1: rpm, 2: pwm
+  const std::regex reg(R"((\d+)\s*:\s*(\d{1,3}))");
   while (std::regex_search(start_it, next_it, m, reg)) {
     rpm_to_pwm[stoi(m[1])] = stoi(m[2]);
 

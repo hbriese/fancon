@@ -18,7 +18,7 @@ void fc::FanNV::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
 
 void fc::FanNV::to(fc_pb::Fan &f) const {
   fc::FanInterface::to(f);
-  f.set_type(fc_pb::NVIDIA);
+  f.set_type(type());
   f.set_id(id);
 }
 
@@ -27,6 +27,8 @@ bool fc::FanNV::valid() const {
 }
 
 string fc::FanNV::hw_id() const { return string("NV:f") + to_string(id); }
+
+DevType fc::FanNV::type() const { return DevType::NVIDIA; }
 
 void fc::FanNV::enumerate(FanMap &fans) {
   NV::init();
@@ -84,11 +86,11 @@ bool fc::FanNV::disable_control() const {
 }
 
 Percent fc::FanNV::pwm_to_percent(const Pwm pwm) {
-  return static_cast<Percent>((static_cast<double>(pwm) / pwm_max_abs) * 100);
+  return static_cast<Percent>((static_cast<double>(pwm) / PWM_MAX) * 100);
 }
 
 Pwm fc::FanNV::percent_to_pwm(const Percent percent) {
-  return static_cast<Pwm>((static_cast<double>(percent) / 100) * pwm_max_abs);
+  return static_cast<Pwm>((static_cast<double>(percent) / 100) * PWM_MAX);
 }
 
 fc::SensorNV::SensorNV(string label, NVID id)
