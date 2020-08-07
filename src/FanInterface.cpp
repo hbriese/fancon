@@ -8,8 +8,9 @@ void fc::FanInterface::update() {
     const Pwm target = find_closest_pwm(rpm);
     set_pwm(target);
 
-    // Recover control if the PWM changes (after sleeping) from the target
     sleep_for_interval();
+
+    // Recover control if the PWM changes (after sleeping) from the target
     //    if (get_pwm() != target) {
     //      LOG(llvl::debug) << *this << ": mismatch (t, a) = (" << target
     //                       << ", " << get_pwm() << ")";
@@ -80,10 +81,14 @@ Pwm fc::FanInterface::find_closest_pwm(Rpm rpm) {
     return ge_it->second;
 
   const auto le_it = next(ge_it, -1); // <= rpm
-
-  // Choose the closer of two points, choosing the lower point if tied
-  Pwm pwm = ((rpm - le_it->first) <= (ge_it->first - rpm)) ? le_it->second
-                                                           : ge_it->second;
+  Pwm pwm;
+  if (ge_it != rpm_to_pwm.end()) {
+    // Choose the closer of two points
+    pwm = ((rpm - le_it->first) <= (ge_it->first - rpm)) ? le_it->second
+                                                         : ge_it->second;
+  } else {
+    pwm = le_it->second;
+  }
 
   const bool needs_starting = pwm > 0 && pwm < start_pwm && get_rpm() == 0;
   return (needs_starting) ? start_pwm : pwm;
