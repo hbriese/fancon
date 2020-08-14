@@ -10,9 +10,7 @@
 // https://github.com/torvalds/linux/blob/master/drivers/hwmon/dell-smm-hwmon.c
 // And Clopez dellfan https://github.com/clopez/dellfan/blob/master/dellfan.c
 namespace fc::SMM {
-extern short smm_found;
-
-enum class InitState { NOT_INITIALIZED, SUCCESSFUL, FAILED } extern init_state;
+extern optional<bool> smm_found, io_initialized;
 
 struct smm_regs {
   unsigned int eax;
@@ -23,7 +21,7 @@ struct smm_regs {
   unsigned int edi __attribute__((packed));
 };
 
-enum Cmd {
+enum Cmd : unsigned int {
   SMM_SET_FAN = 0x01a3,
   SMM_GET_FAN = 0x00a3,
   SMM_GET_SPEED = 0x02a3,
@@ -42,7 +40,7 @@ enum Cmd {
   SMM_GET_DELL_SIG_2 = 0xffa3
 };
 
-enum Result {
+enum Result : unsigned int {
   DELL_SIG = 0x44454C4C,
   DIAG_SIG = 0x44494147,
   FAN_NOT_FOUND = 0xff

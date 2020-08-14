@@ -3,31 +3,25 @@
 using namespace fc;
 
 namespace fc::SMM {
-short smm_found{-1};
-InitState init_state{InitState::NOT_INITIALIZED};
+optional<bool> smm_found = nullopt, io_initialized = nullopt;
 } // namespace fc::SMM
 
 bool SMM::found() {
-  if (smm_found == 0 || smm_found == 1)
-    return smm_found;
+  if (smm_found)
+    return *smm_found;
 
-  for (const auto c : {SMM::SMM_GET_DELL_SIG_1, SMM::SMM_GET_DELL_SIG_2}) {
+  for (const auto sig : {SMM::SMM_GET_DELL_SIG_1, SMM::SMM_GET_DELL_SIG_2}) {
     struct smm_regs regs {};
-    regs.eax = c;
+    regs.eax = sig;
 
-    if (!i8k_smm(regs)) {
-      smm_found = 0;
-      return false;
-    }
+    if (!i8k_smm(regs))
+      return *smm_found = false;
 
-    if (regs.eax == SMM::DIAG_SIG && regs.edx == SMM::DELL_SIG) {
-      smm_found = 1;
-      return true;
-    }
+    if (regs.eax == SMM::DIAG_SIG && regs.edx == SMM::DELL_SIG)
+      return *smm_found = true;
   }
 
-  smm_found = 0;
-  return false;
+  return *smm_found = false;
 }
 
 bool SMM::is_smm_dell(const string_view &sensor_chip_name) {
@@ -71,13 +65,10 @@ int SMM::fan_status(int fan) {
 //}
 
 bool SMM::init_ioperms() {
-  if (SMM::init_state == InitState::NOT_INITIALIZED) {
-    init_state = (ioperm(0xb2, 4, 1) == 0 && ioperm(0x84, 4, 1) == 0)
-                     ? InitState::SUCCESSFUL
-                     : InitState::FAILED;
-  }
+  if (!SMM::io_initialized)
+    *io_initialized = ioperm(0xb2, 4, 1) == 0 && ioperm(0x84, 4, 1) == 0;
 
-  return SMM::init_state == InitState::SUCCESSFUL;
+  return *SMM::io_initialized;
 }
 
 bool SMM::i8k_smm(smm_regs &regs) {

@@ -12,17 +12,16 @@ fc::Client::Client() {
 }
 
 void fc::Client::run(Args &args) {
-  if (args.help) {
-    print_help(args.config.value);
-    return;
-  }
-
-  if (!connected(1000)) {
+  if ((args.status || args.disable || args.test || args.reload ||
+       args.stop_service || args.nv_init || args.sysinfo) &&
+      !connected(1000)) {
     log_service_unavailable();
     return;
   }
 
-  if (args.status) {
+  if (args.help) {
+    print_help(args.config.value);
+  } else if (args.status) {
     status();
   } else if (args.enable) {
     if (args.enable.has_value())
@@ -55,7 +54,7 @@ void fc::Client::run(Args &args) {
     if (answer == 'y') {
       test(args.force);
     }
-  } else { // else, excluding help which has already run
+  } else {
     print_help(args.config.value);
   }
 }
