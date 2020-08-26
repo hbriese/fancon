@@ -34,6 +34,7 @@ public:
   ~Service() override;
 
   void run();
+  void shutdown();
 
   Status StopService(ServerContext *context, const fc_pb::Empty *e,
                      fc_pb::Empty *resp) override;

@@ -29,11 +29,15 @@ int main(int argc, char *argv[]) {
     }
 
     fc::Service service(config_path, args.daemon);
+    register_signal_handler();
     service.run();
     return EXIT_SUCCESS;
   }
 
   // CLIENT
+  if (is_root() && !fc::is_systemd())
+    LOG(llvl::warning) << "Running the client as root is not recommended";
+
   Client client;
   client.run(args);
 
@@ -127,4 +131,22 @@ void fc::print_args(Args &args) {
        << ((++it != args.from_key.end()) ? ", " : "]");
   }
   std::cout << ss.str() << endl;
+}
+
+void fc::signal_handler(int signal) {
+  switch (signal) {
+  case SIGINT:
+  case SIGQUIT:
+  case SIGTERM:
+    Client().stop_service();
+    break;
+  default:
+    LOG(llvl::warning) << "Unhandled signal (" << signal
+                       << "): " << strsignal(signal);
+  }
+}
+
+void fc::register_signal_handler() {
+  for (const auto &s : {SIGINT, SIGQUIT, SIGTERM, SIGUSR1})
+    std::signal(s, &fc::signal_handler);
 }

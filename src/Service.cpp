@@ -6,10 +6,7 @@ fc::Service::Service(const path &config_path, bool daemon)
     daemonize();
 }
 
-fc::Service::~Service() {
-  if (server)
-    server->Shutdown();
-}
+fc::Service::~Service() { shutdown(); }
 
 void fc::Service::run() {
   try {
@@ -34,10 +31,16 @@ void fc::Service::run() {
   }
 }
 
+void fc::Service::shutdown() {
+  controller.disable_all();
+  if (server)
+    server->Shutdown(Util::deadline(250));
+}
+
 Status fc::Service::StopService([[maybe_unused]] ServerContext *context,
                                 [[maybe_unused]] const fc_pb::Empty *e,
                                 [[maybe_unused]] fc_pb::Empty *resp) {
-  thread([&] { server->Shutdown(); }).detach();
+  thread([&] { shutdown(); }).detach();
   return Status::OK;
 }
 
@@ -58,28 +61,27 @@ Status fc::Service::SetDevices([[maybe_unused]] ServerContext *context,
 Status fc::Service::SubscribeDevices([[maybe_unused]] ServerContext *context,
                                      [[maybe_unused]] const fc_pb::Empty *e,
                                      ServerWriter<fc_pb::Devices> *writer) {
-  bool still_receiving = true;
   auto cb = [&](const fc::Devices &devices) {
-    if (still_receiving) {
+    if (!context->IsCancelled()) {
       fc_pb::Devices resp;
       devices.to(resp);
-      if (!writer->Write(resp))
-        still_receiving = false;
+      writer->Write(resp);
     }
   };
 
   // Send the initial state
   cb(controller.devices);
 
-  // Register the listener
-  const auto it = controller.devices_observers.insert(
-      controller.devices_observers.end(), move(cb));
+  // Register the listener, sending status on changes
+  const auto it =
+      controller.device_observers.insert(controller.device_observers.end(), cb);
 
-  while (still_receiving)
+  while (!context->IsCancelled())
     sleep_for(sleep_interval);
 
-  // Remove the listener once the client is no longer receiving
-  controller.devices_observers.erase(it);
+  // Acquire a removal lock before removing to ensure it's not in use
+  controller.device_observers_mutex.acquire_removal_lock();
+  controller.device_observers.erase(it);
 
   return Status::OK;
 }
@@ -125,17 +127,16 @@ Status fc::Service::SubscribeFanStatus([[maybe_unused]] ServerContext *context,
                                        [[maybe_unused]] const fc_pb::Empty *e,
                                        ServerWriter<fc_pb::FanStatus> *writer) {
   mutex m;
-  bool still_receiving = true;
-  auto cb = [&](const FanInterface &f, const FanStatus status) {
-    if (still_receiving) {
+  const auto cb = [&](const FanInterface &f, const FanStatus status) {
+    if (!context->IsCancelled()) {
       fc_pb::FanStatus resp;
       resp.set_label(f.label);
       resp.set_status(status);
       resp.set_rpm(f.get_rpm());
       resp.set_pwm(f.get_pwm());
-      const lock_guard<mutex> lg(m);
-      if (!writer->Write(resp))
-        still_receiving = false;
+      const lock_guard lg(m);
+      if (!context->IsCancelled())
+        writer->Write(resp);
     }
   };
 
@@ -144,14 +145,15 @@ Status fc::Service::SubscribeFanStatus([[maybe_unused]] ServerContext *context,
     cb(*f, controller.status(flabel));
 
   // Register the listener, sending status on changes
-  const auto it = controller.status_observers.insert(
-      controller.status_observers.end(), move(cb));
+  const auto cb_it =
+      controller.status_observers.insert(controller.status_observers.end(), cb);
 
-  while (still_receiving)
+  while (!context->IsCancelled())
     sleep_for(sleep_interval);
 
-  // Remove the listener once the client is no longer receiving
-  controller.status_observers.erase(it);
+  // Acquire a removal lock before removing to ensure it's not in use
+  controller.status_observers_mutex.acquire_removal_lock();
+  controller.status_observers.erase(cb_it);
 
   return Status::OK;
 }
@@ -263,22 +265,3 @@ void fc::Service::daemonize() {
   if (chdir("/") < 0)
     LOG(llvl::error) << "Failed to set working directory to '/'";
 }
-
-// void fc::Service::signal_handler(int signal) {
-//  switch (signal) {
-//  case SIGINT:
-//  case SIGQUIT:
-//  case SIGTERM:
-//    fc::Controller::disable_all();
-//    SERVER->Shutdown();
-//    break;
-//  default:
-//    LOG(llvl::warning) << "Unhandled signal (" << signal
-//                       << "): " << strsignal(signal);
-//  }
-//}
-//
-// void fc::Service::register_signal_handler() {
-//  for (const auto &s : {SIGINT, SIGQUIT, SIGTERM, SIGUSR1})
-//    std::signal(s, &fc::Service::signal_handler);
-//}

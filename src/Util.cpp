@@ -56,3 +56,16 @@ std::chrono::high_resolution_clock::time_point fc::Util::deadline(long ms) {
   return std::chrono::high_resolution_clock::now() +
          std::chrono::milliseconds(ms);
 }
+
+fc::Util::ScopedCounter<atomic_int> fc::Util::RemovableMutex::acquire_lock() {
+  while (counter < 0)
+    sleep_for(milliseconds(50));
+  return ScopedCounter(counter);
+}
+
+fc::Util::ScopedCounter<atomic_int>
+fc::Util::RemovableMutex::acquire_removal_lock() {
+  while (counter > 0)
+    sleep_for(milliseconds(100));
+  return ScopedCounter(counter, false);
+}

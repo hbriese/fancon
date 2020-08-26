@@ -67,6 +67,8 @@ message Sensor {
     int32 id = 20;
 }
 
+message Empty {}
+
 message TestRequest {
     string device_label = 1;
     bool forced = 2;
@@ -87,8 +89,6 @@ message FanStatus {
     uint32 rpm = 3;
     uint32 pwm = 4;
 }
-
-message Empty {}
 
 service DService {
     rpc StopService(Empty) returns (Empty) {}

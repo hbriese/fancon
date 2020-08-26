@@ -2,6 +2,7 @@
 #define FANCON_UTIL_HPP
 
 #include <algorithm>
+#include <atomic>
 #include <charconv>
 #include <exception>
 #include <filesystem>
@@ -31,6 +32,7 @@ using chrono::milliseconds;
 using chrono::seconds;
 using fs::exists;
 using fs::path;
+using std::atomic_int;
 using std::cout;
 using std::endl;
 using std::from_chars;
@@ -87,6 +89,28 @@ private:
   T value;
   vector<function<void(T &)>> observers;
   mutex update_mutex;
+};
+
+template <class T> class ScopedCounter {
+public:
+  explicit ScopedCounter(T &counter, bool increment = true)
+      : counter(counter), increment(increment) {
+    counter += (increment ? 1 : -1);
+  }
+  ~ScopedCounter() { counter += (increment ? -1 : 1); }
+
+private:
+  T &counter;
+  const bool increment;
+};
+
+class RemovableMutex {
+public:
+  ScopedCounter<atomic_int> acquire_lock();
+  ScopedCounter<atomic_int> acquire_removal_lock();
+
+private:
+  atomic_int counter = atomic_int(0);
 };
 } // namespace fc::Util
 

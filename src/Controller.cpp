@@ -37,15 +37,14 @@ void fc::Controller::enable(fc::FanInterface &f, bool enable_all_dell) {
   if (!f.pre_start_check())
     return;
 
-  auto update_func = [&f]() {
-    while (true) {
+  fthreads.try_emplace(f.label, [this, &f](bool &run) {
+    while (run) {
+      notify_status_observers(f.label);
       f.update();
     }
-  };
+  });
 
   LOG(llvl::trace) << f.label << ": enabled";
-  fthreads.try_emplace(f.label, thread(update_func), nullptr);
-  notify_status_observers(f.label);
 }
 
 void fc::Controller::enable_all() {
@@ -94,6 +93,9 @@ void fc::Controller::reload() {
       stopped.push_back(key);
   }
 
+  // TODO: fix devices being overwritten during testing; causing SEGFAULT!
+  // TODO: reload ONLY modified - side-stepping this issue
+  // stop all, then restart the fans currently testing?
   for (const string &key : stopped)
     fthreads.erase(key);
 
@@ -158,7 +160,7 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced,
   };
 
   auto [it, success] =
-      fthreads.try_emplace(fan.label, thread(test_func), test_status);
+      fthreads.try_emplace(fan.label, move(test_func), test_status);
 
   if (!success)
     test(fan, forced, cb);
@@ -260,8 +262,8 @@ void fc::Controller::load_conf_and_enumerated() {
   google::protobuf::TextFormat::ParseFromString(ss.str(), &c);
 
   if (ifs) {
-    from(c);
     update_config_write_time();
+    from(c);
     notify_devices_observers();
   } else {
     LOG(llvl::error) << "Failed to read config from: " << config_path;
@@ -317,17 +319,25 @@ thread fc::Controller::spawn_watcher() {
   });
 }
 
-void fc::Controller::notify_devices_observers() const {
-  for (const auto &f : devices_observers)
+void fc::Controller::notify_devices_observers() {
+  if (device_observers.empty())
+    return;
+
+  const auto scoped_lock = device_observers_mutex.acquire_lock();
+  for (const auto &f : device_observers)
     f(devices);
 }
 
 void fc::Controller::notify_status_observers(const string &flabel) {
+  if (status_observers.empty())
+    return;
+
   const auto fit = devices.fans.find(flabel);
   if (fit == devices.fans.end())
     return;
 
   const FanStatus fstatus = status(flabel);
+  const auto scoped_lock = status_observers_mutex.acquire_lock();
   for (const auto &f : status_observers)
     f(*fit->second, fstatus);
 }

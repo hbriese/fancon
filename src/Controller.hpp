@@ -3,6 +3,7 @@
 
 #include "Devices.hpp"
 #include "FanThread.hpp"
+#include "Util.hpp"
 #include "proto/DevicesSpec.pb.h"
 #include <algorithm>
 #include <boost/thread.hpp>
@@ -23,6 +24,8 @@ using std::istringstream;
 using std::list;
 using FanStatus = fc_pb::FanStatus_Status;
 using FThreads_map = std::map<string, FanThread>;
+using DevicesCallback = function<void(const fc::Devices &)>;
+using StatusCallback = function<void(const FanInterface &, const FanStatus)>;
 
 namespace fc {
 extern milliseconds update_interval;
@@ -38,8 +41,9 @@ public:
 
   Devices devices;
   FThreads_map fthreads;
-  list<function<void(const fc::Devices &)>> devices_observers;
-  list<function<void(const FanInterface &, const FanStatus)>> status_observers;
+  list<DevicesCallback> device_observers;
+  list<StatusCallback> status_observers;
+  Util::RemovableMutex device_observers_mutex, status_observers_mutex;
 
   FanStatus status(const string &flabel) const;
   void enable(fc::FanInterface &fan, bool enable_all_dell = true);
@@ -70,7 +74,7 @@ private:
   void update_config_write_time();
   bool config_file_modified() const;
   thread spawn_watcher();
-  void notify_devices_observers() const;
+  void notify_devices_observers();
   void notify_status_observers(const string &flabel);
   static string date_time_now();
 };

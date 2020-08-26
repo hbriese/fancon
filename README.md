@@ -3,8 +3,8 @@
 [![License](https://img.shields.io/github/license/hbriese/fancon)]()
 
 A Linux user-space fan control daemon
-  - %, RPM or PWM custom speed-temperature curve configuration
   - System, DELL and NVIDIA GPU fan control support
+  - %, RPM or PWM custom speed-temperature curve configuration
 
 
 ### Contents
@@ -12,11 +12,15 @@ A Linux user-space fan control daemon
 - [Building from source](#building-from-source)
 - [Configuration](#configuration)
 - [Usage](#usage)
+- [Managing service](#managing-service)
 - [Debugging issues](#debugging-issues)
+    - [Logs](#logs)
+    - [Undetected fans](#undetected-fans)
+    - [Mis-configured or unsupported devices](#mis-configured-or-unsupported-devices)
+    - [$XAUTHORITY and or $DISPLAY env variable(s) not set](#xauthority-and-or-display-env-variables-not-set)
 
 
 ### Installation
-
 ##### Ubuntu, Debian (.deb)
 ```bash
 wget https://github.com/hbriese/fancon/releases/latest/download/fancon_amd64.deb
@@ -34,6 +38,7 @@ sudo yum –nogpgcheck install ./fancon*.rpm
 git clone https://aur.archlinux.org/fancon.git; cd fancon
 makepkg -sirc
 ```
+
 
 ### Configuration
 ***/etc/fancon.conf*** is automatically created on first run once the tests complete
@@ -94,8 +99,8 @@ devices {
 }
 ```
 
-### Usage
 
+### Usage
 ```text
 fancon arg [value] ...
 h  help           Show this help
@@ -118,18 +123,28 @@ v  verbose        Debug logging level
 a  trace          Trace logging level
 ```
 
+
+### Managing service
+#### Status
+```sudo systemctl status fancon```
+
+#### Start
+```sudo systemctl start fancon```
+
+###### Without systemd
+```sudo fancon service```
+
+
 ### Debugging issues
-
-##### Run in verbose mode: 
-
-```fancon -v```
-
-##### Reading logs
-
+#### Logs
 ```journalctl -u fancon```
 
-##### My fans aren't detected
+##### Logging levels
+```fancon verbose```
 
+```fancon trace```
+
+#### Undetected fans
 First try detecting devices using lm-sensors
 ```bash
 sudo sensors-detect
@@ -141,17 +156,15 @@ Check to see if your device is detected
 sensors
 ```
 
-##### Fancon complains my device is mis-configured or unsupported
-
+#### Mis-configured or unsupported devices
 Devices (fans & sensors) that:
 - Expose a sysfs like interface but are not found by lm-sensors
 - Are reported as not having the required features but they do
 
 **May** be configurable by [altering their configuration](#configuration) 
 
-##### $XAUTHORITY and or $DISPLAY env variable(s) not set
-
-fancon requires X11 access due to LibNVCtrl (NVIDIA control)
+#### $XAUTHORITY and or $DISPLAY env variable(s) not set
+X11 access is required due for NVIDIA control
 
 You will need to configure the unset environmental variable.
 
@@ -163,8 +176,9 @@ Inside /etc/profile
  
 https://wiki.archlinux.org/index.php/Running_GUI_applications_as_root 
 
+
 ### Building from source:
-##### With NVIDIA support:
+#### With NVIDIA support:
 ```bash
 sudo apt install clang cmake lm-sensors libsensors5 libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libprotobuf-dev protobuf-compiler libgrpc++-dev protobuf-compiler protobuf-compiler-grpc libxnvctrl-dev libx11-dev
 
@@ -172,7 +186,7 @@ git clone https://github.com/hbriese/fancon.git && cd fancon; mkdir build; cd bu
 cmake -DNVIDIA_SUPPORT=ON .. && make -j && sudo make install
 ```
 
-##### Without NVIDIA support:
+#### Without NVIDIA support:
 ```bash
 sudo apt install clang cmake lm-sensors libsensors5 libsensors4-dev libboost-system-dev libboost-filesystem-dev libboost-log-dev libpthread-stubs0-dev libpstreams-dev libprotobuf-dev protobuf-compiler libgrpc++-dev protobuf-compiler protobuf-compiler-grpc
 

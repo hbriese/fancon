@@ -10,10 +10,12 @@ using fc::Util::Observable;
 namespace fc {
 class FanThread {
 public:
-  explicit FanThread(thread &&t,
-                     shared_ptr<Observable<int>> testing_status = nullptr);
+  explicit FanThread(function<void(bool &)> f);
+  explicit FanThread(function<void()> f,
+                     shared_ptr<Observable<int>> testing_status);
   ~FanThread();
 
+  bool run = true;
   thread t;
   shared_ptr<Observable<int>> test_status = nullptr;
 

@@ -6,9 +6,6 @@ fc::Client::Client() {
   auto creds = grpc::InsecureChannelCredentials();
   channel = grpc::CreateChannel(Util::SERVICE_ADDR, creds);
   client = fc_pb::DService::NewStub(channel);
-
-  if (is_root() && !fc::is_systemd())
-    LOG(llvl::warning) << "Running the client as root is not recommended";
 }
 
 void fc::Client::run(Args &args) {
@@ -61,9 +58,12 @@ void fc::Client::run(Args &args) {
 
 void fc::Client::stop_service() {
   ClientContext context;
-  if (check(client->StopService(&context, empty, &empty)))
-    LOG(llvl::info) << "Service stopped";
-  else
+  if (check(client->StopService(&context, empty, &empty))) {
+    // Sleep to ensure the completely service has shutdown before the client has
+    sleep_for(milliseconds(1000));
+    if (!is_systemd())
+      LOG(llvl::info) << "Service stopped";
+  } else
     LOG(llvl::error) << "Failed to stop service";
 }
 
@@ -307,9 +307,10 @@ bool fc::Client::check(const grpc::Status &status) {
 }
 
 void fc::Client::log_service_unavailable() {
-  LOG(llvl::fatal) << "Unable to connect to service; " << endl
-                   << log::fmt_bold << "start with 'sudo fancon service'"
-                   << log::fmt_reset;
+  LOG(llvl::fatal) << "Unable to connect to service" << endl
+                   << log::fmt_bold << "Start with:"
+                   << " sudo systemctl start fancon"
+                   << "  OR  sudo fancon service" << log::fmt_reset;
 }
 
 void fc::Client::enumerate_directory(const path &dir, std::ostream &os,

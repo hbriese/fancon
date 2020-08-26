@@ -24,6 +24,8 @@ int main(int argc, char *argv[]);
 namespace fc {
 Args &read_args(int argc, char **argv, Args &args);
 void print_args(Args &args);
+void signal_handler(int signal);
+void register_signal_handler();
 } // namespace fc
 
 #endif // FANCON_MAIN_HPP
