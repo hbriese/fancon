@@ -31,6 +31,7 @@ private:
 class Devices {
 public:
   Devices() = default;
+  Devices(const fc_pb::Devices &d);
   explicit Devices(bool enumerate, bool dry_run = false);
 
   FanMap fans;
@@ -38,6 +39,7 @@ public:
 
   void from(const fc_pb::Devices &d);
   void to(fc_pb::Devices &d) const;
+  //  vector<string> diff(const Devices &d) const;
 };
 
 bool operator==(const fc_pb::Fan &l, const fc_pb::Fan &r);

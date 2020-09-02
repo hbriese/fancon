@@ -147,7 +147,7 @@ void fc::FanInterface::sleep_for_interval() const {
   sleep_for((interval.count() > 0) ? interval : fc::update_interval);
 }
 
-void fc::FanInterface::test(Observable<int> &status) {
+void fc::FanInterface::test(ObservableNumber<int> &status) {
   const Pwm pre_pwm = get_pwm();
 
   // Fail early if can't write enable mode or pwm
@@ -160,6 +160,7 @@ void fc::FanInterface::test(Observable<int> &status) {
   }
 
   // 100 (%) should be added to status over the series of tests
+  status = 0;
   Pwm_to_Rpm_Map pwm_to_rpm;
 
   test_stopped(pwm_to_rpm);
@@ -446,6 +447,13 @@ void fc::FanInterface::to(fc_pb::Fan &f) const {
   f.set_start_pwm(start_pwm);
   f.set_interval(interval.count());
   f.set_ignore(ignore);
+}
+
+bool fc::FanInterface::deep_equal(const FanInterface &other) const {
+  fc_pb::Fan f, fother;
+  to(f);
+  other.to(fother);
+  return Util::deep_equal(f, fother);
 }
 
 std::ostream &fc::operator<<(std::ostream &os, const fc::FanInterface &f) {

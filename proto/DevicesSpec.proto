@@ -107,5 +107,6 @@ service DService {
     rpc DisableAll(Empty) returns (Empty) {}
     rpc Test(TestRequest) returns (stream TestResponse) {}
     rpc Reload(Empty) returns (Empty) {}
+    rpc Recover(Empty) returns (Empty) {}
     rpc NvInit(Empty) returns (Empty) {}
 }

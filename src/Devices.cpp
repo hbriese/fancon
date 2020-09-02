@@ -76,6 +76,8 @@ void fc::SensorChips::enumerate(FanMap &fans, SensorMap &sensors) {
   }
 }
 
+fc::Devices::Devices(const fc_pb::Devices &d) { from(d); }
+
 fc::Devices::Devices(bool enumerate, bool dry_run) {
   if (!enumerate)
     return;
@@ -193,6 +195,31 @@ void fc::Devices::to(fc_pb::Devices &d) const {
   for (const auto &[label, s] : sensors)
     s->to(*d.mutable_sensor()->Add());
 }
+
+// vector<string> fc::Devices::diff(const Devices &d) const {
+//  vector<string> res;
+//  const auto differences = [&](const auto &a, const auto &b) {
+//    const auto search_dif = [&](const auto &a, const auto &b) {
+//      for (const auto &[key, dev] : a) {
+//        string hw_id = dev->hw_id();
+//        auto it = find_if(b.begin(), b.end(), [&](const auto &p) {
+//          return p.second->hw_id() == hw_id;
+//        });
+//
+//        if (it != b.end())
+//          res.emplace_back(move(hw_id));
+//      }
+//    };
+//
+//    search_dif(a, b);
+//    search_dif(b, a);
+//  };
+//
+//  differences(fans, d.fans);
+//  differences(sensors, d.sensors);
+//
+//  return res;
+//}
 
 bool fc::operator==(const fc_pb::Fan &l, const fc_pb::Fan &r) {
   return l.type() == r.type() && l.pwm_path() == r.pwm_path() &&

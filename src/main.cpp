@@ -28,6 +28,9 @@ int main(int argc, char *argv[]) {
       return EXIT_SUCCESS;
     }
 
+    if (!is_systemd())
+      LOG(llvl::info) << "Service started";
+
     fc::Service service(config_path, args.daemon);
     register_signal_handler();
     service.run();

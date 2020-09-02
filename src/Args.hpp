@@ -36,23 +36,17 @@ public:
       service = {"service"}, daemon = {"daemon"},
       stop_service = {"stop-service"},
       sysinfo = {"sysinfo", "i", true, true, DEFAULT_SYSINFO_PATH},
-      nv_init = {"nv-init"}, verbose = {"verbose", "v"}, trace = {"trace", "a"};
+      recover = {"recover"}, nv_init = {"nv-init"}, verbose = {"verbose", "v"},
+      trace = {"trace", "a"};
 
-  map<string, Arg &> from_key = {{help.key, help},
-                                 {status.key, status},
-                                 {enable.key, enable},
-                                 {disable.key, disable},
-                                 {test.key, test},
-                                 {force.key, force},
-                                 {reload.key, reload},
-                                 {config.key, config},
-                                 {service.key, service},
-                                 {daemon.key, daemon},
-                                 {stop_service.key, stop_service},
-                                 {sysinfo.key, sysinfo},
-                                 {nv_init.key, nv_init},
-                                 {verbose.key, verbose},
-                                 {trace.key, trace}};
+  map<string, Arg &> from_key = {
+      a(help),    a(status),  a(enable),       a(disable),
+      a(test),    a(force),   a(reload),       a(config),
+      a(service), a(daemon),  a(stop_service), a(sysinfo),
+      a(recover), a(nv_init), a(verbose),      a(trace)};
+
+private:
+  static pair<string, Arg &> a(Arg &arg);
 };
 } // namespace fc
 

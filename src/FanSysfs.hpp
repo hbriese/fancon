@@ -14,7 +14,7 @@ public:
   FanSysfs(string label_, const path &adapter_path_, int id_);
   ~FanSysfs() override;
 
-  void test(Observable<int> &status) override;
+  void test(ObservableNumber<int> &status) override;
   bool enable_control() const override;
   bool disable_control() const override;
   Pwm get_pwm() const override;

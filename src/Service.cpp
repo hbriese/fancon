@@ -32,7 +32,6 @@ void fc::Service::run() {
 }
 
 void fc::Service::shutdown() {
-  controller.disable_all();
   if (server)
     server->Shutdown(Util::deadline(250));
 }
@@ -209,7 +208,8 @@ Status fc::Service::Test([[maybe_unused]] ServerContext *context,
       writer->Write(resp);
   };
 
-  controller.test(*it->second, e->forced(), cb);
+  controller.test(*it->second, e->forced(), true,
+                  make_shared<Util::ObservableNumber<int>>(cb));
 
   return Status::OK;
 }
@@ -218,6 +218,13 @@ Status fc::Service::Reload([[maybe_unused]] ServerContext *context,
                            [[maybe_unused]] const fc_pb::Empty *e,
                            [[maybe_unused]] fc_pb::Empty *resp) {
   controller.reload();
+  return Status::OK;
+}
+
+Status fc::Service::Recover([[maybe_unused]] ServerContext *context,
+                            [[maybe_unused]] const fc_pb::Empty *e,
+                            [[maybe_unused]] fc_pb::Empty *resp) {
+  controller.recover();
   return Status::OK;
 }
 

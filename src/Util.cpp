@@ -57,6 +57,12 @@ std::chrono::high_resolution_clock::time_point fc::Util::deadline(long ms) {
          std::chrono::milliseconds(ms);
 }
 
+bool fc::Util::deep_equal(const google::protobuf::Message &m1,
+                          const google::protobuf::Message &m2) {
+  return m1.ByteSizeLong() == m2.ByteSizeLong() &&
+         m1.SerializeAsString() == m2.SerializeAsString();
+}
+
 fc::Util::ScopedCounter<atomic_int> fc::Util::RemovableMutex::acquire_lock() {
   while (counter < 0)
     sleep_for(milliseconds(50));

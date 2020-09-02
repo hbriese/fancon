@@ -2,7 +2,7 @@
 #define FANCON_CONTROLLER_HPP
 
 #include "Devices.hpp"
-#include "FanThread.hpp"
+#include "FanTask.hpp"
 #include "Util.hpp"
 #include "proto/DevicesSpec.pb.h"
 #include <algorithm>
@@ -17,13 +17,12 @@
 #include <utility>
 
 using fc::FanInterface;
-using fc::FanThread;
+using fc::FanTask;
 using std::find_if;
 using std::future;
 using std::istringstream;
 using std::list;
 using FanStatus = fc_pb::FanStatus_Status;
-using FThreads_map = std::map<string, FanThread>;
 using DevicesCallback = function<void(const fc::Devices &)>;
 using StatusCallback = function<void(const FanInterface &, const FanStatus)>;
 
@@ -40,7 +39,7 @@ public:
   ~Controller();
 
   Devices devices;
-  FThreads_map fthreads;
+  map<string, FanTask> tasks;
   list<DevicesCallback> device_observers;
   list<StatusCallback> status_observers;
   Util::RemovableMutex device_observers_mutex, status_observers_mutex;
@@ -51,13 +50,13 @@ public:
   void disable(const string &flabel, bool disable_all_dell = true);
   void disable_all();
   void reload();
-  void reload_added();
+  void recover();
   void nv_init();
-  void test(fc::FanInterface &fan, bool forced, function<void(int &)> cb);
+  void test(fc::FanInterface &fan, bool forced, bool blocking,
+            shared_ptr<Util::ObservableNumber<int>> test_status);
   size_t tests_running() const;
   void set_devices(const fc_pb::Devices &devices_);
 
-  void from(const fc_pb::Controller &c);
   void from(const fc_pb::ControllerConfig &c);
   void to(fc_pb::Controller &c) const;
   void to(fc_pb::ControllerConfig &c) const;
@@ -69,7 +68,11 @@ private:
 
   void enable_dell_fans();
   void disable_dell_fans();
-  void load_conf_and_enumerated();
+  bool is_testing(const string &flabel) const;
+  optional<fc_pb::Controller> read_config();
+  void merge(Devices &old_it, bool replace_on_match, bool deep_cmp = false);
+  void remove_devices_not_in(
+      std::initializer_list<std::reference_wrapper<Devices>> list_of_devices);
   void to_file(bool backup);
   void update_config_write_time();
   bool config_file_modified() const;

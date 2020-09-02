@@ -8,7 +8,7 @@
 #include "Util.hpp"
 #include "proto/DevicesSpec.pb.h"
 
-using fc::Util::Observable;
+using fc::Util::ObservableNumber;
 using fc_pb::DevType;
 using std::abs;
 using std::min;
@@ -46,7 +46,7 @@ public:
   bool ignore{false};
 
   void update();
-  virtual void test(Observable<int> &status);
+  virtual void test(ObservableNumber<int> &status);
   bool tested() const;
   bool pre_start_check() const;
 
@@ -61,6 +61,7 @@ public:
   virtual void from(const fc_pb::Fan &f, const SensorMap &sensor_map);
   virtual void to(fc_pb::Fan &f) const = 0;
 
+  bool deep_equal(const FanInterface &other) const;
   friend std::ostream &operator<<(std::ostream &os, const FanInterface &f);
 
 protected:

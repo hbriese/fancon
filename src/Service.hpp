@@ -68,6 +68,8 @@ public:
               ServerWriter<fc_pb::TestResponse> *writer) override;
   Status Reload(ServerContext *context, const fc_pb::Empty *e,
                 fc_pb::Empty *resp) override;
+  Status Recover(ServerContext *context, const fc_pb::Empty *e,
+                 fc_pb::Empty *resp) override;
   Status NvInit(ServerContext *context, const fc_pb::Empty *e,
                 fc_pb::Empty *resp) override;
 

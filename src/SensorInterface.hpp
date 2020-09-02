@@ -30,6 +30,7 @@ public:
   virtual bool valid() const = 0;
   virtual string hw_id() const = 0;
 
+  bool deep_equal(const SensorInterface &other) const;
   friend std::ostream &operator<<(std::ostream &os, const SensorInterface &s);
 
 protected:

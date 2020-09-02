@@ -29,7 +29,7 @@ bool fc::FanSysfs::disable_control() const {
   return true;
 }
 
-void fc::FanSysfs::test(Observable<int> &status) {
+void fc::FanSysfs::test(ObservableNumber<int> &status) {
   test_driver_enable_flag();
   fc::FanInterface::test(status);
 }

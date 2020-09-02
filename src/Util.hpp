@@ -19,6 +19,7 @@
 //#include <chrono>
 #include <boost/chrono.hpp>
 #include <boost/thread.hpp>
+#include <google/protobuf/message.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -74,20 +75,26 @@ string join(std::initializer_list<pair<bool, string>> args,
 bool is_root();
 bool is_atty();
 std::chrono::high_resolution_clock::time_point deadline(long ms);
+bool deep_equal(const google::protobuf::Message &m1,
+                const google::protobuf::Message &m2);
 
-template <class T> class Observable {
+template <class T> class ObservableNumber {
 public:
-  explicit Observable(T &&value) : value(value) {}
+  explicit ObservableNumber(T &&value) : value(value) {}
+  ObservableNumber(function<void(T &)> f, T &&value = 0) : value(value) {
+    register_observer(f);
+  }
+
+  vector<function<void(T &)>> observers;
 
   void register_observer(function<void(T &)> callback);
   void notify_observers();
 
-  Observable<T> &operator=(T other);
-  Observable<T> &operator+=(const T &other);
+  ObservableNumber<T> &operator=(T other);
+  ObservableNumber<T> &operator+=(const T &other);
 
 private:
   T value;
-  vector<function<void(T &)>> observers;
   mutex update_mutex;
 };
 
@@ -205,19 +212,20 @@ string fc::Util::map_str(const std::map<K, T> m) {
 }
 
 template <class T>
-void fc::Util::Observable<T>::register_observer(
+void fc::Util::ObservableNumber<T>::register_observer(
     std::function<void(T &)> callback) {
   callback(value);
   observers.emplace_back(move(callback));
 }
 
-template <class T> void fc::Util::Observable<T>::notify_observers() {
+template <class T> void fc::Util::ObservableNumber<T>::notify_observers() {
   for (auto &f : observers)
     f(value);
 }
 
 template <class T>
-fc::Util::Observable<T> &fc::Util::Observable<T>::operator+=(const T &other) {
+fc::Util::ObservableNumber<T> &
+fc::Util::ObservableNumber<T>::operator+=(const T &other) {
   const lock_guard<mutex> lock(update_mutex);
   value += other;
   notify_observers();
@@ -225,7 +233,8 @@ fc::Util::Observable<T> &fc::Util::Observable<T>::operator+=(const T &other) {
 }
 
 template <class T>
-fc::Util::Observable<T> &fc::Util::Observable<T>::operator=(T other) {
+fc::Util::ObservableNumber<T> &
+fc::Util::ObservableNumber<T>::operator=(T other) {
   const lock_guard<mutex> lock(update_mutex);
   value = move(other);
   notify_observers();

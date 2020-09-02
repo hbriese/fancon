@@ -51,7 +51,7 @@ set(SOURCE_FILES ${SRC}/main.cpp ${SRC}/main.hpp
         ${SRC}/Args.hpp ${SRC}/Args.cpp
         ${SRC}/Client.cpp ${SRC}/Client.hpp
         ${SRC}/Controller.cpp ${SRC}/Controller.hpp
-        ${SRC}/FanThread.cpp ${SRC}/FanThread.hpp
+        ${SRC}/FanTask.cpp ${SRC}/FanTask.hpp
         ${SRC}/Devices.cpp ${SRC}/Devices.hpp
         ${SRC}/FanInterface.cpp ${SRC}/FanInterface.hpp
         ${SRC}/SensorInterface.cpp ${SRC}/SensorInterface.hpp

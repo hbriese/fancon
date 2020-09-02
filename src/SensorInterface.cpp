@@ -28,6 +28,13 @@ void fc::SensorInterface::from(const fc_pb::Sensor &s) { label = s.label(); }
 
 void fc::SensorInterface::to(fc_pb::Sensor &s) const { s.set_label(label); }
 
+bool fc::SensorInterface::deep_equal(const SensorInterface &other) const {
+  fc_pb::Sensor s, sother;
+  to(s);
+  other.to(sother);
+  return Util::deep_equal(s, sother);
+}
+
 bool fc::SensorInterface::fresh() const {
   const auto dur = chrono::duration_cast<milliseconds>(
       chrono::high_resolution_clock::now() - last_read_time);

@@ -39,6 +39,8 @@ void fc::Client::run(Args &args) {
     reload();
   } else if (args.stop_service) {
     stop_service();
+  } else if (args.recover) {
+    recover();
   } else if (args.nv_init) {
     nv_init();
   } else if (args.sysinfo) {
@@ -199,6 +201,12 @@ void fc::Client::reload() {
     LOG(llvl::error) << "Failed to reload";
 }
 
+void fc::Client::recover() {
+  ClientContext context;
+  if (!check(client->Recover(&context, empty, &empty)))
+    LOG(llvl::error) << "Failed to init nvidia";
+}
+
 void fc::Client::nv_init() {
   ClientContext context;
   if (!check(client->NvInit(&context, empty, &empty)))
@@ -268,6 +276,8 @@ void fc::Client::print_help(const string &conf) {
                   << "   stop-service   Stop the service" << endl
                   << "i  sysinfo [file] Save system info to file (default: "
                   << fc::DEFAULT_SYSINFO_PATH << ")" << endl
+                  << "   recover        Recover control of enabled devices"
+                  << endl
                   << "   nv-init        Init nvidia devices" << endl
                   << "v  verbose        Debug logging level" << endl
                   << "a  trace          Trace logging level" << endl;

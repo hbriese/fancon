@@ -35,6 +35,7 @@ public:
   void test(bool forced);
   void test(const string &flabel, bool forced);
   void reload();
+  void recover();
   void nv_init();
   void sysinfo(const string &p);
 
