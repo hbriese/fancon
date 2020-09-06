@@ -11,8 +11,8 @@ public:
   FanDell(string label_, const path &adapter_path_, uint id_);
   ~FanDell() override;
 
-  bool enable_control() const override;
-  bool disable_control() const override;
+  bool enable_control() override;
+  bool disable_control() override;
   bool valid() const override;
   virtual DevType type() const override;
 

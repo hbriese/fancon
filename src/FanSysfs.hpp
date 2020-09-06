@@ -16,8 +16,8 @@ public:
   ~FanSysfs() override;
 
   void test(ObservableNumber<int> &status) override;
-  bool enable_control() const override;
-  bool disable_control() const override;
+  bool enable_control() override;
+  bool disable_control() override;
   Pwm get_pwm() const override;
   Rpm get_rpm() const override;
   bool valid() const override;
@@ -31,7 +31,7 @@ protected:
   path pwm_path, rpm_path, enable_path;
   control_flag_t manual_flag = 1, driver_flag = 2;
 
-  bool set_pwm(const Pwm pwm) const override;
+  bool set_pwm(const Pwm pwm) override;
   virtual void test_driver_enable_flag();
 
   static path get_pwm_path(const path &adapter_path, SysfsID dev_id);

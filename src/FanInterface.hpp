@@ -40,20 +40,15 @@ public:
   virtual ~FanInterface() = default;
 
   string label;
-  shared_ptr<fc::SensorInterface> sensor;
-  Rpm_to_Pwm_Map rpm_to_pwm;
-  Temp_to_Rpm_Map temp_to_rpm;
-  Pwm start_pwm = 0;
-  milliseconds interval{0};
   bool ignore{false};
 
   void update();
   virtual void test(ObservableNumber<int> &status);
   bool tested() const;
-  bool pre_start_check() const;
+  bool pre_start_check();
 
-  virtual bool enable_control() const = 0;
-  virtual bool disable_control() const = 0;
+  virtual bool enable_control() = 0;
+  virtual bool disable_control() = 0;
   virtual Pwm get_pwm() const = 0;
   virtual Rpm get_rpm() const = 0;
   virtual bool valid() const = 0;
@@ -62,11 +57,18 @@ public:
 
   virtual void from(const fc_pb::Fan &f, const SensorMap &sensor_map);
   virtual void to(fc_pb::Fan &f) const = 0;
-
   bool deep_equal(const FanInterface &other) const;
+
   friend std::ostream &operator<<(std::ostream &os, const FanInterface &f);
 
 protected:
+  shared_ptr<fc::SensorInterface> sensor;
+  Rpm_to_Pwm_Map rpm_to_pwm;
+  Temp_to_Rpm_Map temp_to_rpm;
+  Pwm start_pwm = 0;
+  milliseconds interval{0};
+  bool enabled = false;
+
   struct {
     bool just_started{true};
     int rem_intervals{0};
@@ -74,14 +76,14 @@ protected:
     int top_stickiness_rem_intervals{0};
   } smoothing;
 
-  virtual bool set_pwm(const Pwm pwm) const = 0;
+  virtual bool set_pwm(const Pwm pwm) = 0;
   Pwm find_closest_pwm(Rpm rpm);
-  bool recover_control() const;
+  bool recover_control();
   Rpm smooth_rpm(const Rpm rpm);
   void sleep_for_interval() const;
 
-  optional<Rpm> set_stabilised_pwm(const Pwm pwm) const;
-  bool set_pwm_test() const;
+  optional<Rpm> set_stabilised_pwm(const Pwm pwm);
+  bool set_pwm_test();
   void test_stopped(Pwm_to_Rpm_Map &pwm_to_rpm);
   void test_start(Pwm_to_Rpm_Map &pwm_to_rpm);
   void test_interval(Pwm_to_Rpm_Map &pwm_to_rpm);

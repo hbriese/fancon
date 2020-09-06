@@ -9,7 +9,7 @@ uint temp_averaging_intervals = 8;
 } // namespace fc
 
 fc::Controller::Controller(path conf_path_) : config_path(move(conf_path_)) {
-  reload();
+  reload(true);
   watcher = spawn_watcher();
 }
 
@@ -82,8 +82,9 @@ void fc::Controller::disable_all() {
   LOG(llvl::trace) << "Disabling all";
 }
 
-void fc::Controller::reload() {
-  LOG(llvl::info) << "Reloading changes";
+void fc::Controller::reload(bool just_started) {
+  if (!just_started)
+    LOG(llvl::info) << "Reloading";
 
   Devices enumerated(true);
   merge(enumerated, false);
@@ -164,7 +165,7 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced, bool blocking,
 }
 
 size_t fc::Controller::tests_running() const {
-  auto f = [](const size_t sum, const auto &p) {
+  const auto f = [](const size_t sum, const auto &p) {
     return sum + int(p.second.is_testing());
   };
   return std::accumulate(tasks.begin(), tasks.end(), 0, f);

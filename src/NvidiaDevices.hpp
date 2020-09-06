@@ -13,8 +13,8 @@ public:
   FanNV(string label, NVID id);
   ~FanNV() override;
 
-  bool enable_control() const override;
-  bool disable_control() const override;
+  bool enable_control() override;
+  bool disable_control() override;
   Pwm get_pwm() const override;
   Rpm get_rpm() const override;
   bool valid() const override;
@@ -29,7 +29,7 @@ public:
 private:
   NVID id{0};
 
-  bool set_pwm(const Pwm pwm) const override;
+  bool set_pwm(const Pwm pwm) override;
 
   static Percent pwm_to_percent(const Pwm pwm);
   static Pwm percent_to_pwm(const Percent percent);

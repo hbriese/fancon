@@ -55,7 +55,7 @@ bool fc::FanInterface::tested() const {
   return (PWM_MIN <= start_pwm && start_pwm <= PWM_MAX) && !rpm_to_pwm.empty();
 }
 
-bool fc::FanInterface::pre_start_check() const {
+bool fc::FanInterface::pre_start_check() {
   if (ignore) {
     LOG(llvl::debug) << *this << ": ignored";
   } else if (const bool ce = temp_to_rpm.empty(), se = !sensor,
@@ -94,7 +94,7 @@ Pwm fc::FanInterface::find_closest_pwm(Rpm rpm) {
   return (needs_starting) ? start_pwm : pwm;
 }
 
-bool fc::FanInterface::recover_control() const {
+bool fc::FanInterface::recover_control() {
   for (auto i = 1; i <= 5; ++i, sleep_for_interval())
     if (enable_control()) {
       LOG(llvl::debug) << *this << ": recovering control";
@@ -106,7 +106,7 @@ bool fc::FanInterface::recover_control() const {
 }
 
 Rpm fc::FanInterface::smooth_rpm(const Rpm rpm) {
-  const Rpm rpm_delta = rpm - smoothing.targeted_rpm;
+  const int rpm_delta = rpm - smoothing.targeted_rpm;
   if (rpm_delta == 0)
     return rpm;
 
@@ -179,7 +179,7 @@ void fc::FanInterface::test(ObservableNumber<int> &status) {
   disable_control();
 }
 
-optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) const {
+optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) {
   if (!set_pwm(pwm))
     return nullopt;
 
@@ -199,7 +199,7 @@ optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) const {
   return cur;
 }
 
-bool fc::FanInterface::set_pwm_test() const {
+bool fc::FanInterface::set_pwm_test() {
   for (int i = 0; i < 3; ++i) {
     const Pwm target = (get_pwm() != PWM_MIN) ? PWM_MIN : PWM_MAX;
     if (set_stabilised_pwm(target).has_value())

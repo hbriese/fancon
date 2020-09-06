@@ -89,7 +89,7 @@ Status
 fc::Service::GetEnumeratedDevices([[maybe_unused]] ServerContext *context,
                                   [[maybe_unused]] const fc_pb::Empty *req,
                                   fc_pb::Devices *devices) {
-  Devices(true, true).to(*devices);
+  Devices(true).to(*devices);
   return Status::OK;
 }
 

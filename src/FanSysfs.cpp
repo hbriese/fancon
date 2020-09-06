@@ -17,20 +17,24 @@ fc::FanSysfs::FanSysfs(string label_, const path &adapter_path_, SysfsID id_)
 }
 
 fc::FanSysfs::~FanSysfs() {
-  if (!ignore)
+  if (enabled)
     fc::FanSysfs::disable_control();
 }
 
-bool fc::FanSysfs::enable_control() const {
-  if (exists(enable_path))
-    return Util::write(enable_path, manual_flag);
+bool fc::FanSysfs::enable_control() {
+  const bool success =
+      !(exists(enable_path)) || Util::write(enable_path, manual_flag);
+  if (success)
+    enabled = true;
 
-  return true;
+  return success;
 }
 
-bool fc::FanSysfs::disable_control() const {
-  if (exists(enable_path))
-    return Util::write(enable_path, driver_flag);
+bool fc::FanSysfs::disable_control() {
+  const bool success =
+      !(exists(enable_path)) || Util::write(enable_path, driver_flag);
+  if (success)
+    enabled = false;
 
   return true;
 }
@@ -72,7 +76,7 @@ string fc::FanSysfs::hw_id() const { return pwm_path.c_str(); }
 
 DevType fc::FanSysfs::type() const { return DevType::SYS; }
 
-bool fc::FanSysfs::set_pwm(const Pwm pwm) const {
+bool fc::FanSysfs::set_pwm(const Pwm pwm) {
   if (!Util::write(pwm_path, pwm))
     return FanInterface::recover_control();
 

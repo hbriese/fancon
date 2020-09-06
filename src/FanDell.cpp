@@ -6,11 +6,11 @@ FanDell::FanDell(string label_, const path &adapter_path_, uint id_)
     : FanSysfs(move(label_), adapter_path_, id_) {}
 
 FanDell::~FanDell() {
-  if (!ignore)
+  if (enabled)
     FanDell::disable_control();
 }
 
-bool FanDell::enable_control() const {
+bool FanDell::enable_control() {
   if (!SMM::smm_send(mode(true))) {
     LOG(llvl::error) << *this
                      << ": failed to enable fan control, please "
@@ -18,10 +18,10 @@ bool FanDell::enable_control() const {
     return false;
   }
 
-  return true;
+  return enabled = true;
 }
 
-bool fc::FanDell::disable_control() const {
+bool fc::FanDell::disable_control() {
   if (!SMM::smm_send(mode(false))) {
     LOG(llvl::error) << *this
                      << ": failed to disable fan control, please "
@@ -29,6 +29,7 @@ bool fc::FanDell::disable_control() const {
     return false;
   }
 
+  enabled = false;
   return true;
 }
 

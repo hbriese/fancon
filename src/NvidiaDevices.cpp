@@ -7,7 +7,7 @@ using fc::NV::xnvlib;
 fc::FanNV::FanNV(string label, NVID id) : FanInterface(move(label)), id(id) {}
 
 fc::FanNV::~FanNV() {
-  if (!ignore)
+  if (enabled)
     FanNV::disable_control();
 }
 
@@ -69,7 +69,7 @@ Pwm fc::FanNV::get_pwm() const {
   return percent_to_pwm(pwm_pc.value_or(0));
 }
 
-bool fc::FanNV::set_pwm(const Pwm pwm) const {
+bool fc::FanNV::set_pwm(const Pwm pwm) {
   // Attempt to recover control of the device if the write fails
   if (!xnvlib->pwm_percent.write(id, pwm_to_percent(pwm)))
     return FanInterface::recover_control();
@@ -77,12 +77,19 @@ bool fc::FanNV::set_pwm(const Pwm pwm) const {
   return true;
 }
 
-bool fc::FanNV::enable_control() const {
-  return xnvlib->enable_mode.write(id, NV_CTRL_GPU_COOLER_MANUAL_CONTROL_TRUE);
+bool fc::FanNV::enable_control() {
+  if (!xnvlib->enable_mode.write(id, NV_CTRL_GPU_COOLER_MANUAL_CONTROL_TRUE))
+    return false;
+
+  return enabled = true;
 }
 
-bool fc::FanNV::disable_control() const {
-  return xnvlib->enable_mode.write(id, NV_CTRL_GPU_COOLER_MANUAL_CONTROL_FALSE);
+bool fc::FanNV::disable_control() {
+  if (!xnvlib->enable_mode.write(id, NV_CTRL_GPU_COOLER_MANUAL_CONTROL_FALSE))
+    return false;
+
+  enabled = false;
+  return true;
 }
 
 Percent fc::FanNV::pwm_to_percent(const Pwm pwm) {

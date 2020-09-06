@@ -49,7 +49,7 @@ public:
   void enable_all();
   void disable(const string &flabel, bool disable_all_dell = true);
   void disable_all();
-  void reload();
+  void reload(bool just_started = false);
   void recover();
   void nv_init();
   void test(fc::FanInterface &fan, bool forced, bool blocking,
