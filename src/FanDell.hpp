@@ -8,7 +8,7 @@ namespace fc {
 class FanDell : public fc::FanSysfs {
 public:
   FanDell() = default;
-  FanDell(string label_, const path &adapter_path_, int id_);
+  FanDell(string label_, const path &adapter_path_, uint id_);
   ~FanDell() override;
 
   bool enable_control() const override;

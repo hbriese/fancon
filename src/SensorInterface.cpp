@@ -7,12 +7,17 @@ Temp fc::SensorInterface::get_average_temp() {
   if (fresh())
     return last_avg_temp;
 
-  if (!temp_history.empty()) {
-    temp_history[temp_history_i] = read();
-    temp_history_i =
-        (temp_history_i < temp_history.size()) ? temp_history_i + 1 : 0;
+  const auto temp = read();
+  if (temp) {
+    if (!temp_history.empty()) {
+      temp_history[temp_history_i] = *temp;
+      temp_history_i =
+          (temp_history_i < temp_history.size()) ? temp_history_i + 1 : 0;
+    } else {
+      temp_history.resize(fc::temp_averaging_intervals, *temp);
+    }
   } else {
-    temp_history.resize(fc::temp_averaging_intervals, read());
+    LOG(llvl::error) << *this << ": failed to read";
   }
 
   last_read_time = chrono::high_resolution_clock::now();

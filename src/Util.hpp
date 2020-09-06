@@ -64,10 +64,9 @@ using std::vector;
 namespace fc::Util {
 static const string SERVICE_ADDR = "0.0.0.0:5820";
 
-int postfix_num(const string_view &s);
+template <class T> optional<T> postfix_num(const string_view &s);
 optional<string> read_line(const path &fpath, bool failed = false);
-template <typename T> T read(const path &fpath, bool failed = false);
-template <typename T> optional<T> read_(const path &fpath, bool failed = false);
+template <typename T> optional<T> read(const path &fpath, bool failed = false);
 template <typename T> bool write(const path &fpath, T val, bool failed = false);
 template <typename K, typename T> string map_str(std::map<K, T> m);
 string join(std::initializer_list<pair<bool, string>> args,
@@ -77,6 +76,7 @@ bool is_atty();
 std::chrono::high_resolution_clock::time_point deadline(long ms);
 bool deep_equal(const google::protobuf::Message &m1,
                 const google::protobuf::Message &m2);
+uint stou(const string &str, size_t *idx = nullptr, int base = 10);
 
 template <class T> class ObservableNumber {
 public:
@@ -125,31 +125,15 @@ private:
 // TEMPLATE DEFINITIONS //
 //----------------------//
 
-template <typename T> T fc::Util::read(const path &fpath, bool failed) {
-  const auto fatal_err = [&fpath](bool fexists) -> T {
-    LOG(llvl::debug) << "Failed to read from: " << fpath << " - "
-                     << ((fexists) ? "filesystem error" : "doesn't exist");
-    return T{};
-  };
+template <class T> optional<T> fc::Util::postfix_num(const string_view &s) {
+  bool found = false;
+  const auto beg = std::find_if_not(s.rbegin(), s.rend(), [&](const char &c) {
+    return (std::isdigit(c)) ? (found = true) : !found;
+  });
 
-  std::ifstream ifs(fpath.string());
-  if (!ifs)
-    return fatal_err(exists(fpath));
-
-  T ret;
-  ifs >> ret;
-
-  ifs.close();
-
-  if (!ifs) {
-    const bool fexists = exists(fpath);
-    if (fexists && !failed)
-      return read<T>(fpath, true);
-
-    return fatal_err(fexists);
-  }
-
-  return ret;
+  T res;
+  const auto [p, ec] = std::from_chars(beg.base(), s.data() + s.size(), res);
+  return (ec == std::errc()) ? optional(res) : nullopt;
 }
 
 template <typename T> T from(std::istream &is) {
@@ -159,9 +143,9 @@ template <typename T> T from(std::istream &is) {
 }
 
 template <typename T>
-optional<T> fc::Util::read_(const path &fpath, bool failed) {
+optional<T> fc::Util::read(const path &fpath, bool failed) {
   const auto retry = [&fpath, &failed] {
-    return (!failed && exists(fpath)) ? read_<T>(fpath, true) : std::nullopt;
+    return (!failed && exists(fpath)) ? read<T>(fpath, true) : std::nullopt;
   };
 
   std::ifstream ifs(fpath.string());

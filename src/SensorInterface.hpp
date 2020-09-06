@@ -40,7 +40,7 @@ protected:
   size_t temp_history_i = 0;
   Temp last_avg_temp = 0;
 
-  virtual Temp read() const = 0;
+  virtual optional<Temp> read() const = 0;
   bool fresh() const;
 };
 

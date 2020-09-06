@@ -231,12 +231,12 @@ bool NV::LibXNvCtrl::enable_fan_control_coolbit() {
     return false;
   }
 
-  const int initialv = Util::postfix_num(l);
-  int curv = initialv;
+  const auto initialv = Util::postfix_num<uint>(l).value_or(0);
+  uint curv = initialv;
 
   const auto nBits = 5;
-  const auto fcBit = 2;                // 4
-  int cbVal[nBits] = {1, 2, 4, 8, 16}; // bit^2
+  const auto fcBit = 2;                 // 4
+  uint cbVal[nBits] = {1, 2, 4, 8, 16}; // bit^2
   bool cbSet[nBits]{false};
 
   // Determine set coolbit values

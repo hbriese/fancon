@@ -48,7 +48,7 @@ void fc::SensorChips::enumerate(FanMap &fans, SensorMap &sensors) {
       }
 
       if (is_fan) {
-        const int id = Util::postfix_num(dev_name);
+        const auto id = Util::postfix_num<uint>(dev_name).value_or(0);
         unique_ptr<FanInterface> fan;
         if (is_dell) {
           fan = make_unique<FanDell>(label, adapter_path, id);

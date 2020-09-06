@@ -64,7 +64,7 @@ message Sensor {
     string crit_path = 15;
 
     // NV
-    int32 id = 20;
+    uint32 id = 20;
 }
 
 message Empty {}

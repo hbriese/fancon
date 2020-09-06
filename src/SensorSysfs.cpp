@@ -17,15 +17,12 @@ fc::SensorSysfs::SensorSysfs(string label_, const string &device_path)
 }
 
 optional<Temp> fc::SensorSysfs::min_temp() const {
-  const auto m = Util::read_<Temp>(min_path);
-  if (!m)
-    return nullopt;
-  return *m / sysfs_temp_divisor;
+  const auto m = Util::read<Temp>(min_path);
+  return (m) ? optional(*m / sysfs_temp_divisor) : nullopt;
 }
 
 optional<Temp> fc::SensorSysfs::max_temp() const {
-  const auto m = Util::read_<Temp>(max_path), c = Util::read_<Temp>(crit_path);
-
+  const auto m = Util::read<Temp>(max_path), c = Util::read<Temp>(crit_path);
   if (m && c) {
     return std::max(*m, *c) / sysfs_temp_divisor;
   } else if (m) {
@@ -62,20 +59,18 @@ void fc::SensorSysfs::to(fc_pb::Sensor &s) const {
   s.set_crit_path(crit_path.c_str());
 }
 
-Temp fc::SensorSysfs::read() const {
-  return Util::read<Temp>(input_path) / sysfs_temp_divisor;
+optional<Temp> fc::SensorSysfs::read() const {
+  const auto temp = Util::read<Temp>(input_path);
+  return (temp) ? optional(*temp / sysfs_temp_divisor) : nullopt;
 }
 
 bool fc::SensorSysfs::enable() const {
-  const auto enable_mode = Util::read_<control_flag_t>(enable_path);
-  if (enable_mode && *enable_mode <= 0)
-    return Util::write(enable_path, 1);
-
-  return true;
+  const auto enable_mode = Util::read<control_flag_t>(enable_path);
+  return !(enable_mode && *enable_mode <= 0) || Util::write(enable_path, 1);
 }
 
-bool fc::SensorSysfs::is_faulty() {
-  return Util::read_<int>(fault_path).value_or(0) > 0;
+bool fc::SensorSysfs::is_faulty() const {
+  return Util::read<int>(fault_path).value_or(0) > 0;
 }
 
 path fc::SensorSysfs::if_exists(const path &p) { return (exists(p)) ? p : ""; }

@@ -2,7 +2,7 @@
 
 using namespace fc;
 
-FanDell::FanDell(string label_, const path &adapter_path_, int id_)
+FanDell::FanDell(string label_, const path &adapter_path_, uint id_)
     : FanSysfs(move(label_), adapter_path_, id_) {}
 
 FanDell::~FanDell() {
@@ -36,11 +36,8 @@ bool fc::FanDell::valid() const {
   if (!fc::FanSysfs::valid())
     return false;
 
-  const int id = Util::postfix_num(pwm_path.c_str()) - 1;
-  if (id < 0)
-    return false;
-
-  return SMM::found() && SMM::fan_status(id) != SMM::FAN_NOT_FOUND;
+  const auto id = Util::postfix_num<SysfsID>(pwm_path.c_str());
+  return id && SMM::found() && SMM::fan_status(*id - 1) != SMM::FAN_NOT_FOUND;
 }
 
 DevType fc::FanDell::type() const { return DevType::DELL; }
@@ -63,7 +60,7 @@ void fc::FanDell::test_driver_enable_flag() {
     // Choose the PWM, min or max, furthest away from the current
     const Pwm cur = get_pwm();
     const Pwm target_pwm =
-        (abs(cur - PWM_MIN) > abs(PWM_MAX - cur)) ? PWM_MIN : PWM_MAX;
+        ((cur - PWM_MIN) > (PWM_MAX - cur)) ? PWM_MIN : PWM_MAX;
 
     set_pwm(target_pwm);
     sleep_for(milliseconds(1000));

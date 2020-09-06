@@ -14,8 +14,8 @@ using std::abs;
 using std::min;
 using std::next;
 using std::stoi;
-using Pwm = int;
-using Rpm = int;
+using Pwm = uint;
+using Rpm = uint;
 using Percent = uint;
 using Rpm_to_Pwm_Map = std::map<Rpm, Pwm>;
 using Pwm_to_Rpm_Map = std::map<Pwm, Rpm>;
@@ -30,6 +30,8 @@ enum class ControllerState;
 extern ControllerState controller_state;
 
 const Pwm PWM_MIN = 0, PWM_MAX = 255;
+
+Pwm clamp_pwm(Pwm pwm);
 
 class FanInterface {
 public:

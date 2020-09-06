@@ -96,12 +96,7 @@ Pwm fc::FanNV::percent_to_pwm(const Percent percent) {
 fc::SensorNV::SensorNV(string label, NVID id)
     : SensorInterface(move(label)), id(id) {}
 
-Temp fc::SensorNV::read() const {
-  const auto temp = xnvlib->temp.read(id);
-  if (!temp)
-    LOG(llvl::error) << *this << ": failed to get temp";
-  return temp.value_or(0);
-}
+optional<Temp> fc::SensorNV::read() const { return xnvlib->temp.read(id); }
 
 void fc::SensorNV::from(const fc_pb::Sensor &s) {
   fc::SensorInterface::from(s);

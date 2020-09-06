@@ -4,6 +4,7 @@
 #include "FanInterface.hpp"
 #include "Util.hpp"
 
+using SysfsID = uint;
 using control_flag_t = int;
 
 namespace fc {
@@ -11,7 +12,7 @@ namespace fc {
 class FanSysfs : public FanInterface {
 public:
   FanSysfs() = default;
-  FanSysfs(string label_, const path &adapter_path_, int id_);
+  FanSysfs(string label_, const path &adapter_path_, SysfsID id_);
   ~FanSysfs() override;
 
   void test(ObservableNumber<int> &status) override;
@@ -33,11 +34,12 @@ protected:
   bool set_pwm(const Pwm pwm) const override;
   virtual void test_driver_enable_flag();
 
-  static path get_pwm_path(const path &adapter_path, int dev_id);
-  static path get_rpm_path(const path &adapter_path, int dev_id);
-  static path get_enable_path(const path &adapter_path, int dev_id);
-  bool enable_path_exists() const;
-  static bool is_faulty(const path &adapter_path, int dev_id);
+  static path get_pwm_path(const path &adapter_path, SysfsID dev_id);
+  static path get_rpm_path(const path &adapter_path, SysfsID dev_id);
+  static path get_enable_path(const path &adapter_path, SysfsID dev_id);
+  static optional<path> get_sensor_enable_path(const path &adapter_path,
+                                               SysfsID dev_id);
+  static bool is_faulty(const path &adapter_path, SysfsID dev_id);
 };
 } // namespace fc
 

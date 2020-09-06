@@ -334,7 +334,7 @@ Rpm fc::FanInterface::pwm_to_rpm(Pwm pwm) const {
   if (pwm < PWM_MIN || pwm > PWM_MAX) {
     LOG(llvl::warning) << *this << " temp_to_rpm: " << pwm
                        << " PWM is invalid, valid values are between 0-255";
-    pwm = std::clamp(pwm, PWM_MIN, PWM_MAX);
+    pwm = clamp_pwm(pwm);
   }
 
   auto it = rpm_to_pwm.begin();
@@ -357,8 +357,8 @@ void fc::FanInterface::temp_to_rpm_from(const string &src) {
   if (rpm_to_pwm.empty()) // Fan needs to be tested first
     return;
 
-  const optional<Temp> min_temp = (sensor) ? sensor->min_temp() : nullopt,
-                       max_temp = (sensor) ? sensor->max_temp() : nullopt;
+  const optional<Temp> min_temp = sensor->min_temp(),
+                       max_temp = sensor->max_temp();
 
   string::const_iterator start_it = src.begin(), next_it = src.end();
   std::smatch m;
@@ -402,7 +402,7 @@ void fc::FanInterface::rpm_to_pwm_from(const string &src) {
   // 1: rpm, 2: pwm
   const std::regex reg(R"((\d+)\s*:\s*(\d{1,3}))");
   while (std::regex_search(start_it, next_it, m, reg)) {
-    rpm_to_pwm[stoi(m[1])] = stoi(m[2]);
+    rpm_to_pwm[Util::stou(m[1])] = clamp_pwm(Util::stou(m[2]));
 
     // The next value starts after the match ends
     next_it = m[0].second;
@@ -423,7 +423,7 @@ void fc::FanInterface::rpm_to_pwm_from(const Pwm_to_Rpm_Map &pwm_to_rpm) {
   auto pwm_it = pwm_to_rpm.begin();
   for (auto rpm_it = rpms.begin();
        pwm_it != pwm_to_rpm.end() && rpm_it != rpms.end(); ++pwm_it, ++rpm_it) {
-    rpm_to_pwm[*rpm_it] = pwm_it->first;
+    rpm_to_pwm[*rpm_it] = clamp_pwm(pwm_it->first);
   }
 }
 
@@ -434,7 +434,7 @@ void fc::FanInterface::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
 
   rpm_to_pwm_from(f.rpm_to_pwm());
   temp_to_rpm_from(f.temp_to_rpm());
-  start_pwm = f.start_pwm();
+  start_pwm = clamp_pwm(f.start_pwm());
   interval = milliseconds(f.interval());
   ignore = f.ignore();
 }
@@ -460,3 +460,5 @@ std::ostream &fc::operator<<(std::ostream &os, const fc::FanInterface &f) {
   os << f.label;
   return os;
 }
+
+Pwm fc::clamp_pwm(Pwm pwm) { return std::clamp(pwm, PWM_MIN, PWM_MAX); }

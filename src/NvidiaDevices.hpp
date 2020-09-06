@@ -40,7 +40,7 @@ public:
   SensorNV() = default;
   SensorNV(string label, NVID id);
 
-  Temp read() const override;
+  optional<Temp> read() const override;
 
   void from(const fc_pb::Sensor &s) override;
   void to(fc_pb::Sensor &s) const override;

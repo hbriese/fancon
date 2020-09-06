@@ -27,10 +27,10 @@ public:
 private:
   path input_path, enable_path, fault_path, min_path, max_path, crit_path;
 
-  Temp read() const override;
+  optional<Temp> read() const override;
 
   bool enable() const;
-  bool is_faulty();
+  bool is_faulty() const;
   static path if_exists(const path &p);
 };
 } // namespace fc

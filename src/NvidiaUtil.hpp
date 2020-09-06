@@ -46,7 +46,7 @@ public:
 
 class DynamicLibrary {
 public:
-  DynamicLibrary(const char *file);
+  explicit DynamicLibrary(const char *file);
   ~DynamicLibrary() { dlclose(handle); }
 
   bool available() const;

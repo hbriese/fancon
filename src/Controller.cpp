@@ -263,21 +263,20 @@ void fc::Controller::merge(Devices &d, bool replace_on_match, bool deep_cmp) {
       // On match; re-insert device as the key may have changed
       const auto re_insert = [&] {
         devices.fans.erase(old_it);
-        devices.fans.emplace(new_key, move(dev));
+        return devices.fans.emplace(new_key, move(dev));
       };
       const FanStatus fstatus = status(old_key);
       if (fstatus == FanStatus::FanStatus_Status_DISABLED) {
         re_insert();
       } else if (fstatus == FanStatus::FanStatus_Status_ENABLED) {
         disable(old_it->first, false);
-        re_insert();
-        enable(*old_it->second, true);
+        auto [it, success] = re_insert();
+        enable(*it->second, true);
       } else if (fstatus == FanStatus::FanStatus_Status_TESTING) {
-        const auto task_it = tasks.find(old_key);
-        const auto test_status = task_it->second.test_status;
+        const auto test_status = tasks.find(old_key)->second.test_status;
         disable(old_key, false);
-        re_insert();
-        test(*old_it->second, true, false, test_status);
+        auto [it, success] = re_insert();
+        test(*it->second, true, false, test_status);
       }
     });
 

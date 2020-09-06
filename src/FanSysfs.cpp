@@ -1,13 +1,19 @@
 #include "FanSysfs.hpp"
 
-fc::FanSysfs::FanSysfs(string label_, const path &adapter_path_, int id_)
+fc::FanSysfs::FanSysfs(string label_, const path &adapter_path_, SysfsID id_)
     : FanInterface(move(label_)), pwm_path(get_pwm_path(adapter_path_, id_)),
       rpm_path(get_rpm_path(adapter_path_, id_)),
       enable_path(get_enable_path(adapter_path_, id_)) {
   if (is_faulty(adapter_path_, id_)) {
     LOG(llvl::warning) << *this << ": is faulty, ignoring";
     ignore = true;
+    return;
   }
+
+  // Enable the fan sensor
+  const auto sensor_ep = get_sensor_enable_path(adapter_path_, id_);
+  if (sensor_ep)
+    Util::write(*sensor_ep, 1);
 }
 
 fc::FanSysfs::~FanSysfs() {
@@ -16,14 +22,14 @@ fc::FanSysfs::~FanSysfs() {
 }
 
 bool fc::FanSysfs::enable_control() const {
-  if (enable_path_exists())
+  if (exists(enable_path))
     return Util::write(enable_path, manual_flag);
 
   return true;
 }
 
 bool fc::FanSysfs::disable_control() const {
-  if (enable_path_exists())
+  if (exists(enable_path))
     return Util::write(enable_path, driver_flag);
 
   return true;
@@ -76,7 +82,7 @@ bool fc::FanSysfs::set_pwm(const Pwm pwm) const {
 }
 
 Pwm fc::FanSysfs::get_pwm() const {
-  const auto pwm = Util::read_<Pwm>(pwm_path);
+  const auto pwm = Util::read<Pwm>(pwm_path);
   if (pwm) {
     return *pwm;
   } else {
@@ -86,7 +92,7 @@ Pwm fc::FanSysfs::get_pwm() const {
 }
 
 Rpm fc::FanSysfs::get_rpm() const {
-  const auto rpm = Util::read_<Rpm>(rpm_path);
+  const auto rpm = Util::read<Rpm>(rpm_path);
   if (rpm) {
     return *rpm;
   } else {
@@ -96,32 +102,36 @@ Rpm fc::FanSysfs::get_rpm() const {
 }
 
 void fc::FanSysfs::test_driver_enable_flag() {
-  // 0: no fan speed control (i.e. fan at full speed)
-  // 1: manual fan speed control enabled
-  // 2+: automatic fan speed control enabled
-  const auto mode = Util::read_<control_flag_t>(enable_path);
-  if (mode && *mode != 0 && *mode != manual_flag)
-    driver_flag = *mode;
+  if (exists(enable_path)) {
+    // 0: no fan speed control (i.e. fan at full speed)
+    // 1: manual fan speed control enabled
+    // 2+: automatic fan speed control enabled
+    const auto mode = Util::read<control_flag_t>(enable_path);
+    if (mode && *mode != 0 && *mode != manual_flag)
+      driver_flag = *mode;
+  }
 }
 
-path fc::FanSysfs::get_pwm_path(const path &adapter_path, int dev_id) {
+path fc::FanSysfs::get_pwm_path(const path &adapter_path, SysfsID dev_id) {
   return adapter_path / path(string("pwm") + to_string(dev_id));
 }
 
-path fc::FanSysfs::get_rpm_path(const path &adapter_path, int dev_id) {
+path fc::FanSysfs::get_rpm_path(const path &adapter_path, SysfsID dev_id) {
   return adapter_path / path("fan" + to_string(dev_id) + "_input");
 }
 
-path fc::FanSysfs::get_enable_path(const path &adapter_path, int dev_id) {
-  path ep = get_pwm_path(adapter_path, dev_id).string() + "_enable";
+path fc::FanSysfs::get_enable_path(const path &adapter_path, SysfsID dev_id) {
+  const path ep = get_pwm_path(adapter_path, dev_id).string() + "_enable";
   return (exists(ep)) ? ep : "";
 }
 
-bool fc::FanSysfs::enable_path_exists() const {
-  return !enable_path.empty() && exists(enable_path);
+optional<path> fc::FanSysfs::get_sensor_enable_path(const path &adapter_path,
+                                                    SysfsID dev_id) {
+  const path ep = adapter_path / path("fan" + to_string(dev_id) + "_enable");
+  return (exists(ep)) ? optional(ep) : nullopt;
 }
 
-bool fc::FanSysfs::is_faulty(const path &adapter_path, int dev_id) {
+bool fc::FanSysfs::is_faulty(const path &adapter_path, SysfsID dev_id) {
   const path fault_p{adapter_path / path("fan" + to_string(dev_id) + "_fault")};
-  return exists(fault_p) && Util::read<int>(fault_p) > 0;
+  return Util::read<int>(fault_p).value_or(0) > 0;
 }

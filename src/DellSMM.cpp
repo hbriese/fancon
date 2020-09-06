@@ -32,16 +32,16 @@ bool SMM::is_smm_dell(const string_view &sensor_chip_name) {
   return SMM::found();
 }
 
-int SMM::fan_status(int fan) {
+uint SMM::fan_status(DellID fan) {
   smm_regs regs{};
   regs.eax = SMM::SMM_GET_FAN;
-  regs.ebx = fan & 0xff;
+  regs.ebx = fan & 0xffu;
 
   if (!i8k_smm(regs)) {
     LOG(llvl::error) << "Failed to get SMM fan status";
     return SMM::FAN_NOT_FOUND;
   }
-  return regs.eax & 0xff;
+  return regs.eax & 0xffu;
 }
 
 // vector<int> SMM::enumerate_fans() {
