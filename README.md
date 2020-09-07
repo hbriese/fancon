@@ -21,7 +21,13 @@ A Linux user-space fan control daemon
 
 
 ### Installation
-##### Ubuntu, Debian (.deb)
+##### Ubuntu, Debian (PPA)
+```bash
+sudo add-apt-repository ppa:hbriese/fancon; sudo apt-get update
+sudo apt install fancon
+```
+
+###### .deb (alternative)
 ```bash
 wget https://github.com/hbriese/fancon/releases/latest/download/fancon_amd64.deb
 sudo dpkg -i ./fancon*.deb; sudo apt install -f
@@ -164,7 +170,7 @@ Devices (fans & sensors) that:
 **May** be configurable by [altering their configuration](#configuration) 
 
 #### $XAUTHORITY and or $DISPLAY env variable(s) not set
-X11 access is required due for NVIDIA control
+X11 access is required for NVIDIA control
 
 You will need to configure the unset environmental variable.
 
