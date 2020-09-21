@@ -71,6 +71,7 @@ bool fc::FanInterface::pre_start_check() {
     return true;
   }
 
+  disable_control();
   return false;
 }
 
@@ -174,9 +175,8 @@ void fc::FanInterface::test(ObservableNumber<int> &status) {
 
   rpm_to_pwm_from(pwm_to_rpm);
 
-  // Restore pre-test Rpm & driver control
+  // Restore pre-test Rpm
   set_pwm(pre_pwm);
-  disable_control();
 }
 
 optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) {
@@ -362,51 +362,65 @@ void fc::FanInterface::temp_to_rpm_from(const string &src) {
 
   string::const_iterator start_it = src.begin(), next_it = src.end();
   std::smatch m;
-
-  // 1: temp, 2: is_fahrenheit, 3: rpm, 4: is_percent, 5: is_pwm
-  const std::regex reg(R"((\d+)\s*([fF])?[cC]?\s*[:]\s*(\d+)\s*(%)?(PWM)?)");
-  while (std::regex_search(start_it, next_it, m, reg)) {
-    const bool is_fahrenheit = m[2].matched, is_percent = m[4].matched,
-               is_pwm = m[5].matched;
-
-    auto temp = stoi(m[1]);
-    if (is_fahrenheit)
-      temp = (5.0 / 9) * (temp - 32);
-
-    auto rpm = stoi(m[3]);
-    if (is_percent)
-      rpm = percent_to_rpm(rpm);
-    else if (is_pwm)
-      rpm = pwm_to_rpm(rpm);
-
-    temp_to_rpm[temp] = rpm;
-
-    if (min_temp && temp < *min_temp) {
-      LOG(llvl::warning) << *this << ": " << temp << "°C < sensor min ("
-                         << *min_temp << "°C)";
-    } else if (max_temp && temp > *max_temp) {
-      LOG(llvl::warning) << *this << ": " << temp << "°C > sensor max ("
-                         << *max_temp << "°C)";
-    }
-
+  const auto next_item = [&] {
     // The next value starts after the match ends
     next_it = m[0].second;
     start_it = (next_it != src.end()) ? next(next_it) : next_it;
+  };
+
+  // 1: temp, 2: is_fahrenheit, 3: rpm, 4: is_percent, 5: is_pwm
+  for (const regex reg(R"((\d+)\s*([fF])?[cC]?\s*[:]\s*(\d+)\s*(%)?(PWM)?)");
+       std::regex_search(start_it, next_it, m, reg); next_item()) {
+    //    while (std::regex_search(start_it, next_it, m, reg)) {
+    const bool is_fahrenheit = m[2].matched, is_percent = m[4].matched,
+               is_pwm = m[5].matched;
+
+    auto temp = Util::from_string<Temp>(m[1]);
+    auto rpm = Util::from_string<Rpm>(m[3]);
+    if (!temp || !rpm) {
+      LOG(llvl::error) << *this << ": invalid temp_to_rpm item: " << m[0];
+      continue;
+    }
+
+    if (is_fahrenheit)
+      *temp = (5.0 / 9.0) * (*temp - 32.0);
+
+    if (is_percent)
+      *rpm = percent_to_rpm(*rpm);
+    else if (is_pwm)
+      *rpm = pwm_to_rpm(*rpm);
+
+    temp_to_rpm[*temp] = *rpm;
+
+    if (min_temp && *temp < *min_temp) {
+      LOG(llvl::warning) << *this << ": " << *temp << "°C < sensor min ("
+                         << *min_temp << "°C)";
+    } else if (max_temp && *temp > *max_temp) {
+      LOG(llvl::warning) << *this << ": " << *temp << "°C > sensor max ("
+                         << *max_temp << "°C)";
+    }
   }
 }
 
 void fc::FanInterface::rpm_to_pwm_from(const string &src) {
   string::const_iterator start_it = src.begin(), next_it = src.end();
   std::smatch m;
-
-  // 1: rpm, 2: pwm
-  const std::regex reg(R"((\d+)\s*:\s*(\d{1,3}))");
-  while (std::regex_search(start_it, next_it, m, reg)) {
-    rpm_to_pwm[Util::stou(m[1])] = clamp_pwm(Util::stou(m[2]));
-
+  const auto next_item = [&] {
     // The next value starts after the match ends
     next_it = m[0].second;
     start_it = (next_it != src.end()) ? next(next_it) : next_it;
+  };
+
+  // 1: rpm, 2: pwm
+  for (const regex reg(R"((\d+)\s*:\s*(\d{1,3}))");
+       std::regex_search(start_it, next_it, m, reg); next_item()) {
+    const auto rpm = Util::from_string<Rpm>(m[1]),
+               pwm = Util::from_string<Pwm>(m[2]);
+    if (rpm && pwm) {
+      rpm_to_pwm[*rpm] = clamp_pwm(*pwm);
+    } else {
+      LOG(llvl::error) << *this << ": invalid rpm_to_pwm item: " << m[0];
+    }
   }
 }
 

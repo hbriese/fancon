@@ -62,7 +62,7 @@ void fc::Controller::disable(const string &flabel, bool disable_all_dell) {
   if (devices.fans.at(flabel)->type() == DevType::DELL && disable_all_dell)
     return disable_dell_fans();
 
-  tasks.erase(it);
+  tasks.erase(flabel);
   if (const auto fit = devices.fans.find(flabel); fit != devices.fans.end())
     fit->second->disable_control();
 
@@ -128,23 +128,21 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced, bool blocking,
   if (auto it = tasks.find(fan.label); it->second.is_testing()) {
     // Add test_status observers to existing test_status
     for (const auto &cb : test_status->observers)
-      it->second.test_status->register_observer(cb);
+      it->second.test_status->register_observer(cb, true);
     if (blocking)
       it->second.join();
     return;
   }
 
-  LOG(llvl::info) << fan << ": testing";
-
   // Remove any running thread before testing
-  if (const auto it = tasks.find(fan.label); it != tasks.end())
-    tasks.erase(it);
+  tasks.erase(fan.label);
 
   auto test_func = [&] {
     // Test fan, then remove thread from map
+    LOG(llvl::info) << fan << ": testing";
     fan.test(*test_status);
-    tasks.erase(fan.label);
     LOG(llvl::info) << fan << ": test complete";
+    const thread t([&] { tasks.erase(fan.label); });
 
     // Only write to file when no other fan are still testing
     if (tests_running() == 0)
@@ -153,7 +151,7 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced, bool blocking,
     enable(fan);
   };
 
-  auto [it, success] =
+  const auto [it, success] =
       tasks.try_emplace(fan.label, move(test_func), test_status);
 
   if (!success)

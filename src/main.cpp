@@ -53,19 +53,13 @@ int main(int argc, char *argv[]) {
 }
 
 Args &fc::read_args(int argc, char *argv[], Args &args) {
-  // Preprocessing
-  map<string, string> short_to_arg;
-  for (auto &[key, a] : args.from_key) {
-    args.from_key.insert_or_assign(a.key, a);
-    if (!a.short_key.empty())
-      short_to_arg.insert_or_assign(a.short_key, a.key);
-  }
-
+  // Transform arguments to lower
   for (int i = 1; i < argc; i++) {
     for (char *p = argv[i]; *p; ++p)
       *p = static_cast<char>(tolower(*p));
   }
 
+  map<string, string> short_to_key = args.short_to_key();
   const std::regex rexpr(R"([\s-]*([\S]*)?[\s]*)");
 
   auto rmatch = [&](const string &s) {
@@ -77,7 +71,7 @@ Args &fc::read_args(int argc, char *argv[], Args &args) {
     bool is_arg = false;
     if (match[1].matched) {
       arg_str = match[1].str();
-      if (auto it = short_to_arg.find(arg_str); it != short_to_arg.end())
+      if (auto it = short_to_key.find(arg_str); it != short_to_key.end())
         arg_str = it->second;
 
       arg_it = args.from_key.find(arg_str);
@@ -129,11 +123,11 @@ void fc::print_args(Args &args) {
   std::stringstream ss;
   ss << "Started with arguments: [";
   for (auto it = args.from_key.begin(); it != args.from_key.end();) {
-    ss << it->second.key << ": " << it->second.triggered << " ("
-       << it->second.value << ")"
+    ss << it->second.key << ": " << it->second.triggered
+       << (!it->second.value.empty() ? (" (" + it->second.value + ")") : "")
        << ((++it != args.from_key.end()) ? ", " : "]");
   }
-  std::cout << ss.str() << endl;
+  cout << ss.str() << endl;
 }
 
 void fc::signal_handler(int signal) {

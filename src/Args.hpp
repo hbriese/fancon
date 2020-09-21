@@ -15,7 +15,7 @@ static const char *DEFAULT_CONF_PATH(FANCON_SYSCONFDIR "/fancon.conf"),
 
 class Arg {
 public:
-  Arg(string name, string short_name = "", bool has_value = false,
+  Arg(string name, string short_name = "", bool potential_value = false,
       bool needs_value = false, string value = "", bool triggered = false);
 
   string key, short_key, value;
@@ -31,7 +31,7 @@ public:
       enable = {"enable", "e", true, false},
       disable = {"disable", "d", true, false},
       test = {"test", "t", true, false}, force = {"force", "f"},
-      reload = {"reload", "r"},
+      monitor = {"monitor", "m", true, false}, reload = {"reload", "r"},
       config = {"config", "c", true, true, DEFAULT_CONF_PATH, true},
       service = {"service"}, daemon = {"daemon"},
       stop_service = {"stop-service"},
@@ -40,10 +40,12 @@ public:
       trace = {"trace", "a"};
 
   map<string, Arg &> from_key = {
-      a(help),    a(status),  a(enable),       a(disable),
-      a(test),    a(force),   a(reload),       a(config),
-      a(service), a(daemon),  a(stop_service), a(sysinfo),
-      a(recover), a(nv_init), a(verbose),      a(trace)};
+      a(help),    a(status),       a(enable),  a(disable), a(test),
+      a(force),   a(monitor),      a(reload),  a(config),  a(service),
+      a(daemon),  a(stop_service), a(sysinfo), a(recover), a(nv_init),
+      a(verbose), a(trace)};
+
+  map<string, string> short_to_key() const;
 
 private:
   static pair<string, Arg &> a(Arg &arg);

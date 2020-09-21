@@ -28,12 +28,13 @@ public:
   optional<fc_pb::Devices> get_enumerated_devices();
 
   void status();
-  void enable(const string &flabel);
   void enable();
-  void disable(const string &flabel);
+  void enable(const string &flabel);
   void disable();
+  void disable(const string &flabel);
   void test(bool forced);
   void test(const string &flabel, bool forced);
+  void monitor(const string &flabel);
   void reload();
   void recover();
   void nv_init();

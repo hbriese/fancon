@@ -76,18 +76,17 @@ bool is_atty();
 std::chrono::high_resolution_clock::time_point deadline(long ms);
 bool deep_equal(const google::protobuf::Message &m1,
                 const google::protobuf::Message &m2);
-uint stou(const string &str, size_t *idx = nullptr, int base = 10);
+template <class T> optional<T> from_string(const string &s);
 
 template <class T> class ObservableNumber {
 public:
   explicit ObservableNumber(T &&value) : value(value) {}
-  ObservableNumber(function<void(T &)> f, T &&value = 0) : value(value) {
-    register_observer(f);
-  }
+  ObservableNumber(function<void(T &)> f, T &&value = 0);
 
   vector<function<void(T &)>> observers;
 
-  void register_observer(function<void(T &)> callback);
+  void register_observer(std::function<void(T &)> callback,
+                         bool call_on_register);
   void notify_observers();
 
   ObservableNumber<T> &operator=(T other);
@@ -195,10 +194,24 @@ string fc::Util::map_str(const std::map<K, T> m) {
   return ss.str();
 }
 
+template <class T> optional<T> fc::Util::from_string(const string &s) {
+  T val;
+  const auto [p, ec] = std::from_chars(s.data(), s.data() + s.size(), val);
+  return (ec == std::errc()) ? optional(val) : nullopt;
+}
+
+template <class T>
+fc::Util::ObservableNumber<T>::ObservableNumber(function<void(T &)> f,
+                                                T &&value)
+    : value(value) {
+  register_observer(f, false);
+}
+
 template <class T>
 void fc::Util::ObservableNumber<T>::register_observer(
-    std::function<void(T &)> callback) {
-  callback(value);
+    std::function<void(T &)> callback, bool call_on_register) {
+  if (call_on_register)
+    callback(value);
   observers.emplace_back(move(callback));
 }
 

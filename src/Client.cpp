@@ -35,6 +35,8 @@ void fc::Client::run(Args &args) {
       test(args.test.value, true);
     else
       test(args.force);
+  } else if (args.monitor) {
+    monitor(args.monitor.value);
   } else if (args.reload) {
     reload();
   } else if (args.stop_service) {
@@ -95,15 +97,17 @@ void fc::Client::status() {
   }
 
   // Find the status of all devices
-  size_t longest_label = 0;
+  size_t longest_label = 0, longest_status = 0;
   vector<fc_pb::FanStatus> statuses;
   for (const auto &f : devices->fan()) {
     ClientContext context;
-    fc_pb::FanStatus status;
-    if (check(client->GetFanStatus(&context, from(f.label()), &status))) {
-      if (const auto l = status.label().length(); l > longest_label)
+    fc_pb::FanStatus s;
+    if (check(client->GetFanStatus(&context, from(f.label()), &s))) {
+      if (const auto l = s.label().length(); l > longest_label)
         longest_label = l;
-      statuses.push_back(move(status));
+      if (const auto l = status_text(s.status()).length(); l > longest_status)
+        longest_status = l;
+      statuses.push_back(move(s));
     }
   }
 
@@ -111,12 +115,17 @@ void fc::Client::status() {
   for (const auto &s : statuses) {
     stringstream extras;
     if (s.status() != FanStatus::FanStatus_Status_DISABLED)
-      extras << " " << setw(5) << s.rpm() << "rpm " << setw(3) << s.pwm()
-             << "pwm";
+      extras << setw(4) << s.rpm() << "rpm, " << setw(3) << s.pwm() << "pwm";
 
-    cout << setw(longest_label) << s.label() << ": " << setw(8)
-         << status_text(s.status()) << extras.rdbuf() << endl;
+    cout << setw(longest_label) << s.label() << ": " << extras.rdbuf() << " "
+         << setw(longest_status) << status_text(s.status()) << endl;
   }
+}
+
+void fc::Client::enable() {
+  ClientContext context;
+  if (check(client->EnableAll(&context, empty, &empty)))
+    status();
 }
 
 void fc::Client::enable(const string &flabel) {
@@ -125,9 +134,9 @@ void fc::Client::enable(const string &flabel) {
     LOG(llvl::info) << flabel << ": enabled";
 }
 
-void fc::Client::enable() {
+void fc::Client::disable() {
   ClientContext context;
-  if (check(client->EnableAll(&context, empty, &empty)))
+  if (check(client->DisableAll(&context, empty, &empty)))
     status();
 }
 
@@ -137,12 +146,6 @@ void fc::Client::disable(const string &flabel) {
     LOG(llvl::info) << flabel << ": disabled";
 }
 
-void fc::Client::disable() {
-  ClientContext context;
-  if (check(client->DisableAll(&context, empty, &empty)))
-    status();
-}
-
 void fc::Client::test(bool forced) {
   const auto devices = get_devices();
   if (!devices || devices->fan_size() == 0) {
@@ -150,25 +153,13 @@ void fc::Client::test(bool forced) {
     return;
   }
 
-  mutex write_mutex;
+  if (!forced)
+    LOG(llvl::info) << "Add 'force' option to test already tested fans";
+
   vector<thread> threads;
   for (const auto &f : devices->fan()) {
     const string &flabel = f.label();
-    threads.emplace_back([&, flabel] {
-      ClientContext context;
-      fc_pb::TestRequest req;
-      req.set_device_label(flabel);
-      req.set_forced(forced);
-
-      auto reader = client->Test(&context, req);
-      fc_pb::TestResponse resp;
-      while (reader->Read(&resp)) {
-        const lock_guard<mutex> lock(write_mutex);
-        LOG(llvl::info) << flabel << ": " << resp.status() << "%";
-      }
-      if (!check(reader->Finish()))
-        LOG(llvl::error) << flabel << ": test failed";
-    });
+    threads.emplace_back([=] { test(flabel, forced); });
   }
 
   for (auto &t : threads) {
@@ -191,6 +182,27 @@ void fc::Client::test(const string &flabel, bool forced) {
 
   if (!check(reader->Finish()))
     LOG(llvl::error) << flabel << ": test failed";
+}
+
+void fc::Client::monitor(const string &flabel) {
+  status();
+
+  ClientContext context;
+  const auto reader = client->SubscribeFanStatus(&context, empty);
+  fc_pb::FanStatus r;
+  while (reader->Read(&r)) {
+    if (!flabel.empty() && flabel != r.label())
+      continue;
+
+    const string pwm_rpm =
+        (r.status() != fc_pb::FanStatus_Status_DISABLED)
+            ? to_string(r.rpm()) + "rpm, " + to_string(r.pwm()) + "pwm"
+            : "";
+    const string status = (r.status() == fc_pb::FanStatus_Status_TESTING)
+                              ? (string("(") + status_text(r.status()) + ")")
+                              : "";
+    cout << r.label() << ": " << pwm_rpm << status << endl;
+  }
 }
 
 void fc::Client::reload() {
@@ -266,6 +278,8 @@ void fc::Client::print_help(const string &conf) {
                   << "t  test    [fan]  Test the fan (forced)" << endl
                   << "f  force          Test even already tested fans "
                   << "(default: false)" << endl
+                  << "m  monitor        Monitor all fans" << endl
+                  << "m  monitor [fan]  Monitor the fan" << endl
                   << "r  reload         Reload config" << endl
                   << "c  config  [file] Config path (default: "
                   << log::fmt_green_bold << conf << log::fmt_reset << ")"

@@ -14,6 +14,7 @@ A Linux user-space fan control daemon
 - [Usage](#usage)
 - [Managing service](#managing-service)
 - [Debugging issues](#debugging-issues)
+    - [Monitoring fans and their status](#monitoring-fans-and-their-status)
     - [Logs](#logs)
     - [Undetected fans](#undetected-fans)
     - [Mis-configured or unsupported devices](#mis-configured-or-unsupported-devices)
@@ -116,14 +117,17 @@ e  enable  [fan]  Enable control of the fan
 d  disable        Disable control of all fans
 d  disable [fan]  Disable control of the fans
 t  test           Test all (untested) fans
-t  test    [fan]  Test the fan if untested
+t  test    [fan]  Test the fan (forced)
 f  force          Test even already tested fans (default: false)
+m  monitor        Monitor all fans
+m  monitor [fan]  Monitor the fan
 r  reload         Reload config
 c  config  [file] Config path (default: /etc/fancon.conf)
    service        Start as service
    daemon         Daemonize the process (default: false)
    stop-service   Stop the service
 i  sysinfo [file] Save system info to file (default: sysinfo.txt)
+   recover        Recover control of enabled devices
    nv-init        Init nvidia devices
 v  verbose        Debug logging level
 a  trace          Trace logging level
@@ -142,6 +146,9 @@ a  trace          Trace logging level
 
 
 ### Debugging issues
+#### Monitoring fans and their status
+```fancon monitor```
+
 #### Logs
 ```journalctl -u fancon```
 

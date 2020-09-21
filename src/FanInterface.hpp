@@ -13,7 +13,7 @@ using fc_pb::DevType;
 using std::abs;
 using std::min;
 using std::next;
-using std::stoi;
+using std::regex;
 using Pwm = uint;
 using Rpm = uint;
 using Percent = uint;

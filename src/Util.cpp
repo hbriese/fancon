@@ -52,14 +52,6 @@ bool fc::Util::deep_equal(const google::protobuf::Message &m1,
          m1.SerializeAsString() == m2.SerializeAsString();
 }
 
-uint fc::Util::stou(const string &str, size_t *idx, int base) {
-  const ulong result = std::stoul(str, idx, base);
-  if (result > std::numeric_limits<uint>::max())
-    throw std::out_of_range("stou: " + str);
-
-  return result;
-}
-
 fc::Util::ScopedCounter<atomic_int> fc::Util::RemovableMutex::acquire_lock() {
   while (counter < 0)
     sleep_for(milliseconds(50));

@@ -15,7 +15,6 @@ void fc::FanTask::join() {
   // End gracefully
   run = false;
   if (t.joinable()) {
-    t.interrupt();
     t.join();
   }
 }
