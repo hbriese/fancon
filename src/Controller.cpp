@@ -125,7 +125,7 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced, bool blocking,
     return;
 
   // If a test is already running for the device then just join onto it
-  if (auto it = tasks.find(fan.label); it->second.is_testing()) {
+  if (auto it = tasks.find(fan.label); it != tasks.end() && it->second.is_testing()) {
     // Add test_status observers to existing test_status
     for (const auto &cb : test_status->observers)
       it->second.test_status->register_observer(cb, true);
