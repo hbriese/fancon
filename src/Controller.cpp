@@ -15,7 +15,8 @@ fc::Controller::Controller(path conf_path_) : config_path(move(conf_path_)) {
 
 fc::Controller::~Controller() { disable_all(); }
 
-FanStatus fc::Controller::status(const string &flabel) const {
+FanStatus fc::Controller::status(const string &flabel) {
+  const lock_guard<mutex> lg(tasks_mutex[flabel]);
   const auto it = tasks.find(flabel);
   if (it == tasks.end())
     return FanStatus::FanStatus_Status_DISABLED;
@@ -25,12 +26,15 @@ FanStatus fc::Controller::status(const string &flabel) const {
 }
 
 void fc::Controller::enable(fc::FanInterface &f, bool enable_all_dell) {
+  tasks_mutex[f.label].lock();
   if (tasks.count(f.label) > 0)
     return;
 
   // Dell fans can only be enabled/disabled togther
-  if (f.type() == DevType::DELL && enable_all_dell)
+  if (f.type() == DevType::DELL && enable_all_dell) {
+    tasks_mutex[f.label].unlock();
     return enable_dell_fans();
+  }
 
   if (!f.pre_start_check())
     return;
@@ -44,6 +48,7 @@ void fc::Controller::enable(fc::FanInterface &f, bool enable_all_dell) {
   });
 
   LOG(llvl::trace) << f.label << ": enabled";
+  tasks_mutex[f.label].unlock();
 }
 
 void fc::Controller::enable_all() {
@@ -54,13 +59,16 @@ void fc::Controller::enable_all() {
 }
 
 void fc::Controller::disable(const string &flabel, bool disable_all_dell) {
+  tasks_mutex[flabel].lock();
   const auto it = tasks.find(flabel);
   if (it == tasks.end())
     return;
 
   // Dell fans can only be enabled/disabled togther
-  if (devices.fans.at(flabel)->type() == DevType::DELL && disable_all_dell)
+  if (devices.fans.at(flabel)->type() == DevType::DELL && disable_all_dell) {
+    tasks_mutex[flabel].unlock();
     return disable_dell_fans();
+  }
 
   tasks.erase(flabel);
   if (const auto fit = devices.fans.find(flabel); fit != devices.fans.end())
@@ -68,18 +76,17 @@ void fc::Controller::disable(const string &flabel, bool disable_all_dell) {
 
   LOG(llvl::trace) << flabel << ": disabled";
   notify_status_observers(flabel);
+  tasks_mutex[flabel].unlock();
 }
 
 void fc::Controller::disable_all() {
-  vector<string> disabled_fans;
+  vector<string> fans;
   for (const auto &[flabel, task] : tasks)
-    disabled_fans.push_back(flabel);
-
-  tasks.clear();
-  for (const auto &flabel : disabled_fans)
-    notify_status_observers(flabel);
+    fans.push_back(flabel);
 
   LOG(llvl::trace) << "Disabling all";
+  for (const auto &flabel : fans)
+    disable(flabel, false);
 }
 
 void fc::Controller::reload(bool just_started) {
@@ -144,15 +151,17 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced, bool blocking,
     LOG(llvl::info) << fan << ": test complete";
     const thread t([&] { tasks.erase(fan.label); });
 
-    // Only write to file when no other fan are still testing
-    if (tests_running() == 0)
-      to_file(false);
+    {
+      // Only write to file when no other fan are still testing
+      lock_guard<mutex> lg(test_mutex);
+      if (tests_running() == 0)
+        to_file(false);
+    }
 
     enable(fan);
   };
 
-  const auto [it, success] =
-      tasks.try_emplace(fan.label, move(test_func), test_status);
+  const auto[it, success] = tasks.try_emplace(fan.label, move(test_func), test_status);
 
   if (!success)
     test(fan, forced, blocking, test_status);
@@ -257,45 +266,40 @@ void fc::Controller::merge(Devices &d, bool replace_on_match, bool deep_cmp) {
     }
   };
 
-  m(d.fans, devices.fans,
-    [&](auto &old_it, const string &old_key, const string &new_key, auto &dev) {
-      // On match; re-insert device as the key may have changed
-      const auto re_insert = [&] {
-        devices.fans.erase(old_it);
-        return devices.fans.emplace(new_key, move(dev));
-      };
-      const FanStatus fstatus = status(old_key);
-      if (fstatus == FanStatus::FanStatus_Status_DISABLED) {
-        re_insert();
-      } else if (fstatus == FanStatus::FanStatus_Status_ENABLED) {
-        disable(old_it->first, false);
-        auto [it, success] = re_insert();
-        enable(*it->second, true);
-      } else if (fstatus == FanStatus::FanStatus_Status_TESTING) {
-        const auto test_status = tasks.find(old_key)->second.test_status;
-        disable(old_key, false);
-        auto [it, success] = re_insert();
-        test(*it->second, true, false, test_status);
-      }
-    });
+  m(d.fans, devices.fans, [&](auto &old_it, const string &old_key, const string &new_key, auto &dev) {
+    // On match; re-insert device as the key may have changed
+    const auto re_insert = [&] {
+      devices.fans.erase(old_it);
+      return devices.fans.emplace(new_key, move(dev));
+    };
+    const FanStatus fstatus = status(old_key);
+    if (fstatus == FanStatus::FanStatus_Status_DISABLED) {
+      re_insert();
+    } else if (fstatus == FanStatus::FanStatus_Status_ENABLED) {
+      disable(old_it->first, false);
+      auto[it, success] = re_insert();
+      enable(*it->second, true);
+    } else if (fstatus == FanStatus::FanStatus_Status_TESTING) {
+      const auto test_status = tasks.find(old_key)->second.test_status;
+      disable(old_key, false);
+      auto[it, success] = re_insert();
+      test(*it->second, true, false, test_status);
+    }
+  });
 
-  m(d.sensors, devices.sensors,
-    [&](auto &old_it, [[maybe_unused]] const string &old_key,
-        const string &new_key, auto &dev) {
-      // On match; re-insert device as the key may have changed
-      devices.sensors.erase(old_it);
-      devices.sensors.emplace(new_key, move(dev));
-    });
+  m(d.sensors, devices.sensors, [&](auto &old_it, [[maybe_unused]] const string &old_key,
+                                    const string &new_key, auto &dev) {
+    // On match; re-insert device as the key may have changed
+    devices.sensors.erase(old_it);
+    devices.sensors.emplace(new_key, move(dev));
+  });
 }
 
-void fc::Controller::remove_devices_not_in(
-    std::initializer_list<std::reference_wrapper<Devices>> l) {
+void fc::Controller::remove_devices_not_in(std::initializer_list<std::reference_wrapper<Devices>> l) {
   // Remove items not in conf_devs or enumerated but in devices
   for (const auto &p : devices.fans) {
     const auto &flabel = std::get<0>(p);
-    if (!std::any_of(l.begin(), l.end(), [&](const Devices &l) {
-          return l.fans.contains(flabel);
-        })) {
+    if (!std::any_of(l.begin(), l.end(), [&](const Devices &l) { return l.fans.contains(flabel); })) {
       disable(flabel);
       devices.fans.erase(flabel);
     }
@@ -303,9 +307,7 @@ void fc::Controller::remove_devices_not_in(
 
   for (const auto &p : devices.sensors) {
     const auto &slabel = std::get<0>(p);
-    if (!std::any_of(l.begin(), l.end(), [&](const Devices &l) {
-          return l.sensors.contains(slabel);
-        })) {
+    if (!std::any_of(l.begin(), l.end(), [&](const Devices &l) { return l.sensors.contains(slabel); })) {
       devices.sensors.erase(slabel);
     }
   }
@@ -319,22 +321,24 @@ void fc::Controller::to_file(bool backup) {
     LOG(llvl::info) << "Moved previous config to: " << backup_path;
   }
 
-  std::ofstream ofs(config_path);
   fc_pb::Controller c;
   to(c);
 
   string out_s;
   google::protobuf::TextFormat::Printer printer;
   printer.SetUseShortRepeatedPrimitives(true);
-
   printer.PrintToString(c, &out_s);
-  ofs << out_s;
 
-  if (ofs) {
+  std::ofstream ofs(config_path);
+  ofs.exceptions();
+  try {
+    ofs.open(config_path);
+    ofs << out_s;
     update_config_write_time();
     notify_devices_observers();
-  } else {
-    LOG(llvl::error) << "Failed to write config to: " << config_path;
+    LOG(llvl::info) << "Config written to: " << config_path;
+  } catch (std::ios_base::failure &e) {
+    LOG(llvl::error) << "Failed to write config: " << e.code() << " - " << e.what();
   }
 }
 

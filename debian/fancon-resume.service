@@ -6,7 +6,7 @@ After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate
 [Service]
 Type=oneshot
 User=root
-ExecStart=/usr/bin/fancon recover
+ExecStart=/usr/bin/fancon recover -v
 
 [Install]
 WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

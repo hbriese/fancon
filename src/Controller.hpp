@@ -40,11 +40,13 @@ public:
 
   Devices devices;
   map<string, FanTask> tasks;
+  map<string, mutex> tasks_mutex;
+  mutex test_mutex;
   list<DevicesCallback> device_observers;
   list<StatusCallback> status_observers;
   Util::RemovableMutex device_observers_mutex, status_observers_mutex;
 
-  FanStatus status(const string &flabel) const;
+  FanStatus status(const string &flabel);
   void enable(fc::FanInterface &fan, bool enable_all_dell = true);
   void enable_all();
   void disable(const string &flabel, bool disable_all_dell = true);

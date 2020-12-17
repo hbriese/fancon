@@ -1,7 +1,13 @@
 #include "FanTask.hpp"
 
 fc::FanTask::FanTask(function<void(bool &)> f)
-    : t(thread([this](auto f) { f(run); }, move(f))) {}
+    : t(thread([this](auto f) {
+  try {
+    f(run);
+  } catch (const std::exception &e) {
+    LOG(llvl::fatal) << e.what();
+  }
+}, move(f))) {}
 
 fc::FanTask::FanTask(function<void()> f,
                      shared_ptr<ObservableNumber<int>> testing_status)
