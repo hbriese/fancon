@@ -15,6 +15,7 @@
 #include <sstream>
 #include <thread>
 #include <utility>
+#include <shared_mutex>
 
 using fc::FanInterface;
 using fc::FanTask;
@@ -22,9 +23,14 @@ using std::find_if;
 using std::future;
 using std::istringstream;
 using std::list;
+using std::shared_mutex;
+using std::shared_lock;
+using std::unique_lock;
+
 using FanStatus = fc_pb::FanStatus_Status;
 using DevicesCallback = function<void(const fc::Devices &)>;
 using StatusCallback = function<void(const FanInterface &, const FanStatus)>;
+using tasks_mutex_t = shared_mutex;
 
 namespace fc {
 extern milliseconds update_interval;
@@ -40,8 +46,8 @@ public:
 
   Devices devices;
   map<string, FanTask> tasks;
-  map<string, mutex> tasks_mutex;
-  mutex test_mutex;
+  map<string, tasks_mutex_t> tasks_mutex;
+  mutex test_mutex, config_mutex;
   list<DevicesCallback> device_observers;
   list<StatusCallback> status_observers;
   Util::RemovableMutex device_observers_mutex, status_observers_mutex;
@@ -56,7 +62,7 @@ public:
   void nv_init();
   void test(fc::FanInterface &fan, bool forced, bool blocking,
             shared_ptr<Util::ObservableNumber<int>> test_status);
-  size_t tests_running() const;
+  size_t tests_running();
   void set_devices(const fc_pb::Devices &devices_);
 
   void from(const fc_pb::ControllerConfig &c);
@@ -68,20 +74,22 @@ private:
   optional<thread> watcher;
   fs::file_time_type config_write_time;
 
-  void enable_dell_fans();
-  void disable_dell_fans();
-  bool is_testing(const string &flabel) const;
+  void enable_dell_fans(const optional<const string_view> except_flabel = nullopt);
+  void disable_dell_fans(const optional<const string_view> except_flabel = nullopt);
+  bool is_testing(const string &flabel);
   optional<fc_pb::Controller> read_config();
   void merge(Devices &old_it, bool replace_on_match, bool deep_cmp = false);
   void remove_devices_not_in(
       std::initializer_list<std::reference_wrapper<Devices>> list_of_devices);
   void to_file(bool backup);
   void update_config_write_time();
-  bool config_file_modified() const;
+  bool config_file_modified();
   thread spawn_watcher();
   void notify_devices_observers();
   void notify_status_observers(const string &flabel);
   static string date_time_now();
+  shared_lock<tasks_mutex_t> lock_task_read(const string &flabel);
+  unique_lock<tasks_mutex_t> lock_task_write(const string &flabel);
 };
 } // namespace fc
 

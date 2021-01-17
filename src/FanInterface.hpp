@@ -30,6 +30,7 @@ enum class ControllerState;
 extern ControllerState controller_state;
 
 const Pwm PWM_MIN = 0, PWM_MAX = 255;
+const double STABILISED_THRESHOLD = 0.1;
 
 Pwm clamp_pwm(Pwm pwm);
 
@@ -43,9 +44,10 @@ public:
   bool ignore{false};
 
   void update();
-  virtual void test(ObservableNumber<int> &status);
+  virtual bool test(ObservableNumber<int> &status);
   bool tested() const;
-  bool pre_start_check();
+  bool try_enable();
+  bool is_configured(bool log) const;
 
   virtual bool enable_control() = 0;
   virtual bool disable_control() = 0;
@@ -76,7 +78,7 @@ protected:
     int top_stickiness_rem_intervals{0};
   } smoothing;
 
-  virtual bool set_pwm(const Pwm pwm) = 0;
+  virtual bool set_pwm(const Pwm pwm);
   Pwm find_closest_pwm(Rpm rpm);
   bool recover_control();
   Rpm smooth_rpm(const Rpm rpm);

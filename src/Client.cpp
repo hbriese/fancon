@@ -49,7 +49,7 @@ void fc::Client::run(Args &args) {
     sysinfo(args.sysinfo.value);
   } else if (Util::is_atty() && !exists(args.config.value)) {
     // Offer test
-    cout << log::fmt_green << "Test devices & generate a config? (y/n): ";
+    cout << log::fmt_green << "Test devices & generate a config? (y/n): " << log::fmt_reset;
     char answer;
     std::cin >> answer;
     if (answer == 'y') {
@@ -117,7 +117,7 @@ void fc::Client::status() {
     if (s.status() != FanStatus::FanStatus_Status_DISABLED)
       extras << setw(4) << s.rpm() << "rpm, " << setw(3) << s.pwm() << "pwm";
 
-    cout << setw(longest_label) << s.label() << ": " << extras.rdbuf() << " "
+    cout << setw(longest_label) << s.label() << ": " << extras.rdbuf()->str() << " "
          << setw(longest_status) << status_text(s.status()) << endl;
   }
 }
@@ -177,6 +177,10 @@ void fc::Client::test(const string &flabel, bool forced) {
   auto reader = client->Test(&context, req);
   fc_pb::TestResponse resp;
   while (reader->Read(&resp)) {
+    if (resp.status() == -1) {
+      LOG(llvl::error) << flabel << ": test failed";
+      break;
+    }
     LOG(llvl::info) << flabel << ": " << resp.status() << "%";
   }
 

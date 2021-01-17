@@ -55,24 +55,35 @@ bool fc::FanInterface::tested() const {
   return (PWM_MIN <= start_pwm && start_pwm <= PWM_MAX) && !rpm_to_pwm.empty();
 }
 
-bool fc::FanInterface::pre_start_check() {
+bool fc::FanInterface::try_enable() {
   if (ignore) {
     LOG(llvl::debug) << *this << ": ignored";
-  } else if (const bool ce = temp_to_rpm.empty(), se = !sensor,
-             si = (sensor && sensor->ignore);
-             ce || se || si) {
-    LOG(llvl::warning) << *this << ": skipping - "
-                       << Util::join({{ce, "curve not configured"},
-                                      {se, "sensor not configured"},
-                                      {si, "sensor ignored"}});
   } else if (!enable_control()) {
     LOG(llvl::error) << *this << ": failed to enable";
+    disable_control();
   } else {
     return true;
   }
 
-  disable_control();
   return false;
+}
+
+bool fc::FanInterface::is_configured(bool log) const {
+  const bool ce = temp_to_rpm.empty(), se = !sensor, si = (sensor && sensor->ignore);
+  const bool configured = !(ce || se || si);
+  if (!configured && log) {
+    LOG(llvl::warning) << *this << ": skipping - "
+                       << Util::join({{ce, "curve not configured"},
+                                      {se, "sensor not configured"},
+                                      {si, "sensor ignored"}});
+  }
+
+  return configured;
+}
+
+bool fc::FanInterface::set_pwm(Pwm pwm) {
+  LOG(llvl::trace) << *this << ": " << pwm << fc::log::flush;
+  return true;
 }
 
 Pwm fc::FanInterface::find_closest_pwm(Rpm rpm) {
@@ -148,35 +159,34 @@ void fc::FanInterface::sleep_for_interval() const {
   sleep_for((interval.count() > 0) ? interval : fc::update_interval);
 }
 
-void fc::FanInterface::test(ObservableNumber<int> &status) {
+bool fc::FanInterface::test(ObservableNumber<int> &status) {
   const Pwm pre_pwm = get_pwm();
 
   // Fail early if can't write enable mode or pwm
-  const bool ec = enable_control(), spt = set_pwm_test();
-  if (!ec || !spt) {
+  if (!enable_control() || !set_pwm_test()) {
     LOG(llvl::error) << *this << ": failed to take control";
     disable_control();
-    status += 100;
-    return;
+    status = -1;
+    return false;
   }
 
-  // 100 (%) should be added to status over the series of tests
-  status = 0;
   Pwm_to_Rpm_Map pwm_to_rpm;
+  status = 0;
 
   test_stopped(pwm_to_rpm);
-  status += 10;
+  status += 20;
   test_start(pwm_to_rpm);
   status += 30;
   test_running_min(pwm_to_rpm);
-  status += 30;
+  status += 25;
   test_mapping(pwm_to_rpm);
-  status += 30;
+  status = 100;
 
   rpm_to_pwm_from(pwm_to_rpm);
 
   // Restore pre-test Rpm
   set_pwm(pre_pwm);
+  return true;
 }
 
 optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) {
@@ -186,24 +196,29 @@ optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) {
   // Rpm must not increase more than 5% twice consecutively to be 'stable'
   Rpm cur = get_rpm(), prev = 0;
   uint reached = 0;
-  while (reached <= 4) {
+  while (reached <= 3) {
     sleep_for_interval();
     if (get_pwm() != pwm)
       return nullopt;
 
     prev = cur;
     cur = get_rpm();
-    reached = ((cur - prev) <= (0.05 * cur)) ? reached + 1 : 0;
+    reached = (abs(static_cast<int>(cur - prev)) <= (fc::STABILISED_THRESHOLD * cur)) ? reached + 1 : 0;
   }
 
   return cur;
 }
 
 bool fc::FanInterface::set_pwm_test() {
-  for (int i = 0; i < 3; ++i) {
-    const Pwm target = (get_pwm() != PWM_MIN) ? PWM_MIN : PWM_MAX;
-    if (set_stabilised_pwm(target).has_value())
+  const Pwm target = (get_pwm() != PWM_MIN) ? PWM_MIN : PWM_MAX;
+  if (!set_pwm(target))
+    return false;
+
+  for (int i = 0; i < 10; ++i, sleep_for_interval()) {
+    if (get_pwm() == target)
       return true;
+//    if (set_stabilised_pwm(target).has_value())
+//      return true;
   }
   return false;
 }
@@ -357,8 +372,8 @@ void fc::FanInterface::temp_to_rpm_from(const string &src) {
   if (rpm_to_pwm.empty()) // Fan needs to be tested first
     return;
 
-  const optional<Temp> min_temp = sensor->min_temp(),
-                       max_temp = sensor->max_temp();
+  const optional<Temp> min_temp = sensor ? sensor->min_temp() : nullopt,
+      max_temp = sensor ? sensor->max_temp() : nullopt;
 
   string::const_iterator start_it = src.begin(), next_it = src.end();
   std::smatch m;

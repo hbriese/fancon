@@ -92,10 +92,8 @@ void NV::X11Display::init_display() {
   // If not found, attempt to find xauth, and or display from running X11 server
   bool found_xauth = getenv("XAUTHORITY") != nullptr;
   if (dsp.empty() || !found_xauth) {
-    if (dsp.empty())
-      LOG(llvl::debug) << "Guessing X11 env var $DISPLAY, consider setting";
-    if (!found_xauth)
-      LOG(llvl::debug) << "Guessing X11 env var $XAUTHORITY, consider setting";
+    LOG(llvl::debug) << "X11 env var " << Util::join({{dsp.empty(), "$DISPLAY"}, {!found_xauth, "$XAUTHORITY"}})
+                     << " not set. Set if NVIDIA control isn't working";
 
     redi::ipstream ips(
         "echo \"$(ps wwaux 2>/dev/null | grep -wv PID | grep -v grep)\" "
@@ -211,8 +209,7 @@ bool NV::LibXNvCtrl::check_support() {
 
   // Enable fan control coolbit if start from a TTY - so user knows to reboot
   if (Util::is_atty() && enable_fan_control_coolbit()) {
-    LOG(llvl::warning)
-        << "Enabling NVIDIA fan control coolbits flag, restart for NV support";
+    LOG(llvl::warning) << "Enabling NVIDIA fan control coolbits flag, restart for NV support";
     return false;
   }
 
@@ -261,8 +258,7 @@ bool NV::LibXNvCtrl::enable_fan_control_coolbit() {
 
     const auto scb = string("nvidia-xconfig -a --cool-bits=") + to_string(newv);
     if (system(scb.c_str()) != 0)
-      LOG(llvl::error)
-          << "Failed to write coolbits value, nvidia fan control may fail!";
+      LOG(llvl::error) << "Failed to write coolbits value, nvidia fan control may fail!";
 
     return true;
   }

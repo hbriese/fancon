@@ -206,6 +206,7 @@ Status fc::Service::Test([[maybe_unused]] ServerContext *context,
       writer->WriteLast(resp, grpc::WriteOptions());
     else
       writer->Write(resp);
+//    writer->Write(resp);
   };
 
   controller.test(*it->second, e->forced(), true,

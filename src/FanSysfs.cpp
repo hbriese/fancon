@@ -39,9 +39,9 @@ bool fc::FanSysfs::disable_control() {
   return true;
 }
 
-void fc::FanSysfs::test(ObservableNumber<int> &status) {
+bool fc::FanSysfs::test(ObservableNumber<int> &status) {
   test_driver_enable_flag();
-  fc::FanInterface::test(status);
+  return fc::FanInterface::test(status);
 }
 
 void fc::FanSysfs::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
@@ -77,12 +77,10 @@ string fc::FanSysfs::hw_id() const { return pwm_path.c_str(); }
 DevType fc::FanSysfs::type() const { return DevType::SYS; }
 
 bool fc::FanSysfs::set_pwm(const Pwm pwm) {
-  if (!Util::write(pwm_path, pwm))
-    return FanInterface::recover_control();
+  if (!Util::write(pwm_path, pwm) && !FanInterface::recover_control())
+    return false;
 
-  LOG(llvl::trace) << *this << ": " << pwm << fc::log::flush;
-
-  return true;
+  return FanInterface::set_pwm(pwm);
 }
 
 Pwm fc::FanSysfs::get_pwm() const {
