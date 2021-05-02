@@ -43,25 +43,25 @@ set(SRC "${PROJECT_SOURCE_DIR}/src")
 set(PSRC "${SRC}/proto")
 include_directories(src)
 set(SOURCE_FILES ${SRC}/main.cpp ${SRC}/main.hpp
-        ${SRC}/Util.cpp ${SRC}/Util.hpp
-        ${SRC}/Logging.hpp ${SRC}/Logging.cpp
+        ${SRC}/util/Util.cpp ${SRC}/util/Util.hpp
+        ${SRC}/util/Logging.hpp ${SRC}/util/Logging.cpp
         ${PSRC}/DevicesSpec.pb.cc ${PSRC}/DevicesSpec.pb.h
         ${PSRC}/DevicesSpec.grpc.pb.cc ${PSRC}/DevicesSpec.grpc.pb.h
         ${SRC}/Service.cpp ${SRC}/Service.hpp
-        ${SRC}/Args.hpp ${SRC}/Args.cpp
+        ${SRC}/util/Args.hpp ${SRC}/util/Args.cpp
         ${SRC}/Client.cpp ${SRC}/Client.hpp
         ${SRC}/Controller.cpp ${SRC}/Controller.hpp
-        ${SRC}/FanTask.cpp ${SRC}/FanTask.hpp
+        ${SRC}/fan/FanTask.cpp ${SRC}/fan/FanTask.hpp
         ${SRC}/Devices.cpp ${SRC}/Devices.hpp
-        ${SRC}/FanInterface.cpp ${SRC}/FanInterface.hpp
-        ${SRC}/SensorInterface.cpp ${SRC}/SensorInterface.hpp
-        ${SRC}/FanSysfs.cpp ${SRC}/FanSysfs.hpp
-        ${SRC}/SensorSysfs.cpp ${SRC}/SensorSysfs.hpp
-        ${SRC}/NvidiaUtil.cpp ${SRC}/NvidiaUtil.hpp
-        ${SRC}/NvidiaDevices.cpp ${SRC}/NvidiaDevices.hpp
-        ${SRC}/NvidiaNvml.cpp ${SRC}/NvidiaNvml.hpp
-        ${SRC}/DellSMM.cpp ${SRC}/DellSMM.hpp
-        ${SRC}/FanDell.cpp ${SRC}/FanDell.hpp)
+        ${SRC}/fan/FanInterface.cpp ${SRC}/fan/FanInterface.hpp
+        ${SRC}/sensor/SensorInterface.cpp ${SRC}/sensor/SensorInterface.hpp
+        ${SRC}/fan/FanSysfs.cpp ${SRC}/fan/FanSysfs.hpp
+        ${SRC}/sensor/SensorSysfs.cpp ${SRC}/sensor/SensorSysfs.hpp
+        ${SRC}/nvidia/NvidiaUtil.cpp ${SRC}/nvidia/NvidiaUtil.hpp
+        ${SRC}/nvidia/NvidiaDevices.cpp ${SRC}/nvidia/NvidiaDevices.hpp
+        ${SRC}/nvidia/NvidiaNvml.cpp ${SRC}/nvidia/NvidiaNvml.hpp
+        ${SRC}/dell/DellSmm.cpp ${SRC}/dell/DellSmm.hpp
+        ${SRC}/dell/FanDell.cpp ${SRC}/dell/FanDell.hpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 ## Threads (pthread)

@@ -19,7 +19,7 @@
 #include <dlfcn.h> // dlopen
 #include <pstreams/pstream.h>
 
-#include "Util.hpp"
+#include "util/Util.hpp"
 
 using NVID = uint;
 

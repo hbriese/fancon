@@ -4,7 +4,7 @@
 #include <mutex>
 #include <numeric>
 
-#include "Util.hpp"
+#include "util/Util.hpp"
 #include "proto/DevicesSpec.pb.h"
 
 using Temp = int;

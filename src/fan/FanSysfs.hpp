@@ -2,7 +2,7 @@
 #define FANCON_FANSYSFS_HPP
 
 #include "FanInterface.hpp"
-#include "Util.hpp"
+#include "util/Util.hpp"
 
 using SysfsID = uint;
 using control_flag_t = int;

@@ -3,8 +3,8 @@
 
 #include <sys/io.h>
 
-#include "FanInterface.hpp"
-#include "Util.hpp"
+#include "fan/FanInterface.hpp"
+#include "util/Util.hpp"
 
 using DellID = uint;
 

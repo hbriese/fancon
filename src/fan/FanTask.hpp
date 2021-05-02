@@ -1,7 +1,7 @@
 #ifndef FANCON_SRC_FANTHREAD_HPP
 #define FANCON_SRC_FANTHREAD_HPP
 
-#include "Util.hpp"
+#include "util/Util.hpp"
 #include "boost/thread.hpp"
 
 using boost::thread;

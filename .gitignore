@@ -1,9 +1,23 @@
 # IDE
-/.idea/
+.idea/
+
+# Generated
+src/proto/
 
 # Build related
-/build-debug/
-/src/proto/
+cmake-build-debug/
+build/
 
 # Packaging
-/aur/
+aur/
+debian-examples/
+
+node_modules/
+
+# Other
+cmake/FindDBusCPP.cmake
+snapcraft.yaml
+.clang-format-ignore
+bugreport.sh
+record.sh
+replay.sh

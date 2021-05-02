@@ -1,0 +1,18 @@
+# Build
+build/
+build-debug/
+cmake-build-debug/
+
+# Generated
+src/proto/
+
+# npm
+node_modules/
+package-lock.json
+
+# IDE
+.idea/
+
+# Files it seems to mess up
+.clang-format
+CMakeLists.txt

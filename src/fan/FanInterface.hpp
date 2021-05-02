@@ -4,8 +4,8 @@
 #include <cmath>
 #include <regex>
 
-#include "SensorInterface.hpp"
-#include "Util.hpp"
+#include "sensor/SensorInterface.hpp"
+#include "util/Util.hpp"
 #include "proto/DevicesSpec.pb.h"
 
 using fc::Util::ObservableNumber;

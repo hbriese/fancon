@@ -1,8 +1,8 @@
 #ifndef FANCON_SRC_CLIENT_HPP
 #define FANCON_SRC_CLIENT_HPP
 
-#include "Args.hpp"
-#include "Util.hpp"
+#include "util/Args.hpp"
+#include "util/Util.hpp"
 #include "proto/DevicesSpec.grpc.pb.h"
 #include "proto/DevicesSpec.pb.h"
 #include <grpcpp/grpcpp.h>

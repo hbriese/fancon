@@ -41,7 +41,7 @@ extern const char *fmt_reset, *fmt_bold, *fmt_red, *fmt_red_bold, *fmt_green,
 
 std::vector<boost::shared_ptr<boost::log::sinks::sink>> generate_sinks();
 std::ostream &flush(std::ostream &os);
-void set_level(const llvl log_level);
+void set_level(llvl log_level);
 std::optional<llvl> str_to_log_level(const std::string &level);
 } // namespace log
 } // namespace fc

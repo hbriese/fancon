@@ -3,13 +3,13 @@
 
 #include <sensors/sensors.h>
 
-#include "FanDell.hpp"
-#include "FanInterface.hpp"
-#include "FanSysfs.hpp"
-#include "NvidiaDevices.hpp"
-#include "SensorInterface.hpp"
-#include "SensorSysfs.hpp"
-#include "Util.hpp"
+#include "dell/FanDell.hpp"
+#include "fan/FanInterface.hpp"
+#include "fan/FanSysfs.hpp"
+#include "nvidia/NvidiaDevices.hpp"
+#include "sensor/SensorInterface.hpp"
+#include "sensor/SensorSysfs.hpp"
+#include "util/Util.hpp"
 #include "proto/DevicesSpec.pb.h"
 
 using std::find_if;

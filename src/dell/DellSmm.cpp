@@ -1,4 +1,4 @@
-#include "DellSMM.hpp"
+#include "DellSmm.hpp"
 
 using namespace fc;
 

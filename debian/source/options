@@ -1,0 +1,7 @@
+tar-ignore
+tar-ignore = "aur"
+tar-ignore = "debian-examples"
+tar-ignore = "node_modules"
+tar-ignore = ".github"
+tar-ignore = ".idea"
+

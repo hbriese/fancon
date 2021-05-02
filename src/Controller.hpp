@@ -2,8 +2,8 @@
 #define FANCON_CONTROLLER_HPP
 
 #include "Devices.hpp"
-#include "FanTask.hpp"
-#include "Util.hpp"
+#include "fan/FanTask.hpp"
+#include "util/Util.hpp"
 #include "proto/DevicesSpec.pb.h"
 #include <algorithm>
 #include <boost/thread.hpp>

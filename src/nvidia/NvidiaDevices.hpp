@@ -2,9 +2,9 @@
 #ifndef FANCON_NVIDIADEVICES_HPP
 #define FANCON_NVIDIADEVICES_HPP
 
-#include "FanInterface.hpp"
+#include "fan/FanInterface.hpp"
 #include "NvidiaUtil.hpp"
-#include "SensorInterface.hpp"
+#include "sensor/SensorInterface.hpp"
 
 namespace fc {
 class FanNV : public fc::FanInterface {

@@ -1,8 +1,8 @@
 #ifndef FANCON_FANDELL_HPP
 #define FANCON_FANDELL_HPP
 
-#include "DellSMM.hpp"
-#include "FanSysfs.hpp"
+#include "DellSmm.hpp"
+#include "fan/FanSysfs.hpp"
 
 namespace fc {
 class FanDell : public fc::FanSysfs {
