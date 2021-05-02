@@ -69,7 +69,8 @@ bool fc::FanInterface::try_enable() {
 }
 
 bool fc::FanInterface::is_configured(bool log) const {
-  const bool ce = temp_to_rpm.empty(), se = !sensor, si = (sensor && sensor->ignore);
+  const bool ce = temp_to_rpm.empty(), se = !sensor,
+             si = (sensor && sensor->ignore);
   const bool configured = !(ce || se || si);
   if (!configured && log) {
     LOG(llvl::warning) << *this << ": skipping - "
@@ -203,7 +204,10 @@ optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) {
 
     prev = cur;
     cur = get_rpm();
-    reached = (abs(static_cast<int>(cur - prev)) <= (fc::STABILISED_THRESHOLD * cur)) ? reached + 1 : 0;
+    reached =
+        (abs(static_cast<int>(cur - prev)) <= (fc::STABILISED_THRESHOLD * cur))
+            ? reached + 1
+            : 0;
   }
 
   return cur;
@@ -217,8 +221,8 @@ bool fc::FanInterface::set_pwm_test() {
   for (int i = 0; i < 10; ++i, sleep_for_interval()) {
     if (get_pwm() == target)
       return true;
-//    if (set_stabilised_pwm(target).has_value())
-//      return true;
+    //    if (set_stabilised_pwm(target).has_value())
+    //      return true;
   }
   return false;
 }
@@ -373,7 +377,7 @@ void fc::FanInterface::temp_to_rpm_from(const string &src) {
     return;
 
   const optional<Temp> min_temp = sensor ? sensor->min_temp() : nullopt,
-      max_temp = sensor ? sensor->max_temp() : nullopt;
+                       max_temp = sensor ? sensor->max_temp() : nullopt;
 
   string::const_iterator start_it = src.begin(), next_it = src.end();
   std::smatch m;

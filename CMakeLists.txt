@@ -86,7 +86,7 @@ if (NVIDIA_SUPPORT)
     find_package(X11)
     find_package(NVCtrl)
 
-    # ONLY X11 and XNVCtrl headers are required, libs are dynamically loaded
+# ONLY X11 and XNVCtrl headers are required, libs are dynamically loaded
     if (X11_INCLUDE_DIR AND NVCTRL_INCLUDE_DIR)
         include_directories(${X11_INCLUDE_DIR} ${NVCTRL_INCLUDE_DIR})
         set(LIBS ${LIBS} ${CMAKE_DL_LIBS})

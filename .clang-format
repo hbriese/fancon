@@ -1,0 +1,3 @@
+BasedOnStyle: LLVM
+AllowShortFunctionsOnASingleLine: All
+AllowShortLambdasOnASingleLine: All

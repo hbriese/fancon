@@ -93,8 +93,8 @@ public:
   decltype(XNVCTRLQueryTargetBinaryData) *QueryTargetBinaryData;
   decltype(XNVCTRLQueryTargetStringAttribute) *QueryTargetStringAttribute;
   decltype(XNVCTRLQueryTargetAttribute) *QueryTargetAttribute;
-  decltype(
-      XNVCTRLSetTargetAttributeAndGetStatus) *SetTargetAttributeAndGetStatus;
+  decltype(XNVCTRLSetTargetAttributeAndGetStatus)
+      *SetTargetAttributeAndGetStatus;
 
 private:
   bool check_support();

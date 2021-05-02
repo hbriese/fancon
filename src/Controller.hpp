@@ -12,10 +12,10 @@
 #include <google/protobuf/text_format.h>
 #include <list>
 #include <map>
+#include <shared_mutex>
 #include <sstream>
 #include <thread>
 #include <utility>
-#include <shared_mutex>
 
 using fc::FanInterface;
 using fc::FanTask;
@@ -23,8 +23,8 @@ using std::find_if;
 using std::future;
 using std::istringstream;
 using std::list;
-using std::shared_mutex;
 using std::shared_lock;
+using std::shared_mutex;
 using std::unique_lock;
 
 using FanStatus = fc_pb::FanStatus_Status;
@@ -74,8 +74,10 @@ private:
   optional<thread> watcher;
   fs::file_time_type config_write_time;
 
-  void enable_dell_fans(const optional<const string_view> except_flabel = nullopt);
-  void disable_dell_fans(const optional<const string_view> except_flabel = nullopt);
+  void
+  enable_dell_fans(const optional<const string_view> except_flabel = nullopt);
+  void
+  disable_dell_fans(const optional<const string_view> except_flabel = nullopt);
   bool is_testing(const string &flabel);
   optional<fc_pb::Controller> read_config();
   void merge(Devices &old_it, bool replace_on_match, bool deep_cmp = false);

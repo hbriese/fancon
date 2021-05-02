@@ -9,9 +9,9 @@ namespace expr = boost::log::expressions;
 
 namespace fc::log {
 llvl logging_level = llvl::info;
-const char *fmt_reset = "\033[0m", *fmt_bold = "\033[1m",
-           *fmt_red = "\033[31m", *fmt_red_bold = "\033[1;31m",
-           *fmt_green = "\033[32m", *fmt_green_bold = "\033[1;32m";
+const char *fmt_reset = "\033[0m", *fmt_bold = "\033[1m", *fmt_red = "\033[31m",
+           *fmt_red_bold = "\033[1;31m", *fmt_green = "\033[32m",
+           *fmt_green_bold = "\033[1;32m";
 } // namespace fc::log
 
 template <typename T>

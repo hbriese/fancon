@@ -6,7 +6,7 @@ Maintainer: Hayden Briese <haydenbriese@gmail.com>
 Homepage: https://github.com/hbriese/fancon
 Vcs-Browser: https://github.com/hbriese/fancon
 Vcs-Git: https://github.com/hbriese/fancon.git
-Build-Depends: debhelper (>= 11), clang (>= 9.0), cmake (>= 3.13),
+Build-Depends: debhelper (>= 11), clang (>= 11.0), cmake (>= 3.13),
  libpthread-stubs0-dev, libboost-log-dev, libboost-thread-dev, 
  libboost-system-dev, libboost-filesystem-dev, libboost-regex-dev,
  libsensors4-dev, libprotobuf-dev, libgrpc++-dev, protobuf-compiler-grpc,

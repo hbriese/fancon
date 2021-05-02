@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/ bin / sh
 
 SRC=proto
 FILE=$SRC/DevicesSpec.proto
@@ -8,7 +8,7 @@ JS=../fanconw/src/proto
 DIR=$(dirname "$0")
 cd "$DIR"
 
-# fancon
+#fancon
 mkdir -p ./$CPP
 rm -f ./$CPP/*
 
@@ -43,28 +43,28 @@ for filename in ./"$CPP"/*.h; do
 done
 
 # fanconw
-#mkdir -p ./$JS
-#rm -f ./$JS/*
+mkdir -p ./$JS
+rm -f ./$JS/*
 
-#GRPC_WEB=$(which protoc-gen-grpc-web)
-#if [ $? -ne 0 ]; then
-#    GRPC_WEB=./node_modules/protoc-gen-grpc-web/bin/protoc-gen-grpc-web
-#    if [ ! -f $GRPC_WEB ]; then
-#        npm install grpc-tools protoc-gen-grpc-web
-#    fi
-#fi
+GRPC_WEB=$(which protoc-gen-grpc-web)
+if [ $? -ne 0 ]; then
+  GRPC_WEB=./node_modules/protoc-gen-grpc-web/bin/protoc-gen-grpc-web
+  if [ ! -f $GRPC_WEB ]; then
+    npm install grpc-tools protoc-gen-grpc-web
+  fi
+fi
 
-#protoc -I=./$SRC ./$FILE \
-#    --js_out=import_style=commonjs:$JS \
-#    --grpc-web_out=import_style=commonjs,mode=grpcwebtext:$JS \
-#    --plugin=protoc-gen-grpc-web=$GRPC_WEB
+protoc -I=./$SRC ./$FILE \
+  --js_out=import_style=commonjs:$JS \
+  --grpc-web_out=import_style=commonjs,mode=grpcwebtext:$JS \
+  --plugin=protoc-gen-grpc-web=$GRPC_WEB
 
-#if [ $? -eq 0 ]; then
-#    ## Prepend /* eslint-disable */ to ignore compiler complaints
-#    for filename in "$JS/*.js"; do
-#	    echo "/* eslint-disable */\n$(cat ./$filename)" > ./$filename
-#    done
-#else
-#    echo 'protoc-grpc-web FAILED'
-#    ls $JS
-#fi
+if [ $? -eq 0 ]; then
+  ## Prepend /* eslint-disable */ to ignore compiler complaints
+  for filename in $JS/*.js; do
+    echo "/* eslint-disable */\n$(cat ./$filename)" >./$filename
+  done
+else
+  echo 'protoc-grpc-web FAILED'
+  ls $JS
+fi

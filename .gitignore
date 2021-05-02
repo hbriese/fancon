@@ -1,5 +1,9 @@
-# Project exclude paths
-/build-debug/
+# IDE
 /.idea/
+
+# Build related
+/build-debug/
 /src/proto/
+
+# Packaging
 /aur/

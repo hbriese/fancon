@@ -154,7 +154,8 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced, bool blocking,
   // If a test is already running for the device then just join onto it
   {
     const auto lock = lock_task_write(fan.label);
-    if (auto it = tasks.find(fan.label); it != tasks.end() && it->second.is_testing()) {
+    if (auto it = tasks.find(fan.label);
+        it != tasks.end() && it->second.is_testing()) {
       // Add test_status observers to existing test_status
       for (const auto &cb : test_status->observers)
         it->second.test_status->register_observer(cb, true);
@@ -166,8 +167,9 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced, bool blocking,
     // Remove any running thread before testing
     tasks.erase(fan.label);
 
-    const auto &[it, success] = tasks.emplace(std::piecewise_construct, std::forward_as_tuple(fan.label),
-                                              std::forward_as_tuple(move(test_func), test_status));
+    const auto &[it, success] = tasks.emplace(
+        std::piecewise_construct, std::forward_as_tuple(fan.label),
+        std::forward_as_tuple(move(test_func), test_status));
     if (!success) {
       LOG(llvl::error) << "Failed to start test - " << fan.label;
       return;
@@ -183,9 +185,10 @@ void fc::Controller::test(fc::FanInterface &fan, bool forced, bool blocking,
 
 size_t fc::Controller::tests_running() {
   const lock_guard<mutex> lg(test_mutex);
-  return std::accumulate(tasks.begin(), tasks.end(), 0, [](const size_t sum, const auto &p) {
-    return sum + int(p.second.is_testing());
-  });
+  return std::accumulate(tasks.begin(), tasks.end(), 0,
+                         [](const size_t sum, const auto &p) {
+                           return sum + int(p.second.is_testing());
+                         });
 }
 
 void fc::Controller::set_devices(const fc_pb::Devices &devices_) {
@@ -222,14 +225,16 @@ void fc::Controller::to(fc_pb::ControllerConfig &c) const {
   c.set_temp_averaging_intervals(temp_averaging_intervals);
 }
 
-void fc::Controller::enable_dell_fans(const optional<const string_view> except_flabel) {
+void fc::Controller::enable_dell_fans(
+    const optional<const string_view> except_flabel) {
   for (const auto &[fl, f] : devices.fans) {
     if (f->type() == DevType::DELL && (!except_flabel || fl != *except_flabel))
       enable(*f, false);
   }
 }
 
-void fc::Controller::disable_dell_fans(const optional<const string_view> except_flabel) {
+void fc::Controller::disable_dell_fans(
+    const optional<const string_view> except_flabel) {
   for (const auto &[fl, f] : devices.fans) {
     if (f->type() == DevType::DELL && (!except_flabel || fl != *except_flabel))
       disable(fl, false);
@@ -283,59 +288,65 @@ void fc::Controller::merge(Devices &d, bool replace_on_match, bool deep_cmp) {
     }
   };
 
-  // Ensure all Dell fans are enabled if a single one has, but let them be merged first
+  // Ensure all Dell fans are enabled if a single one has, but let them be
+  // merged first
   bool dell_fan_enabled = false;
   const auto enable_fan = [&](FanInterface &fan) {
     enable(fan, false);
     dell_fan_enabled |= fan.type() == fc_pb::DELL;
   };
 
-  m(d.fans, devices.fans, [&](auto &old_it, const string &old_key, const string &new_key, auto &dev) {
-    // On match; re-insert device as the key may have changed
-    const auto re_insert = [&] {
-      devices.fans.erase(old_it);
-      return devices.fans.emplace(new_key, move(dev));
-    };
-    const FanStatus fstatus = status(old_key);
-    if (fstatus == FanStatus::FanStatus_Status_DISABLED) {
-      const bool previously_configured = old_it->second->is_configured(false);
-      auto[it, success] = re_insert();
-      // Try enable if the old device was unconfigured
-      if (!previously_configured && it->second->is_configured(false))
+  m(d.fans, devices.fans,
+    [&](auto &old_it, const string &old_key, const string &new_key, auto &dev) {
+      // On match; re-insert device as the key may have changed
+      const auto re_insert = [&] {
+        devices.fans.erase(old_it);
+        return devices.fans.emplace(new_key, move(dev));
+      };
+      const FanStatus fstatus = status(old_key);
+      if (fstatus == FanStatus::FanStatus_Status_DISABLED) {
+        const bool previously_configured = old_it->second->is_configured(false);
+        auto [it, success] = re_insert();
+        // Try enable if the old device was unconfigured
+        if (!previously_configured && it->second->is_configured(false))
+          enable_fan(*it->second);
+
+      } else if (fstatus == FanStatus::FanStatus_Status_ENABLED) {
+        disable(old_it->first, false);
+        auto [it, success] = re_insert();
         enable_fan(*it->second);
 
-    } else if (fstatus == FanStatus::FanStatus_Status_ENABLED) {
-      disable(old_it->first, false);
-      auto[it, success] = re_insert();
-      enable_fan(*it->second);
+      } else if (fstatus == FanStatus::FanStatus_Status_TESTING) {
+        const auto test_status = tasks.find(old_key)->second.test_status;
+        disable(old_key, false);
+        auto [it, success] = re_insert();
+        test(*it->second, true, false, test_status);
 
-    } else if (fstatus == FanStatus::FanStatus_Status_TESTING) {
-      const auto test_status = tasks.find(old_key)->second.test_status;
-      disable(old_key, false);
-      auto[it, success] = re_insert();
-      test(*it->second, true, false, test_status);
-
-    } else {
-      LOG(llvl::error) << "Unhandled fan status on merge: " << fstatus;
-    }
-  });
+      } else {
+        LOG(llvl::error) << "Unhandled fan status on merge: " << fstatus;
+      }
+    });
 
   if (dell_fan_enabled)
     enable_dell_fans();
 
-  m(d.sensors, devices.sensors, [&](auto &old_it, [[maybe_unused]] const string &old_key,
-                                    const string &new_key, auto &dev) {
-    // On match; re-insert device as the key may have changed
-    devices.sensors.erase(old_it);
-    devices.sensors.emplace(new_key, move(dev));
-  });
+  m(d.sensors, devices.sensors,
+    [&](auto &old_it, [[maybe_unused]] const string &old_key,
+        const string &new_key, auto &dev) {
+      // On match; re-insert device as the key may have changed
+      devices.sensors.erase(old_it);
+      devices.sensors.emplace(new_key, move(dev));
+    });
 }
 
-void fc::Controller::remove_devices_not_in(std::initializer_list<std::reference_wrapper<Devices>> l) {
+void fc::Controller::remove_devices_not_in(
+    std::initializer_list<std::reference_wrapper<Devices>> l) {
   // Remove items not in conf_devs or enumerated but in devices
   for (const auto &p : devices.fans) {
     const auto &flabel = std::get<0>(p);
-    if (!std::any_of(l.begin(), l.end(), [&](const Devices &l) { return l.fans.contains(flabel); })) {
+    if (!std::any_of(l.begin(), l.end(), [&](const Devices &l) {
+          return l.fans.contains(flabel);
+        })) {
       disable(flabel);
       devices.fans.erase(flabel);
     }
@@ -343,7 +354,9 @@ void fc::Controller::remove_devices_not_in(std::initializer_list<std::reference_
 
   for (const auto &p : devices.sensors) {
     const auto &slabel = std::get<0>(p);
-    if (!std::any_of(l.begin(), l.end(), [&](const Devices &l) { return l.sensors.contains(slabel); })) {
+    if (!std::any_of(l.begin(), l.end(), [&](const Devices &l) {
+          return l.sensors.contains(slabel);
+        })) {
       devices.sensors.erase(slabel);
     }
   }
@@ -375,7 +388,8 @@ void fc::Controller::to_file(bool backup) {
     notify_devices_observers();
     LOG(llvl::info) << "Config written to: " << config_path;
   } catch (std::ios_base::failure &e) {
-    LOG(llvl::error) << "Failed to write config: " << e.code() << " - " << e.what();
+    LOG(llvl::error) << "Failed to write config: " << e.code() << " - "
+                     << e.what();
   }
 }
 
@@ -439,10 +453,12 @@ string fc::Controller::date_time_now() {
   return ss.str();
 }
 
-shared_lock<tasks_mutex_t> fc::Controller::lock_task_read(const string &flabel) {
+shared_lock<tasks_mutex_t>
+fc::Controller::lock_task_read(const string &flabel) {
   return shared_lock<tasks_mutex_t>(tasks_mutex[flabel]);
 }
 
-unique_lock<tasks_mutex_t> fc::Controller::lock_task_write(const string &flabel) {
+unique_lock<tasks_mutex_t>
+fc::Controller::lock_task_write(const string &flabel) {
   return unique_lock<tasks_mutex_t>(tasks_mutex[flabel]);
 }

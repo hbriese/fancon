@@ -71,7 +71,8 @@ Pwm fc::FanNV::get_pwm() const {
 
 bool fc::FanNV::set_pwm(const Pwm pwm) {
   // Attempt to recover control of the device if the write fails
-  if (!xnvlib->pwm_percent.write(id, pwm_to_percent(pwm)) && !FanInterface::recover_control())
+  if (!xnvlib->pwm_percent.write(id, pwm_to_percent(pwm)) &&
+      !FanInterface::recover_control())
     return false;
 
   return FanInterface::set_pwm(pwm);
