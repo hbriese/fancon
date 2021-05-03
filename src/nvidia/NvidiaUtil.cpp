@@ -1,6 +1,6 @@
 #ifdef FANCON_NVIDIA_SUPPORT
 #include "NvidiaUtil.hpp"
-#include "sensor/SensorInterface.hpp"
+#include "sensor/Sensor.hpp"
 
 using namespace fc;
 

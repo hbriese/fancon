@@ -1,10 +1,10 @@
-#ifndef FANCON_FANINTERFACE_HPP
-#define FANCON_FANINTERFACE_HPP
+#ifndef FANCON_FAN_HPP
+#define FANCON_FAN_HPP
 
 #include <cmath>
 #include <regex>
 
-#include "sensor/SensorInterface.hpp"
+#include "sensor/Sensor.hpp"
 #include "util/Util.hpp"
 #include "proto/DevicesSpec.pb.h"
 
@@ -34,11 +34,11 @@ const double STABILISED_THRESHOLD = 0.1;
 
 Pwm clamp_pwm(Pwm pwm);
 
-class FanInterface {
+class Fan {
 public:
-  FanInterface() = default;
-  explicit FanInterface(string label_);
-  virtual ~FanInterface() = default;
+  Fan() = default;
+  explicit Fan(string label_);
+  virtual ~Fan() = default;
 
   string label;
   bool ignore{false};
@@ -59,12 +59,12 @@ public:
 
   virtual void from(const fc_pb::Fan &f, const SensorMap &sensor_map);
   virtual void to(fc_pb::Fan &f) const = 0;
-  bool deep_equal(const FanInterface &other) const;
+  bool deep_equal(const Fan &other) const;
 
-  friend std::ostream &operator<<(std::ostream &os, const FanInterface &f);
+  friend std::ostream &operator<<(std::ostream &os, const Fan &f);
 
 protected:
-  shared_ptr<fc::SensorInterface> sensor;
+  shared_ptr<fc::Sensor> sensor;
   Rpm_to_Pwm_Map rpm_to_pwm;
   Temp_to_Rpm_Map temp_to_rpm;
   Pwm start_pwm = 0;
@@ -78,13 +78,13 @@ protected:
     int top_stickiness_rem_intervals{0};
   } smoothing;
 
-  virtual bool set_pwm(const Pwm pwm);
+  virtual bool set_pwm(Pwm pwm);
   Pwm find_closest_pwm(Rpm rpm);
   bool recover_control();
-  Rpm smooth_rpm(const Rpm rpm);
+  Rpm smooth_rpm(Rpm rpm);
   void sleep_for_interval() const;
 
-  optional<Rpm> set_stabilised_pwm(const Pwm pwm);
+  optional<Rpm> set_stabilised_pwm(Pwm pwm);
   bool set_pwm_test();
   void test_stopped(Pwm_to_Rpm_Map &pwm_to_rpm);
   void test_start(Pwm_to_Rpm_Map &pwm_to_rpm);
@@ -92,7 +92,7 @@ protected:
   void test_running_min(Pwm_to_Rpm_Map &pwm_to_rpm);
   void test_mapping(Pwm_to_Rpm_Map &pwm_to_rpm);
 
-  Percent rpm_to_percent(const Rpm rpm) const;
+  Percent rpm_to_percent(Rpm rpm) const;
   Rpm percent_to_rpm(Percent percent) const;
   Rpm pwm_to_rpm(Pwm pwm) const;
   void temp_to_rpm_from(const string &src);
@@ -100,9 +100,9 @@ protected:
   void rpm_to_pwm_from(const Pwm_to_Rpm_Map &pwm_to_rpm);
 };
 
-std::ostream &operator<<(std::ostream &os, const fc::FanInterface &f);
+std::ostream &operator<<(std::ostream &os, const fc::Fan &f);
 } // namespace fc
 
-using FanMap = std::unordered_map<string, unique_ptr<fc::FanInterface>>;
+using FanMap = std::unordered_map<string, unique_ptr<fc::Fan>>;
 
-#endif // FANCON_FANINTERFACE_HPP
+#endif // FANCON_FAN_HPP

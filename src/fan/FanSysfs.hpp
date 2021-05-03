@@ -1,7 +1,7 @@
 #ifndef FANCON_FANSYSFS_HPP
 #define FANCON_FANSYSFS_HPP
 
-#include "FanInterface.hpp"
+#include "Fan.hpp"
 #include "util/Util.hpp"
 
 using SysfsID = uint;
@@ -9,7 +9,7 @@ using control_flag_t = int;
 
 namespace fc {
 // https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
-class FanSysfs : public FanInterface {
+class FanSysfs : public Fan {
 public:
   FanSysfs() = default;
   FanSysfs(string label_, const path &adapter_path_, SysfsID id_);

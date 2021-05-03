@@ -1,12 +1,10 @@
 #include "SensorSysfs.hpp"
 
-fc::SensorSysfs::SensorSysfs(string label_, const string &device_path)
-    : fc::SensorInterface(move(label_)), input_path(device_path + "_input"),
-      enable_path(if_exists(device_path + "_enable")),
-      fault_path(if_exists(device_path + "_fault")),
-      min_path(if_exists(device_path + "_min")),
-      max_path(if_exists(device_path + "_max")),
-      crit_path(if_exists(device_path + "_crit")) {
+fc::SensorSysfs::SensorSysfs(string label_, const string &dev_path)
+    : fc::Sensor(move(label_)), input_path(real_path(dev_path + "_input")),
+      enable_path(real_path(dev_path + "_enable")), fault_path(real_path(dev_path + "_fault")),
+      min_path(real_path(dev_path + "_min")), max_path(real_path(dev_path + "_max")),
+      crit_path(real_path(dev_path + "_crit")) {
   if (is_faulty()) {
     LOG(llvl::warning) << *this << ": is faulty, ignoring";
     ignore = true;
@@ -18,28 +16,32 @@ fc::SensorSysfs::SensorSysfs(string label_, const string &device_path)
 
 optional<Temp> fc::SensorSysfs::min_temp() const {
   const auto m = Util::read<Temp>(min_path);
-  return (m) ? optional(*m / sysfs_temp_divisor) : nullopt;
+  return (m) ? optional(*m / SYSFS_TEMP_DIVISOR) : nullopt;
 }
 
 optional<Temp> fc::SensorSysfs::max_temp() const {
   const auto m = Util::read<Temp>(max_path), c = Util::read<Temp>(crit_path);
   if (m && c) {
-    return std::max(*m, *c) / sysfs_temp_divisor;
+    return std::max(*m, *c) / SYSFS_TEMP_DIVISOR;
   } else if (m) {
-    return *m / sysfs_temp_divisor;
+    return *m / SYSFS_TEMP_DIVISOR;
   } else if (c) {
-    return *c / sysfs_temp_divisor;
+    return *c / SYSFS_TEMP_DIVISOR;
   } else {
     return nullopt;
   }
 }
 
-bool fc::SensorSysfs::valid() const { return exists(input_path); }
+bool fc::SensorSysfs::valid() const {
+  return input_path && exists(*input_path);
+}
 
-string fc::SensorSysfs::hw_id() const { return input_path.c_str(); }
+string fc::SensorSysfs::hw_id() const {
+  return input_path->string();
+}
 
 void fc::SensorSysfs::from(const fc_pb::Sensor &s) {
-  fc::SensorInterface::from(s);
+  fc::Sensor::from(s);
   input_path = path(s.input_path());
   enable_path = path(s.enable_path());
   fault_path = path(s.fault_path());
@@ -49,19 +51,26 @@ void fc::SensorSysfs::from(const fc_pb::Sensor &s) {
 }
 
 void fc::SensorSysfs::to(fc_pb::Sensor &s) const {
-  fc::SensorInterface::to(s);
+  fc::Sensor::to(s);
+
   s.set_type(fc_pb::SYS);
-  s.set_input_path(input_path.c_str());
-  s.set_enable_path(enable_path.c_str());
-  s.set_fault_path(fault_path.c_str());
-  s.set_min_path(min_path.c_str());
-  s.set_max_path(max_path.c_str());
-  s.set_crit_path(crit_path.c_str());
+  if (input_path)
+    s.set_input_path(input_path->string());
+  if (enable_path)
+    s.set_enable_path(enable_path->string());
+  if (fault_path)
+    s.set_fault_path(fault_path->c_str());
+  if (min_path)
+    s.set_min_path(min_path->c_str());
+  if (max_path)
+    s.set_max_path(max_path->c_str());
+  if (crit_path)
+    s.set_crit_path(crit_path->c_str());
 }
 
 optional<Temp> fc::SensorSysfs::read() const {
   const auto temp = Util::read<Temp>(input_path);
-  return (temp) ? optional(*temp / sysfs_temp_divisor) : nullopt;
+  return (temp) ? optional(*temp / SYSFS_TEMP_DIVISOR) : nullopt;
 }
 
 bool fc::SensorSysfs::enable() const {
@@ -72,5 +81,3 @@ bool fc::SensorSysfs::enable() const {
 bool fc::SensorSysfs::is_faulty() const {
   return Util::read<int>(fault_path).value_or(0) > 0;
 }
-
-path fc::SensorSysfs::if_exists(const path &p) { return (exists(p)) ? p : ""; }

@@ -4,10 +4,10 @@
 #include <sensors/sensors.h>
 
 #include "dell/FanDell.hpp"
-#include "fan/FanInterface.hpp"
+#include "fan/Fan.hpp"
 #include "fan/FanSysfs.hpp"
 #include "nvidia/NvidiaDevices.hpp"
-#include "sensor/SensorInterface.hpp"
+#include "sensor/Sensor.hpp"
 #include "sensor/SensorSysfs.hpp"
 #include "util/Util.hpp"
 #include "proto/DevicesSpec.pb.h"

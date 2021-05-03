@@ -1,8 +1,7 @@
 #include "FanSysfs.hpp"
 
 fc::FanSysfs::FanSysfs(string label_, const path &adapter_path_, SysfsID id_)
-    : FanInterface(move(label_)), pwm_path(get_pwm_path(adapter_path_, id_)),
-      rpm_path(get_rpm_path(adapter_path_, id_)),
+    : Fan(move(label_)), pwm_path(get_pwm_path(adapter_path_, id_)), rpm_path(get_rpm_path(adapter_path_, id_)),
       enable_path(get_enable_path(adapter_path_, id_)) {
   if (is_faulty(adapter_path_, id_)) {
     LOG(llvl::warning) << *this << ": is faulty, ignoring";
@@ -22,8 +21,7 @@ fc::FanSysfs::~FanSysfs() {
 }
 
 bool fc::FanSysfs::enable_control() {
-  const bool success =
-      !(exists(enable_path)) || Util::write(enable_path, manual_flag);
+  const bool success = !(exists(enable_path)) || Util::write(enable_path, manual_flag);
   if (success)
     enabled = true;
 
@@ -31,8 +29,7 @@ bool fc::FanSysfs::enable_control() {
 }
 
 bool fc::FanSysfs::disable_control() {
-  const bool success =
-      !(exists(enable_path)) || Util::write(enable_path, driver_flag);
+  const bool success = !(exists(enable_path)) || Util::write(enable_path, driver_flag);
   if (success)
     enabled = false;
 
@@ -41,11 +38,11 @@ bool fc::FanSysfs::disable_control() {
 
 bool fc::FanSysfs::test(ObservableNumber<int> &status) {
   test_driver_enable_flag();
-  return fc::FanInterface::test(status);
+  return fc::Fan::test(status);
 }
 
 void fc::FanSysfs::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
-  fc::FanInterface::from(f, sensor_map);
+  fc::Fan::from(f, sensor_map);
   pwm_path = f.pwm_path();
   rpm_path = f.rpm_path();
   enable_path = f.enable_path();
@@ -53,7 +50,7 @@ void fc::FanSysfs::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
 }
 
 void fc::FanSysfs::to(fc_pb::Fan &f) const {
-  fc::FanInterface::to(f);
+  fc::Fan::to(f);
   f.set_type(type());
   f.set_pwm_path(pwm_path);
   f.set_rpm_path(rpm_path);
@@ -66,8 +63,7 @@ bool fc::FanSysfs::valid() const {
   if (pe && re)
     return true;
 
-  LOG(llvl::warning) << *this << ": invalid, "
-                     << Util::join({{!pe, "pwm_path"}, {!re, "rpm_path"}})
+  LOG(llvl::warning) << *this << ": invalid, " << Util::join({{!pe, "pwm_path"}, {!re, "rpm_path"}})
                      << " not configured or doesn't exist";
   return pe && re;
 }
@@ -77,10 +73,10 @@ string fc::FanSysfs::hw_id() const { return pwm_path.c_str(); }
 DevType fc::FanSysfs::type() const { return DevType::SYS; }
 
 bool fc::FanSysfs::set_pwm(const Pwm pwm) {
-  if (!Util::write(pwm_path, pwm) && !FanInterface::recover_control())
+  if (!Util::write(pwm_path, pwm) && !Fan::recover_control())
     return false;
 
-  return FanInterface::set_pwm(pwm);
+  return Fan::set_pwm(pwm);
 }
 
 Pwm fc::FanSysfs::get_pwm() const {
@@ -115,22 +111,22 @@ void fc::FanSysfs::test_driver_enable_flag() {
 }
 
 path fc::FanSysfs::get_pwm_path(const path &adapter_path, SysfsID dev_id) {
-  return adapter_path / path(string("pwm") + to_string(dev_id));
+  const auto p = adapter_path / path(string("pwm") + to_string(dev_id));
+  return Util::real_path(p).value_or("");
 }
 
 path fc::FanSysfs::get_rpm_path(const path &adapter_path, SysfsID dev_id) {
-  return adapter_path / path("fan" + to_string(dev_id) + "_input");
+  const auto p = adapter_path / path("fan" + to_string(dev_id) + "_input");
+  return Util::real_path(p).value_or("");
 }
 
 path fc::FanSysfs::get_enable_path(const path &adapter_path, SysfsID dev_id) {
-  const path ep = get_pwm_path(adapter_path, dev_id).string() + "_enable";
-  return (exists(ep)) ? ep : "";
+  const path p = get_pwm_path(adapter_path, dev_id).string() + "_enable";
+  return Util::real_path(p).value_or("");
 }
 
-optional<path> fc::FanSysfs::get_sensor_enable_path(const path &adapter_path,
-                                                    SysfsID dev_id) {
-  const path ep = adapter_path / path("fan" + to_string(dev_id) + "_enable");
-  return (exists(ep)) ? optional(ep) : nullopt;
+optional<path> fc::FanSysfs::get_sensor_enable_path(const path &adapter_path, SysfsID dev_id) {
+  return Util::real_path(adapter_path / path("fan" + to_string(dev_id) + "_enable"));
 }
 
 bool fc::FanSysfs::is_faulty(const path &adapter_path, SysfsID dev_id) {

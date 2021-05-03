@@ -126,7 +126,7 @@ Status fc::Service::SubscribeFanStatus([[maybe_unused]] ServerContext *context,
                                        [[maybe_unused]] const fc_pb::Empty *e,
                                        ServerWriter<fc_pb::FanStatus> *writer) {
   mutex m;
-  const auto cb = [&](const FanInterface &f, const FanStatus status) {
+  const auto cb = [&](const Fan &f, const FanStatus status) {
     if (!context->IsCancelled()) {
       fc_pb::FanStatus resp;
       resp.set_label(f.label);

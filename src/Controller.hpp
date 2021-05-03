@@ -17,7 +17,7 @@
 #include <thread>
 #include <utility>
 
-using fc::FanInterface;
+using fc::Fan;
 using fc::FanTask;
 using std::find_if;
 using std::future;
@@ -29,7 +29,7 @@ using std::unique_lock;
 
 using FanStatus = fc_pb::FanStatus_Status;
 using DevicesCallback = function<void(const fc::Devices &)>;
-using StatusCallback = function<void(const FanInterface &, const FanStatus)>;
+using StatusCallback = function<void(const Fan &, const FanStatus)>;
 using tasks_mutex_t = shared_mutex;
 
 namespace fc {
@@ -53,14 +53,14 @@ public:
   Util::RemovableMutex device_observers_mutex, status_observers_mutex;
 
   FanStatus status(const string &flabel);
-  void enable(fc::FanInterface &fan, bool enable_all_dell = true);
+  void enable(fc::Fan &fan, bool enable_all_dell = true);
   void enable_all();
   void disable(const string &flabel, bool disable_all_dell = true);
   void disable_all();
   void reload(bool just_started = false);
   void recover();
   void nv_init();
-  void test(fc::FanInterface &fan, bool forced, bool blocking,
+  void test(fc::Fan &fan, bool forced, bool blocking,
             shared_ptr<Util::ObservableNumber<int>> test_status);
   size_t tests_running();
   void set_devices(const fc_pb::Devices &devices_);

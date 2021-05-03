@@ -5,7 +5,7 @@
 #include <dlfcn.h>
 #include <nvml.h>
 
-#include "FanInterface.hpp"
+#include "Fan.hpp"
 #include "SensorInterface.hpp"
 #include "Util.hpp"
 
@@ -15,8 +15,8 @@ public:
   Nvml();
   ~Nvml();
 
-  void enumerate(vector<unique_ptr<fc::FanInterface>> &fans,
-                 vector<unique_ptr<fc::SensorInterface>> &sensors);
+  void enumerate(vector<unique_ptr<fc::Fan>> &fans,
+                 vector<unique_ptr<fc::Sensor>> &sensors);
 
 private:
   void *handle;

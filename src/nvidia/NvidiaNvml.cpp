@@ -40,8 +40,8 @@ fc::NV::Nvml::~Nvml() {
   }
 }
 
-void fc::NV::Nvml::enumerate(vector<unique_ptr<fc::FanInterface>> &fans,
-                             vector<unique_ptr<fc::SensorInterface>> &sensors) {
+void fc::NV::Nvml::enumerate(vector<unique_ptr<fc::Fan>> &fans,
+                             vector<unique_ptr<fc::Sensor>> &sensors) {
   uint num_gpus;
   nvmlReturn_t ret = device_get_count(&num_gpus);
   if (ret != NVML_SUCCESS || num_gpus == 0)

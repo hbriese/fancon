@@ -1,8 +1,8 @@
-#include "FanInterface.hpp"
+#include "Fan.hpp"
 
-fc::FanInterface::FanInterface(string label_) : label(move(label_)) {}
+fc::Fan::Fan(string label_) : label(move(label_)) {}
 
-void fc::FanInterface::update() {
+void fc::Fan::update() {
   const auto set = [&](Rpm rpm) {
     rpm = smooth_rpm(rpm);
     const Pwm target = find_closest_pwm(rpm);
@@ -51,11 +51,11 @@ void fc::FanInterface::update() {
   set(dynamic_rpm);
 }
 
-bool fc::FanInterface::tested() const {
+bool fc::Fan::tested() const {
   return (PWM_MIN <= start_pwm && start_pwm <= PWM_MAX) && !rpm_to_pwm.empty();
 }
 
-bool fc::FanInterface::try_enable() {
+bool fc::Fan::try_enable() {
   if (ignore) {
     LOG(llvl::debug) << *this << ": ignored";
   } else if (!enable_control()) {
@@ -68,7 +68,7 @@ bool fc::FanInterface::try_enable() {
   return false;
 }
 
-bool fc::FanInterface::is_configured(bool log) const {
+bool fc::Fan::is_configured(bool log) const {
   const bool ce = temp_to_rpm.empty(), se = !sensor,
              si = (sensor && sensor->ignore);
   const bool configured = !(ce || se || si);
@@ -82,12 +82,12 @@ bool fc::FanInterface::is_configured(bool log) const {
   return configured;
 }
 
-bool fc::FanInterface::set_pwm(Pwm pwm) {
+bool fc::Fan::set_pwm(Pwm pwm) {
   LOG(llvl::trace) << *this << ": " << pwm << fc::log::flush;
   return true;
 }
 
-Pwm fc::FanInterface::find_closest_pwm(Rpm rpm) {
+Pwm fc::Fan::find_closest_pwm(Rpm rpm) {
   // Find RPM closest to rpm
   const auto ge_it = rpm_to_pwm.lower_bound(rpm); // >= rpm
   if (ge_it == rpm_to_pwm.begin())                // rpm < the min point
@@ -107,7 +107,7 @@ Pwm fc::FanInterface::find_closest_pwm(Rpm rpm) {
   return (needs_starting) ? start_pwm : pwm;
 }
 
-bool fc::FanInterface::recover_control() {
+bool fc::Fan::recover_control() {
   for (auto i = 1; i <= 5; ++i, sleep_for_interval())
     if (enable_control()) {
       LOG(llvl::debug) << *this << ": recovering control";
@@ -118,7 +118,7 @@ bool fc::FanInterface::recover_control() {
   return false;
 }
 
-Rpm fc::FanInterface::smooth_rpm(const Rpm rpm) {
+Rpm fc::Fan::smooth_rpm(const Rpm rpm) {
   const int rpm_delta = rpm - smoothing.targeted_rpm;
   if (rpm_delta == 0)
     return rpm;
@@ -156,11 +156,11 @@ Rpm fc::FanInterface::smooth_rpm(const Rpm rpm) {
   return smoothing.targeted_rpm;
 }
 
-void fc::FanInterface::sleep_for_interval() const {
+void fc::Fan::sleep_for_interval() const {
   sleep_for((interval.count() > 0) ? interval : fc::update_interval);
 }
 
-bool fc::FanInterface::test(ObservableNumber<int> &status) {
+bool fc::Fan::test(ObservableNumber<int> &status) {
   const Pwm pre_pwm = get_pwm();
 
   // Fail early if can't write enable mode or pwm
@@ -190,7 +190,7 @@ bool fc::FanInterface::test(ObservableNumber<int> &status) {
   return true;
 }
 
-optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) {
+optional<Rpm> fc::Fan::set_stabilised_pwm(const Pwm pwm) {
   if (!set_pwm(pwm))
     return nullopt;
 
@@ -213,7 +213,7 @@ optional<Rpm> fc::FanInterface::set_stabilised_pwm(const Pwm pwm) {
   return cur;
 }
 
-bool fc::FanInterface::set_pwm_test() {
+bool fc::Fan::set_pwm_test() {
   const Pwm target = (get_pwm() != PWM_MIN) ? PWM_MIN : PWM_MAX;
   if (!set_pwm(target))
     return false;
@@ -227,12 +227,12 @@ bool fc::FanInterface::set_pwm_test() {
   return false;
 }
 
-void fc::FanInterface::test_stopped(Pwm_to_Rpm_Map &pwm_to_rpm) {
+void fc::Fan::test_stopped(Pwm_to_Rpm_Map &pwm_to_rpm) {
   set_stabilised_pwm(PWM_MIN);
   pwm_to_rpm[get_pwm()] = get_rpm(); // Ideally RPM will now be 0
 }
 
-void fc::FanInterface::test_start(Pwm_to_Rpm_Map &pwm_to_rpm) {
+void fc::Fan::test_start(Pwm_to_Rpm_Map &pwm_to_rpm) {
   Pwm target_pwm = fc::PWM_MIN;
   optional<Rpm> cur_rpm = 0;
   while ((!cur_rpm || *cur_rpm == 0) && target_pwm <= fc::PWM_MAX) {
@@ -247,7 +247,7 @@ void fc::FanInterface::test_start(Pwm_to_Rpm_Map &pwm_to_rpm) {
   pwm_to_rpm[start_pwm] = *cur_rpm;
 }
 
-void fc::FanInterface::test_interval(Pwm_to_Rpm_Map &pwm_to_rpm) {
+void fc::Fan::test_interval(Pwm_to_Rpm_Map &pwm_to_rpm) {
   if (interval > milliseconds(0)) // Use user's set interval if configured
     return;
 
@@ -269,7 +269,7 @@ void fc::FanInterface::test_interval(Pwm_to_Rpm_Map &pwm_to_rpm) {
       chrono::high_resolution_clock::now() - pre);
 }
 
-void fc::FanInterface::test_running_min(Pwm_to_Rpm_Map &pwm_to_rpm) {
+void fc::Fan::test_running_min(Pwm_to_Rpm_Map &pwm_to_rpm) {
   // Slowly drop PWM until fan is no longer running
   // Don't take the last 3 results before it stopped to be safe
   vector<tuple<Pwm, Rpm>> results;
@@ -294,7 +294,7 @@ void fc::FanInterface::test_running_min(Pwm_to_Rpm_Map &pwm_to_rpm) {
   }
 }
 
-void fc::FanInterface::test_mapping(Pwm_to_Rpm_Map &pwm_to_rpm) {
+void fc::Fan::test_mapping(Pwm_to_Rpm_Map &pwm_to_rpm) {
   // Record points from start PWM to PWM_MAX
   // Ensure target hits 128 (even) && 255 (odd)
   Pwm target = min(start_pwm + ((start_pwm % 2 != 0) ? 1 : 2), PWM_MAX);
@@ -304,7 +304,7 @@ void fc::FanInterface::test_mapping(Pwm_to_Rpm_Map &pwm_to_rpm) {
   }
 }
 
-Percent fc::FanInterface::rpm_to_percent(const Rpm rpm) const {
+Percent fc::Fan::rpm_to_percent(const Rpm rpm) const {
   if (rpm <= 0)
     return 0;
 
@@ -321,7 +321,7 @@ Percent fc::FanInterface::rpm_to_percent(const Rpm rpm) const {
              : 1;
 }
 
-Rpm fc::FanInterface::percent_to_rpm(Percent percent) const {
+Rpm fc::Fan::percent_to_rpm(Percent percent) const {
   if (percent <= 0)
     return 0;
 
@@ -345,7 +345,7 @@ Rpm fc::FanInterface::percent_to_rpm(Percent percent) const {
                         : ((percent / 100) * range) + min_running_it->first;
 }
 
-Rpm fc::FanInterface::pwm_to_rpm(Pwm pwm) const {
+Rpm fc::Fan::pwm_to_rpm(Pwm pwm) const {
   // Retrieve the closest RPM match for the given pwm
   if (rpm_to_pwm.empty())
     throw runtime_error("RPM to PWM can't be empty!");
@@ -372,7 +372,7 @@ Rpm fc::FanInterface::pwm_to_rpm(Pwm pwm) const {
   return (--it)->first;
 }
 
-void fc::FanInterface::temp_to_rpm_from(const string &src) {
+void fc::Fan::temp_to_rpm_from(const string &src) {
   if (rpm_to_pwm.empty()) // Fan needs to be tested first
     return;
 
@@ -421,7 +421,7 @@ void fc::FanInterface::temp_to_rpm_from(const string &src) {
   }
 }
 
-void fc::FanInterface::rpm_to_pwm_from(const string &src) {
+void fc::Fan::rpm_to_pwm_from(const string &src) {
   string::const_iterator start_it = src.begin(), next_it = src.end();
   std::smatch m;
   const auto next_item = [&] {
@@ -443,7 +443,7 @@ void fc::FanInterface::rpm_to_pwm_from(const string &src) {
   }
 }
 
-void fc::FanInterface::rpm_to_pwm_from(const Pwm_to_Rpm_Map &pwm_to_rpm) {
+void fc::Fan::rpm_to_pwm_from(const Pwm_to_Rpm_Map &pwm_to_rpm) {
   // Put pwm & rpm values into the rpm_to_pwm map
   // Ensure that RPM only increases with PWM!
   vector<Rpm> rpms;
@@ -460,7 +460,7 @@ void fc::FanInterface::rpm_to_pwm_from(const Pwm_to_Rpm_Map &pwm_to_rpm) {
   }
 }
 
-void fc::FanInterface::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
+void fc::Fan::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
   label = f.label();
   if (const auto s_it = sensor_map.find(f.sensor()); s_it != sensor_map.end())
     sensor = s_it->second;
@@ -472,7 +472,7 @@ void fc::FanInterface::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
   ignore = f.ignore();
 }
 
-void fc::FanInterface::to(fc_pb::Fan &f) const {
+void fc::Fan::to(fc_pb::Fan &f) const {
   f.set_label(label);
   f.set_sensor(sensor ? sensor->label : "");
   f.set_rpm_to_pwm(Util::map_str(rpm_to_pwm));
@@ -482,14 +482,14 @@ void fc::FanInterface::to(fc_pb::Fan &f) const {
   f.set_ignore(ignore);
 }
 
-bool fc::FanInterface::deep_equal(const FanInterface &other) const {
+bool fc::Fan::deep_equal(const Fan &other) const {
   fc_pb::Fan f, fother;
   to(f);
   other.to(fother);
   return Util::deep_equal(f, fother);
 }
 
-std::ostream &fc::operator<<(std::ostream &os, const fc::FanInterface &f) {
+std::ostream &fc::operator<<(std::ostream &os, const fc::Fan &f) {
   os << f.label;
   return os;
 }

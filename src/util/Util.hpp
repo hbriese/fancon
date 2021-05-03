@@ -64,29 +64,31 @@ using std::vector;
 namespace fc::Util {
 static const string SERVICE_ADDR = "0.0.0.0:5820";
 
-template <class T> optional<T> postfix_num(const string_view &s);
-optional<string> read_line(const path &fpath, bool failed = false);
-template <typename T> optional<T> read(const path &fpath, bool failed = false);
-template <typename T> bool write(const path &fpath, T val, bool failed = false);
-template <typename K, typename T> string map_str(std::map<K, T> m);
-string join(std::initializer_list<pair<bool, string>> args,
-            string join_with = " & ");
+template<class T> optional<T> postfix_num(const string_view &s);
+optional<string> read_line(const path &p, bool failed = false);
+template<typename T> optional<T> read(const path &p, bool failed = false);
+template<typename T> optional<T> read(const optional<path> &p);
+template<typename T> bool write(const path &p, T val, bool failed = false);
+template<typename T> bool write(const optional<path> &p, T val);
+template<typename K, typename T> string map_str(std::map<K, T> m);
+template<class T> optional<T> from_string(const string &s);
+
+string join(std::initializer_list<pair<bool, string>> args, string join_with = " & ");
 bool is_root();
 bool is_atty();
 std::chrono::high_resolution_clock::time_point deadline(long ms);
-bool deep_equal(const google::protobuf::Message &m1,
-                const google::protobuf::Message &m2);
-template <class T> optional<T> from_string(const string &s);
+bool deep_equal(const google::protobuf::Message &m1, const google::protobuf::Message &m2);
+optional<path> real_path(path p);
 
-template <class T> class ObservableNumber {
+template<class T> class ObservableNumber {
 public:
-  explicit ObservableNumber(T &&value) : value(value) {}
+  explicit ObservableNumber(T &&value) : value(value) {
+  }
   ObservableNumber(function<void(T &)> f, T &&value = 0);
 
   vector<function<void(T &)>> observers;
 
-  void register_observer(std::function<void(T &)> callback,
-                         bool call_on_register);
+  void register_observer(std::function<void(T &)> callback, bool call_on_register);
   void notify_observers();
 
   ObservableNumber<T> &operator=(T other);
@@ -97,13 +99,14 @@ private:
   mutex update_mutex;
 };
 
-template <class T> class ScopedCounter {
+template<class T> class ScopedCounter {
 public:
-  explicit ScopedCounter(T &counter, bool increment = true)
-      : counter(counter), increment(increment) {
+  explicit ScopedCounter(T &counter, bool increment = true) : counter(counter), increment(increment) {
     counter += (increment ? 1 : -1);
   }
-  ~ScopedCounter() { counter += (increment ? -1 : 1); }
+  ~ScopedCounter() {
+    counter += (increment ? -1 : 1);
+  }
 
 private:
   T &counter;
@@ -124,30 +127,29 @@ private:
 // TEMPLATE DEFINITIONS //
 //----------------------//
 
-template <class T> optional<T> fc::Util::postfix_num(const string_view &s) {
+template<class T> optional<T> fc::Util::postfix_num(const string_view &s) {
   bool found = false;
   const auto beg = std::find_if_not(s.rbegin(), s.rend(), [&](const char &c) {
     return (std::isdigit(c)) ? (found = true) : !found;
   });
 
   T res;
-  const auto [p, ec] = std::from_chars(beg.base(), s.data() + s.size(), res);
+  const auto[p, ec] = std::from_chars(beg.base(), s.data() + s.size(), res);
   return (ec == std::errc()) ? optional(res) : nullopt;
 }
 
-template <typename T> T from(std::istream &is) {
+template<typename T> T from(std::istream &is) {
   T ret;
   is >> ret;
   return ret;
 }
 
-template <typename T>
-optional<T> fc::Util::read(const path &fpath, bool failed) {
-  const auto retry = [&fpath, &failed] {
-    return (!failed && exists(fpath)) ? read<T>(fpath, true) : std::nullopt;
+template<typename T> optional<T> fc::Util::read(const path &p, bool failed) {
+  const auto retry = [&p, &failed] {
+    return (!failed && exists(p)) ? read<T>(p, true) : std::nullopt;
   };
 
-  std::ifstream ifs(fpath.string());
+  std::ifstream ifs(p.string());
   if (!ifs)
     return retry();
 
@@ -160,12 +162,18 @@ optional<T> fc::Util::read(const path &fpath, bool failed) {
   return ret;
 }
 
-template <typename T>
-bool fc::Util::write(const path &fpath, T val, bool failed) {
-  std::ofstream ofs(fpath.string());
+template<typename T> optional<T> fc::Util::read(const optional<path> &p) {
+  if (!p)
+    return nullopt;
+
+  return read<T>(*p);
+}
+
+template<typename T> bool fc::Util::write(const path &p, T val, bool failed) {
+  std::ofstream ofs(p.string());
   if (!ofs) {
-    const char *msg = exists(fpath) ? "can't open: " : "doesn't exist: ";
-    LOG(llvl::error) << "Failed to read file, " << msg << fpath;
+    const char *msg = exists(p) ? "can't open: " : "doesn't exist: ";
+    LOG(llvl::error) << "Failed to read file, " << msg << p;
     return false;
   }
 
@@ -174,17 +182,23 @@ bool fc::Util::write(const path &fpath, T val, bool failed) {
 
   if (!ofs) {
     if (!failed)
-      return write(fpath, move(val), true);
+      return write(p, move(val), true);
 
-    LOG(llvl::debug) << "Failed to write '" << val << "' to: " << fpath;
+    LOG(llvl::debug) << "Failed to write '" << val << "' to: " << p;
     return false;
   }
 
   return true;
 }
 
-template <typename K, typename T>
-string fc::Util::map_str(const std::map<K, T> m) {
+template<typename T> bool fc::Util::write(const optional<path> &p, T val) {
+  if (!p)
+    return false;
+
+  return write(*p, val);
+}
+
+template<typename K, typename T> string fc::Util::map_str(const std::map<K, T> m) {
   std::stringstream ss;
   for (auto it = m.begin(); it != m.end();) {
     ss << it->first << ": " << it->second;
@@ -194,44 +208,37 @@ string fc::Util::map_str(const std::map<K, T> m) {
   return ss.str();
 }
 
-template <class T> optional<T> fc::Util::from_string(const string &s) {
+template<class T> optional<T> fc::Util::from_string(const string &s) {
   T val;
-  const auto [p, ec] = std::from_chars(s.data(), s.data() + s.size(), val);
+  const auto[p, ec] = std::from_chars(s.data(), s.data() + s.size(), val);
   return (ec == std::errc()) ? optional(val) : nullopt;
 }
 
-template <class T>
-fc::Util::ObservableNumber<T>::ObservableNumber(function<void(T &)> f,
-                                                T &&value)
+template<class T> fc::Util::ObservableNumber<T>::ObservableNumber(function<void(T &)> f, T &&value)
     : value(value) {
   register_observer(f, false);
 }
 
-template <class T>
-void fc::Util::ObservableNumber<T>::register_observer(
-    std::function<void(T &)> callback, bool call_on_register) {
+template<class T>
+void fc::Util::ObservableNumber<T>::register_observer(std::function<void(T &)> callback, bool call_on_register) {
   if (call_on_register)
     callback(value);
   observers.emplace_back(move(callback));
 }
 
-template <class T> void fc::Util::ObservableNumber<T>::notify_observers() {
+template<class T> void fc::Util::ObservableNumber<T>::notify_observers() {
   for (auto &f : observers)
     f(value);
 }
 
-template <class T>
-fc::Util::ObservableNumber<T> &
-fc::Util::ObservableNumber<T>::operator+=(const T &other) {
+template<class T> fc::Util::ObservableNumber<T> &fc::Util::ObservableNumber<T>::operator+=(const T &other) {
   const lock_guard<mutex> lock(update_mutex);
   value += other;
   notify_observers();
   return *this;
 }
 
-template <class T>
-fc::Util::ObservableNumber<T> &
-fc::Util::ObservableNumber<T>::operator=(T other) {
+template<class T> fc::Util::ObservableNumber<T> &fc::Util::ObservableNumber<T>::operator=(T other) {
   const lock_guard<mutex> lock(update_mutex);
   value = move(other);
   notify_observers();

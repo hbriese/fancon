@@ -1,5 +1,5 @@
-#ifndef FANCON_SENSORINTERFACE_HPP
-#define FANCON_SENSORINTERFACE_HPP
+#ifndef FANCON_SENSOR_HPP
+#define FANCON_SENSOR_HPP
 
 #include <mutex>
 #include <numeric>
@@ -12,11 +12,11 @@ using Temp = int;
 namespace fc {
 extern uint temp_averaging_intervals;
 
-class SensorInterface {
+class Sensor {
 public:
-  SensorInterface() = default;
-  explicit SensorInterface(string label_);
-  virtual ~SensorInterface() = default;
+  Sensor() = default;
+  explicit Sensor(string label_);
+  virtual ~Sensor() = default;
 
   string label;
   bool ignore{false};
@@ -30,8 +30,8 @@ public:
   virtual bool valid() const = 0;
   virtual string hw_id() const = 0;
 
-  bool deep_equal(const SensorInterface &other) const;
-  friend std::ostream &operator<<(std::ostream &os, const SensorInterface &s);
+  bool deep_equal(const Sensor &other) const;
+  friend std::ostream &operator<<(std::ostream &os, const Sensor &s);
 
 protected:
   std::mutex read_mutex;
@@ -44,9 +44,9 @@ protected:
   bool fresh() const;
 };
 
-std::ostream &operator<<(std::ostream &os, const SensorInterface &s);
+std::ostream &operator<<(std::ostream &os, const Sensor &s);
 } // namespace fc
 
-using SensorMap = std::unordered_map<string, shared_ptr<fc::SensorInterface>>;
+using SensorMap = std::unordered_map<string, shared_ptr<fc::Sensor>>;
 
-#endif // FANCON_SENSORINTERFACE_HPP
+#endif // FANCON_SENSOR_HPP

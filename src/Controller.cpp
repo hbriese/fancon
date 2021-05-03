@@ -25,7 +25,7 @@ FanStatus fc::Controller::status(const string &flabel) {
                                    : FanStatus::FanStatus_Status_ENABLED;
 }
 
-void fc::Controller::enable(fc::FanInterface &f, bool enable_all_dell) {
+void fc::Controller::enable(fc::Fan &f, bool enable_all_dell) {
   const auto lock = lock_task_write(f.label);
   if (tasks.contains(f.label) || !f.try_enable() || !f.is_configured(true))
     return;
@@ -121,7 +121,7 @@ void fc::Controller::nv_init() {
 #endif // FANCON_NVIDIA_SUPPORT
 }
 
-void fc::Controller::test(fc::FanInterface &fan, bool forced, bool blocking,
+void fc::Controller::test(fc::Fan &fan, bool forced, bool blocking,
                           shared_ptr<Util::ObservableNumber<int>> test_status) {
   if (fan.ignore || (fan.tested() && !forced))
     return;
@@ -291,7 +291,7 @@ void fc::Controller::merge(Devices &d, bool replace_on_match, bool deep_cmp) {
   // Ensure all Dell fans are enabled if a single one has, but let them be
   // merged first
   bool dell_fan_enabled = false;
-  const auto enable_fan = [&](FanInterface &fan) {
+  const auto enable_fan = [&](Fan &fan) {
     enable(fan, false);
     dell_fan_enabled |= fan.type() == fc_pb::DELL;
   };

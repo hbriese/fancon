@@ -4,7 +4,7 @@
 
 using fc::NV::xnvlib;
 
-fc::FanNV::FanNV(string label, NVID id) : FanInterface(move(label)), id(id) {}
+fc::FanNV::FanNV(string label, NVID id) : Fan(move(label)), id(id) {}
 
 fc::FanNV::~FanNV() {
   if (enabled)
@@ -12,12 +12,12 @@ fc::FanNV::~FanNV() {
 }
 
 void fc::FanNV::from(const fc_pb::Fan &f, const SensorMap &sensor_map) {
-  fc::FanInterface::from(f, sensor_map);
+  fc::Fan::from(f, sensor_map);
   id = f.id();
 }
 
 void fc::FanNV::to(fc_pb::Fan &f) const {
-  fc::FanInterface::to(f);
+  fc::Fan::to(f);
   f.set_type(type());
   f.set_id(id);
 }
@@ -72,10 +72,10 @@ Pwm fc::FanNV::get_pwm() const {
 bool fc::FanNV::set_pwm(const Pwm pwm) {
   // Attempt to recover control of the device if the write fails
   if (!xnvlib->pwm_percent.write(id, pwm_to_percent(pwm)) &&
-      !FanInterface::recover_control())
+      !Fan::recover_control())
     return false;
 
-  return FanInterface::set_pwm(pwm);
+  return Fan::set_pwm(pwm);
 }
 
 bool fc::FanNV::enable_control() {
@@ -102,17 +102,17 @@ Pwm fc::FanNV::percent_to_pwm(const Percent percent) {
 }
 
 fc::SensorNV::SensorNV(string label, NVID id)
-    : SensorInterface(move(label)), id(id) {}
+    : Sensor(move(label)), id(id) {}
 
 optional<Temp> fc::SensorNV::read() const { return xnvlib->temp.read(id); }
 
 void fc::SensorNV::from(const fc_pb::Sensor &s) {
-  fc::SensorInterface::from(s);
+  fc::Sensor::from(s);
   id = s.id();
 }
 
 void fc::SensorNV::to(fc_pb::Sensor &s) const {
-  fc::SensorInterface::to(s);
+  fc::Sensor::to(s);
   s.set_type(fc_pb::NVIDIA);
   s.set_id(id);
 }

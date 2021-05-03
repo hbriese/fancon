@@ -2,12 +2,12 @@
 #ifndef FANCON_NVIDIADEVICES_HPP
 #define FANCON_NVIDIADEVICES_HPP
 
-#include "fan/FanInterface.hpp"
+#include "fan/Fan.hpp"
 #include "NvidiaUtil.hpp"
-#include "sensor/SensorInterface.hpp"
+#include "sensor/Sensor.hpp"
 
 namespace fc {
-class FanNV : public fc::FanInterface {
+class FanNV : public fc::Fan {
 public:
   FanNV() = default;
   FanNV(string label, NVID id);
@@ -35,7 +35,7 @@ private:
   static Pwm percent_to_pwm(const Percent percent);
 };
 
-class SensorNV : public SensorInterface {
+class SensorNV : public Sensor {
 public:
   SensorNV() = default;
   SensorNV(string label, NVID id);

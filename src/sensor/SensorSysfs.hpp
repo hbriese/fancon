@@ -3,18 +3,20 @@
 
 #include <algorithm>
 
-#include "SensorInterface.hpp"
+#include "Sensor.hpp"
+
+using fc::Util::real_path;
 
 using control_flag_t = int;
 
 namespace fc {
-inline const Temp sysfs_temp_divisor = 1000;
+static const Temp SYSFS_TEMP_DIVISOR = 1000;
 
 // https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
-class SensorSysfs : public SensorInterface {
+class SensorSysfs : public Sensor {
 public:
   SensorSysfs() = default;
-  SensorSysfs(string label_, const string &device_path);
+  SensorSysfs(string label_, const string &dev_path);
 
   optional<Temp> min_temp() const override;
   optional<Temp> max_temp() const override;
@@ -25,13 +27,12 @@ public:
   void to(fc_pb::Sensor &s) const override;
 
 private:
-  path input_path, enable_path, fault_path, min_path, max_path, crit_path;
+  optional<path> input_path, enable_path, fault_path, min_path, max_path, crit_path;
 
   optional<Temp> read() const override;
 
   bool enable() const;
   bool is_faulty() const;
-  static path if_exists(const path &p);
 };
 } // namespace fc
 

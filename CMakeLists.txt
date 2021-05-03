@@ -53,8 +53,8 @@ set(SOURCE_FILES ${SRC}/main.cpp ${SRC}/main.hpp
         ${SRC}/Controller.cpp ${SRC}/Controller.hpp
         ${SRC}/fan/FanTask.cpp ${SRC}/fan/FanTask.hpp
         ${SRC}/Devices.cpp ${SRC}/Devices.hpp
-        ${SRC}/fan/FanInterface.cpp ${SRC}/fan/FanInterface.hpp
-        ${SRC}/sensor/SensorInterface.cpp ${SRC}/sensor/SensorInterface.hpp
+        ${SRC}/fan/Fan.cpp ${SRC}/fan/Fan.hpp
+        ${SRC}/sensor/Sensor.cpp ${SRC}/sensor/Sensor.hpp
         ${SRC}/fan/FanSysfs.cpp ${SRC}/fan/FanSysfs.hpp
         ${SRC}/sensor/SensorSysfs.cpp ${SRC}/sensor/SensorSysfs.hpp
         ${SRC}/nvidia/NvidiaUtil.cpp ${SRC}/nvidia/NvidiaUtil.hpp
@@ -86,7 +86,7 @@ if (NVIDIA_SUPPORT)
     find_package(X11)
     find_package(NVCtrl)
 
-# ONLY X11 and XNVCtrl headers are required, libs are dynamically loaded
+    # ONLY X11 and XNVCtrl headers are required, libs are dynamically loaded
     if (X11_INCLUDE_DIR AND NVCTRL_INCLUDE_DIR)
         include_directories(${X11_INCLUDE_DIR} ${NVCTRL_INCLUDE_DIR})
         set(LIBS ${LIBS} ${CMAKE_DL_LIBS})

@@ -3,7 +3,7 @@
 fc::SensorChips::SensorChips() {
   sensors_init(nullptr);
 
-  const sensors_chip_name *cn = nullptr;
+  const sensors_chip_name *cn;
   for (int i = 0; (cn = sensors_get_detected_chips(nullptr, &i)) != nullptr;)
     chips.push_back(cn);
 }
@@ -16,31 +16,24 @@ void fc::SensorChips::enumerate(FanMap &fans, SensorMap &sensors) {
 
     const int buf_size = 200;
     char buf[buf_size];
-    const string_view chip_name =
-        (sensors_snprintf_chip_name(buf, buf_size, sc) > 0) ? buf : "";
+    const string_view chip_name = (sensors_snprintf_chip_name(buf, buf_size, sc) > 0) ? buf : "";
     const bool is_dell = SMM::is_smm_dell(chip_name);
 
     const sensors_feature *sf;
     for (int fnum = 0; (sf = sensors_get_features(sc, &fnum)) != nullptr;) {
       const char *dev_name = sf->name, *dev_label = sensors_get_label(sc, sf);
-      string label = adapter_path.filename().string() + "/" +
-                     ((dev_label) ? dev_label : dev_name);
+      string label = adapter_path.filename().string() + "/" + ((dev_label) ? dev_label : dev_name);
 
       // Only enumerate fans & sensors
-      const bool is_fan = sf->type == SENSORS_FEATURE_FAN,
-                 is_sensor = sf->type == SENSORS_FEATURE_TEMP;
+      const bool is_fan = sf->type == SENSORS_FEATURE_FAN, is_sensor = sf->type == SENSORS_FEATURE_TEMP;
       if (!is_fan && !is_sensor)
         continue;
 
       // Check subfeature is readable & compute mapping
-      const auto input_ssf = (is_fan) ? SENSORS_SUBFEATURE_FAN_INPUT
-                                      : SENSORS_SUBFEATURE_TEMP_INPUT;
+      const auto input_ssf = (is_fan) ? SENSORS_SUBFEATURE_FAN_INPUT : SENSORS_SUBFEATURE_TEMP_INPUT;
       const sensors_subfeature *ssf = sensors_get_subfeature(sc, sf, input_ssf);
-      const bool readable = ssf != nullptr &&
-                            (ssf->flags & SENSORS_MODE_R) == SENSORS_MODE_R,
-                 compute_mapping =
-                     ssf != nullptr && (ssf->flags & SENSORS_COMPUTE_MAPPING) ==
-                                           SENSORS_COMPUTE_MAPPING;
+      const bool readable = ssf != nullptr && (ssf->flags & SENSORS_MODE_R) == SENSORS_MODE_R,
+          compute_mapping = ssf != nullptr && (ssf->flags & SENSORS_COMPUTE_MAPPING) == SENSORS_COMPUTE_MAPPING;
 
       if (!readable || !compute_mapping) {
         LOG(llvl::debug) << label << ": unable to read from device";
@@ -49,7 +42,7 @@ void fc::SensorChips::enumerate(FanMap &fans, SensorMap &sensors) {
 
       if (is_fan) {
         const auto id = Util::postfix_num<uint>(dev_name).value_or(0);
-        unique_ptr<FanInterface> fan;
+        unique_ptr<Fan> fan;
         if (is_dell) {
           fan = make_unique<FanDell>(label, adapter_path, id);
         } else {
@@ -63,8 +56,7 @@ void fc::SensorChips::enumerate(FanMap &fans, SensorMap &sensors) {
         }
       } else { // is_sensor
         string dev_path = string(adapter_path.c_str()) + "/" + dev_name;
-        unique_ptr<SensorInterface> sensor =
-            make_unique<SensorSysfs>(label, move(dev_path));
+        unique_ptr<Sensor> sensor = make_unique<SensorSysfs>(label, move(dev_path));
 
         if (sensor->valid()) {
           sensors.insert_or_assign(move(label), move(sensor));
@@ -93,12 +85,11 @@ fc::Devices::Devices(bool enumerate) {
 void fc::Devices::from(const fc_pb::Devices &d) {
   std::set<string> uids;
   for (const fc_pb::Sensor &spb : d.sensor()) {
-    shared_ptr<SensorInterface> s;
+    shared_ptr<Sensor> s;
 
     switch (spb.type()) {
     case fc_pb::SYS:
-    case fc_pb::DELL:
-      s = make_shared<SensorSysfs>();
+    case fc_pb::DELL:s = make_shared<SensorSysfs>();
       break;
     case fc_pb::NVIDIA:
 #ifdef FANCON_NVIDIA_SUPPORT
@@ -115,9 +106,7 @@ void fc::Devices::from(const fc_pb::Devices &d) {
       continue;
 #endif
       break;
-    default:
-      LOG(llvl::error) << "Skipping sensor, invalid type '" << spb.type()
-                       << "' from " << spb.DebugString();
+    default:LOG(llvl::error) << "Skipping sensor, invalid type '" << spb.type() << "' from " << spb.DebugString();
       continue;
     }
 
@@ -137,14 +126,12 @@ void fc::Devices::from(const fc_pb::Devices &d) {
   }
 
   for (const fc_pb::Fan &fpb : d.fan()) {
-    unique_ptr<FanInterface> f;
+    unique_ptr<Fan> f;
 
     switch (fpb.type()) {
-    case fc_pb::SYS:
-      f = make_unique<FanSysfs>();
+    case fc_pb::SYS:f = make_unique<FanSysfs>();
       break;
-    case fc_pb::DELL:
-      f = make_unique<FanDell>();
+    case fc_pb::DELL:f = make_unique<FanDell>();
       break;
     case fc_pb::NVIDIA:
 #ifdef FANCON_NVIDIA_SUPPORT
@@ -161,9 +148,7 @@ void fc::Devices::from(const fc_pb::Devices &d) {
       continue;
 #endif
       break;
-    default:
-      LOG(llvl::error) << "Skipping fan with invalid type (" << fpb.type()
-                       << "): " << fpb.DebugString();
+    default:LOG(llvl::error) << "Skipping fan with invalid type (" << fpb.type() << "): " << fpb.DebugString();
       continue;
     }
 
@@ -191,11 +176,9 @@ void fc::Devices::to(fc_pb::Devices &d) const {
 }
 
 bool fc::operator==(const fc_pb::Fan &l, const fc_pb::Fan &r) {
-  return l.type() == r.type() && l.pwm_path() == r.pwm_path() &&
-         l.rpm_path() == r.rpm_path() && l.id() == r.id();
+  return l.type() == r.type() && l.pwm_path() == r.pwm_path() && l.rpm_path() == r.rpm_path() && l.id() == r.id();
 }
 
 bool fc::operator==(const fc_pb::Sensor &l, const fc_pb::Sensor &r) {
-  return l.type() == r.type() && l.input_path() == r.input_path() &&
-         l.id() == r.id();
+  return l.type() == r.type() && l.input_path() == r.input_path() && l.id() == r.id();
 }
