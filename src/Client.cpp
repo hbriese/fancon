@@ -9,9 +9,8 @@ fc::Client::Client() {
 }
 
 void fc::Client::run(Args &args) {
-  if ((args.status || args.disable || args.test || args.reload ||
-       args.stop_service || args.nv_init || args.sysinfo) &&
-      !connected(1000)) {
+  if ((args.status || args.disable || args.test || args.reload || args.stop_service || args.nv_init || args.sysinfo)
+      && !connected(1000)) {
     log_service_unavailable();
     return;
   }
@@ -49,8 +48,7 @@ void fc::Client::run(Args &args) {
     sysinfo(args.sysinfo.value);
   } else if (Util::is_atty() && !exists(args.config.value)) {
     // Offer test
-    cout << log::fmt_green
-         << "Test devices & generate a config? (y/n): " << log::fmt_reset;
+    cout << log::fmt_green << "Test devices & generate a config? (y/n): " << log::fmt_reset;
     char answer;
     std::cin >> answer;
     if (answer == 'y') {
@@ -118,8 +116,8 @@ void fc::Client::status() {
     if (s.status() != FanStatus::FanStatus_Status_DISABLED)
       extras << setw(4) << s.rpm() << "rpm, " << setw(3) << s.pwm() << "pwm";
 
-    cout << setw(longest_label) << s.label() << ": " << extras.rdbuf()->str()
-         << " " << setw(longest_status) << status_text(s.status()) << endl;
+    cout << setw(longest_label) << s.label() << ": " << extras.rdbuf()->str() << " " << setw(longest_status)
+         << status_text(s.status()) << endl;
   }
 }
 
@@ -154,14 +152,14 @@ void fc::Client::test(bool forced) {
     return;
   }
 
-  if (!forced)
-    LOG(llvl::info) << "Add 'force' option to test already tested fans";
-
   vector<thread> threads;
   for (const auto &f : devices->fan()) {
     const string &flabel = f.label();
     threads.emplace_back([=] { test(flabel, forced); });
   }
+
+  if (!forced && threads.size() != devices->fan().size())
+    LOG(llvl::info) << "Add 'force' option to test already tested fans";
 
   for (auto &t : threads) {
     if (t.joinable())
@@ -200,12 +198,10 @@ void fc::Client::monitor(const string &flabel) {
       continue;
 
     const string pwm_rpm =
-        (r.status() != fc_pb::FanStatus_Status_DISABLED)
-            ? to_string(r.rpm()) + "rpm, " + to_string(r.pwm()) + "pwm"
-            : "";
-    const string status = (r.status() == fc_pb::FanStatus_Status_TESTING)
-                              ? (string("(") + status_text(r.status()) + ")")
-                              : "";
+        (r.status() != fc_pb::FanStatus_Status_DISABLED) ? to_string(r.rpm()) + "rpm, " + to_string(r.pwm()) + "pwm"
+                                                         : "";
+    const string
+        status = (r.status() == fc_pb::FanStatus_Status_TESTING) ? (string("(") + status_text(r.status()) + ")") : "";
     cout << r.label() << ": " << pwm_rpm << status << endl;
   }
 }
@@ -272,33 +268,22 @@ void fc::Client::sysinfo(const string &p) {
 }
 
 void fc::Client::print_help(const string &conf) {
-  LOG(llvl::info) << "fancon arg [value] ..." << endl
-                  << "h  help           Show this help" << endl
-                  << "s  status         Status of all fans" << endl
-                  << "e  enable         Enable control of all fans" << endl
-                  << "e  enable  [fan]  Enable control of the fan" << endl
+  LOG(llvl::info) << "fancon arg [value] ..." << endl << "h  help           Show this help" << endl
+                  << "s  status         Status of all fans" << endl << "e  enable         Enable control of all fans"
+                  << endl << "e  enable  [fan]  Enable control of the fan" << endl
                   << "d  disable        Disable control of all fans" << endl
                   << "d  disable [fan]  Disable control of the fans" << endl
-                  << "t  test           Test all (untested) fans" << endl
-                  << "t  test    [fan]  Test the fan (forced)" << endl
-                  << "f  force          Test even already tested fans "
-                  << "(default: false)" << endl
-                  << "m  monitor        Monitor all fans" << endl
-                  << "m  monitor [fan]  Monitor the fan" << endl
-                  << "r  reload         Reload config" << endl
-                  << "c  config  [file] Config path (default: "
-                  << log::fmt_green_bold << conf << log::fmt_reset << ")"
-                  << endl
+                  << "t  test           Test all (untested) fans" << endl << "t  test    [fan]  Test the fan (forced)"
+                  << endl << "f  force          Test even already tested fans " << "(default: false)" << endl
+                  << "m  monitor        Monitor all fans" << endl << "m  monitor [fan]  Monitor the fan" << endl
+                  << "r  reload         Reload config" << endl << "c  config  [file] Config path (default: "
+                  << log::fmt_green_bold << conf << log::fmt_reset << ")" << endl
                   << "   service        Start as service" << endl
-                  << "   daemon         Daemonize the process (default: false)"
-                  << endl
+                  << "   daemon         Daemonize the process (default: false)" << endl
                   << "   stop-service   Stop the service" << endl
-                  << "i  sysinfo [file] Save system info to file (default: "
-                  << fc::DEFAULT_SYSINFO_PATH << ")" << endl
-                  << "   recover        Recover control of enabled devices"
-                  << endl
-                  << "   nv-init        Init nvidia devices" << endl
-                  << "v  verbose        Debug logging level" << endl
+                  << "i  sysinfo [file] Save system info to file (default: " << fc::DEFAULT_SYSINFO_PATH << ")" << endl
+                  << "   recover        Recover control of enabled devices" << endl
+                  << "   nv-init        Init nvidia devices" << endl << "v  verbose        Debug logging level" << endl
                   << "a  trace          Trace logging level" << endl;
 }
 
@@ -309,7 +294,9 @@ bool fc::Client::service_running() {
   return channel->GetState(true) == GRPC_CHANNEL_READY;
 }
 
-fc::Client::operator bool() const { return bool(client); }
+fc::Client::operator bool() const {
+  return bool(client);
+}
 
 bool fc::Client::connected(long timeout_ms) const {
   channel->WaitForConnected(Util::deadline(timeout_ms));
@@ -321,29 +308,22 @@ bool fc::Client::check(const grpc::Status &status) {
     return true;
 
   switch (status.error_code()) {
-  case StatusCode::UNAVAILABLE:
-    log_service_unavailable();
+  case StatusCode::UNAVAILABLE:log_service_unavailable();
     break;
-  case StatusCode::NOT_FOUND:
-    LOG(llvl::error) << status.error_message() << ": not found";
+  case StatusCode::NOT_FOUND:LOG(llvl::error) << status.error_message() << ": not found";
     break;
-  default:
-    LOG(llvl::error) << status.error_message() << ": "
-                     << status.error_details();
+  default:LOG(llvl::error) << status.error_message() << ": " << status.error_details();
   }
 
   return false;
 }
 
 void fc::Client::log_service_unavailable() {
-  LOG(llvl::fatal) << "Unable to connect to service" << endl
-                   << log::fmt_bold << "Start with:"
-                   << " sudo systemctl start fancon"
-                   << "  OR  sudo fancon service" << log::fmt_reset;
+  LOG(llvl::fatal) << "Unable to connect to service" << endl << log::fmt_bold << "Start with:"
+                   << " sudo systemctl start fancon" << "  OR  sudo fancon service" << log::fmt_reset;
 }
 
-void fc::Client::enumerate_directory(const path &dir, std::ostream &os,
-                                     uint depth) {
+void fc::Client::enumerate_directory(const path &dir, std::ostream &os, uint depth) {
   static std::set<path> searched_symlinks;
   for (const auto &e : fs::recursive_directory_iterator(dir)) {
     os << e;
@@ -365,14 +345,10 @@ void fc::Client::enumerate_directory(const path &dir, std::ostream &os,
 
 string fc::Client::status_text(fc_pb::FanStatus_Status status) {
   switch (status) {
-  case fc_pb::FanStatus_Status_ENABLED:
-    return "enabled";
-  case fc_pb::FanStatus_Status_DISABLED:
-    return "disabled";
-  case fc_pb::FanStatus_Status_TESTING:
-    return "testing";
-  default:
-    return "invalid";
+  case fc_pb::FanStatus_Status_ENABLED:return "enabled";
+  case fc_pb::FanStatus_Status_DISABLED:return "disabled";
+  case fc_pb::FanStatus_Status_TESTING:return "testing";
+  default:return "invalid";
   }
 }
 
